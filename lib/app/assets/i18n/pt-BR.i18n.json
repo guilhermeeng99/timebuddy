@@ -1,0 +1,76 @@
+{
+  "app": {
+    "name": "TimeBuddy",
+    "tagline": "Todos os fusos, lado a lado"
+  },
+  "common": {
+    "retry": "Tentar de novo",
+    "cancel": "Cancelar",
+    "save": "Salvar",
+    "close": "Fechar",
+    "loading": "Carregando...",
+    "errorTitle": "Algo deu errado",
+    "errorBody": "Não rolou desta vez. Confira sua conexão e tente de novo."
+  },
+  "home": {
+    "title": "TimeBuddy",
+    "deviceClockLabel": "Seu dispositivo",
+    "settingsAction": "Configurações",
+    "milestoneNotice": "A grade de comparação chega na próxima etapa. Por enquanto, este é o relógio do seu dispositivo.",
+    "deviceZoneUnknownTitle": "Fuso horário não detectado",
+    "deviceZoneUnknownBody": "Seu dispositivo não informou nenhum, então este relógio está mostrando UTC."
+  },
+  "startup": {
+    "tagline": "Todos os fusos, lado a lado",
+    "stepLoadingData": "Carregando os fusos horários",
+    "stepCheckingAuth": "Conferindo sua conta",
+    "stepSyncing": "Sincronizando seu painel",
+    "stepReady": "Tudo pronto",
+    "errorTitle": "O TimeBuddy não conseguiu iniciar",
+    "errorBody": "A base de fusos horários não carregou, então os relógios sairiam errados. Tente de novo.",
+    "errorRetry": "Tentar de novo"
+  },
+  "settings": {
+    "title": "Configurações",
+    "groupAppearance": "Aparência",
+    "groupTime": "Hora",
+    "groupWorkingHours": "Horário de trabalho",
+    "groupLanguage": "Idioma",
+    "groupAccount": "Conta",
+    "groupAbout": "Sobre",
+    "themeMode": "Tema",
+    "themeSystem": "Do sistema",
+    "themeLight": "Claro",
+    "themeDark": "Escuro",
+    "lightPalette": "Paleta clara",
+    "darkPalette": "Paleta escura",
+    "hourFormat": "Formato de hora",
+    "hourFormat12": "12h",
+    "hourFormat24": "24h",
+    "showSeconds": "Mostrar segundos",
+    "showSecondsHint": "Os relógios passam a atualizar a cada segundo, e não a cada minuto.",
+    "weekStartsOn": "A semana começa em",
+    "weekStartsMonday": "Segunda-feira",
+    "weekStartsSunday": "Domingo",
+    "workingHoursStart": "Começa às",
+    "workingHoursEnd": "Termina às",
+    "workingHoursSummary": "${start} às ${end}",
+    "workingHoursPreview": "Prévia do dia",
+    "workingHoursInvalid": "A janela deve ter entre ${min} e ${max} horas",
+    "languageSystem": "Idioma do sistema",
+    "languagePortuguese": "Português (Brasil)",
+    "languageEnglish": "English",
+    "notSignedIn": "Você ainda não entrou",
+    "signOut": "Sair da conta",
+    "deleteAccount": "Excluir conta",
+    "appVersion": "Versão do app",
+    "tzDataVersion": "Base de fusos horários",
+    "licenses": "Licenças"
+  },
+  "bands": {
+    "good": "Bom",
+    "fair": "No limite",
+    "poor": "Fora do expediente",
+    "night": "Madrugada"
+  }
+}

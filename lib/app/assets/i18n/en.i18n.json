@@ -1,0 +1,76 @@
+{
+  "app": {
+    "name": "TimeBuddy",
+    "tagline": "Every time zone, side by side"
+  },
+  "common": {
+    "retry": "Try again",
+    "cancel": "Cancel",
+    "save": "Save",
+    "close": "Close",
+    "loading": "Loading...",
+    "errorTitle": "Something went wrong",
+    "errorBody": "That didn't work. Check your connection and try again."
+  },
+  "home": {
+    "title": "TimeBuddy",
+    "deviceClockLabel": "Your device",
+    "settingsAction": "Settings",
+    "milestoneNotice": "The comparison grid arrives in the next milestone. Until then, this is your device clock.",
+    "deviceZoneUnknownTitle": "Time zone not detected",
+    "deviceZoneUnknownBody": "Your device did not report one, so this clock is showing UTC."
+  },
+  "startup": {
+    "tagline": "Every time zone, side by side",
+    "stepLoadingData": "Loading time zone data",
+    "stepCheckingAuth": "Checking your account",
+    "stepSyncing": "Syncing your board",
+    "stepReady": "Ready",
+    "errorTitle": "TimeBuddy could not start",
+    "errorBody": "The time zone data failed to load, so the clocks would be wrong. Try again.",
+    "errorRetry": "Try again"
+  },
+  "settings": {
+    "title": "Settings",
+    "groupAppearance": "Appearance",
+    "groupTime": "Time",
+    "groupWorkingHours": "Working hours",
+    "groupLanguage": "Language",
+    "groupAccount": "Account",
+    "groupAbout": "About",
+    "themeMode": "Theme",
+    "themeSystem": "System",
+    "themeLight": "Light",
+    "themeDark": "Dark",
+    "lightPalette": "Light palette",
+    "darkPalette": "Dark palette",
+    "hourFormat": "Hour format",
+    "hourFormat12": "12h",
+    "hourFormat24": "24h",
+    "showSeconds": "Show seconds",
+    "showSecondsHint": "Clocks tick every second instead of every minute.",
+    "weekStartsOn": "Week starts on",
+    "weekStartsMonday": "Monday",
+    "weekStartsSunday": "Sunday",
+    "workingHoursStart": "Starts at",
+    "workingHoursEnd": "Ends at",
+    "workingHoursSummary": "${start} to ${end}",
+    "workingHoursPreview": "Preview",
+    "workingHoursInvalid": "The window must be between ${min} and ${max} hours long",
+    "languageSystem": "System language",
+    "languagePortuguese": "Português (Brasil)",
+    "languageEnglish": "English",
+    "notSignedIn": "You are not signed in",
+    "signOut": "Sign out",
+    "deleteAccount": "Delete account",
+    "appVersion": "App version",
+    "tzDataVersion": "Time zone data",
+    "licenses": "Licenses"
+  },
+  "bands": {
+    "good": "Good",
+    "fair": "Borderline",
+    "poor": "Off hours",
+    "night": "Night"
+  }
+}

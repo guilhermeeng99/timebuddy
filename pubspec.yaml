@@ -1,0 +1,62 @@
+name: timebuddy
+description: "Real-time world clock and timezone comparison for Android and Web."
+publish_to: "none"
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.13.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+
+  # State Management
+  flutter_bloc: ^9.1.1
+  bloc: ^9.2.1
+  equatable: ^2.1.0
+
+  # Dependency Injection
+  get_it: ^9.2.1
+
+  # Routing
+  go_router: ^17.5.0
+
+  # Time
+  timezone: ^0.11.1
+  flutter_timezone: ^5.1.0
+
+  # Local storage (see docs/specs/sync.md for why there is no database)
+  shared_preferences: ^2.5.5
+
+  # Error Handling
+  dartz: ^0.10.1
+
+  # Internationalization
+  slang: ^4.19.0
+  slang_flutter: ^4.19.0
+  intl: ^0.20.3
+
+  # UI
+  google_fonts: ^8.2.1
+  cupertino_icons: ^1.0.8
+
+  # Utils
+  uuid: ^4.6.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  very_good_analysis: ^10.3.0
+  mocktail: ^1.0.5
+  bloc_test: ^10.0.0
+  slang_build_runner: ^4.19.0
+  build_runner: ^2.16.0
+  flutter_launcher_icons: ^0.14.4
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - lib/app/assets/data/

@@ -1,0 +1,24 @@
+include: package:very_good_analysis/analysis_options.yaml
+
+analyzer:
+  exclude:
+    - lib/gen/**
+    - "**/*.g.dart"
+    - build/**
+    - android/**
+    - ios/**
+    - web/**
+    - windows/**
+    - macos/**
+    - linux/**
+
+linter:
+  rules:
+    # Fires on `Foo({required Bar bar}) : _bar = bar;`. The suggested fix
+    # (`this._bar`) compiles, but it makes the parameter name private, so every
+    # call site has to write `_bar:`. Leaking an underscore into the public API
+    # is worse than the private assignment this rule objects to.
+    prefer_initializing_formals: false
+    public_member_api_docs: false
+    sort_pub_dependencies: false
+    document_ignores: false
