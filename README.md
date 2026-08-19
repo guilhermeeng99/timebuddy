@@ -3,10 +3,17 @@
 Real-time world clock and timezone comparison for Android and Web. See what time
 it is in every city you care about, and find an hour that works for all of them.
 
+**Live build: <https://guilhermeeng99.github.io/timebuddy/>**
+
 > Status: milestone 1 is implemented: the theme layer, the timezone engine, the
 > core time utilities, local storage, preferences and a settings page all ship
 > and are tested. The board, the grid, sync and the planning tools described
 > below are still documentation. See [docs/roadmap.md](docs/roadmap.md).
+>
+> The live build is therefore the milestone-1 shell: a device clock and a
+> working settings page, not the grid. It is published so the theme, the
+> palettes and the ticker can be looked at on a real device rather than
+> described.
 
 ## What it does
 

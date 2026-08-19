@@ -71,6 +71,23 @@ layer has nowhere to live without them, since a palette catalog with no picker
 and nowhere to persist the choice cannot be reviewed on screen or exercised by
 hand. M3 keeps only the syncing of that document.
 
+- 2026-08-19: Published at <https://github.com/guilhermeeng99/timebuddy> and
+  deployed to <https://guilhermeeng99.github.io/timebuddy/>.
+
+  Hosting is **GitHub Pages, not Firebase Hosting** as M5 originally assumed.
+  Nothing in the app depends on the choice: the web build is a static bundle,
+  and the Firebase work in M3 is Auth and Firestore, which are reachable from
+  any origin once the domain is authorised. Revisit only if the app ever needs
+  a server-side redirect or a rewrite rule, which a hash-routed SPA does not.
+
+  Two constraints the pipeline had to respect, recorded so they are not
+  rediscovered: the build needs `--base-href /timebuddy/`, because a project
+  page is not served from the domain root and a bundle built for `/` asks for
+  its assets where nothing answers; and Pages cannot be served from the `/docs`
+  folder here, because that folder holds the specs, which is why the deploy
+  goes through Actions. Routing stays on the default hash strategy, so a deep
+  link needs no 404 fallback.
+
 ---
 
 ## In progress
@@ -127,7 +144,9 @@ them here is their syncing, which item 8 covers.
 
 ### M5: Release (target: 2026-10-21)
 
-13. Web deploy on Firebase Hosting, PWA manifest, deep-link routes verified.
+13. PWA manifest, install prompt and offline shell, plus deep-link routes
+    verified against the published site. The hosting itself is already done
+    (see Done), so what remains here is the app-level polish.
 14. Android release build, adaptive icon, Play Store listing assets.
 15. Empty, loading and error states audited on every page.
 16. Light and dark checked against all 20 palettes.
