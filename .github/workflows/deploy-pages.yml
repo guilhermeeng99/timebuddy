@@ -1,0 +1,80 @@
+name: Deploy web to GitHub Pages
+
+# Every push to main is a candidate release of the web build. The job refuses
+# to deploy anything that does not meet the repository's quality bar
+# (CLAUDE.md: zero analyzer issues, green tests), so a red main never reaches
+# the published site.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deploy at a time. `cancel-in-progress: false` because cancelling a run
+# that is already uploading leaves the Pages deployment half applied.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+env:
+  # Pinned to the version the project is developed against. A floating
+  # "stable" turns an upstream Flutter release into a surprise CI failure on
+  # an unrelated commit.
+  FLUTTER_VERSION: 3.47.0
+
+jobs:
+  build:
+    name: Analyse, test and build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Generate translations
+        # The generated strings are committed, so this is a guard rather than a
+        # build step: if it produces a diff, the committed files were stale.
+        run: dart run slang
+
+      - name: Verify translations are up to date
+        run: git diff --exit-code lib/gen
+
+      - name: Analyse
+        run: flutter analyze
+
+      - name: Test
+        run: flutter test
+
+      - name: Build web
+        # The base href must match the repository name: a project page is
+        # served from /timebuddy/, and a build made for / requests its assets
+        # from the domain root, where nothing answers.
+        run: flutter build web --release --base-href /timebuddy/
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/web
+
+  deploy:
+    name: Deploy
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
