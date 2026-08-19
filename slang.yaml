@@ -5,3 +5,8 @@ output_directory: lib/gen/i18n
 # await loadLibrary() before each setLocaleSync, which breaks language
 # switching on web.
 lazy: false
+
+# Deterministic output: the default stamps a build time into the generated
+# file, so every regeneration produced a spurious diff and made the CI guard
+# that checks the generated code is current impossible to satisfy.
+timestamp: false
