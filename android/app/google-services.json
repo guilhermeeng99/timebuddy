@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "193230138114-efjdht062829gutsaj9r41o2j831j1q5.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.guiga.timebuddy",
+            "certificate_hash": "44e42a6d115b927217fbc84b01a4d29e8d63e168"
+          }
+        },
+        {
           "client_id": "193230138114-mg4j6u4u1sj3qsuj95v5psdf63t2dsr8.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {

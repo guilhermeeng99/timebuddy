@@ -1,8 +1,17 @@
 # Android Release Signing
 
-Everything here is run **once, by the owner**, and two of the steps cannot be
-automated from this repository: they involve a password you choose and a
-certificate only Google can show you.
+> **Steps 1 to 4 are already done.** The keystore exists at
+> `android/timebuddy-release.jks` (gitignored), `android/key.properties` points
+> at it, and its SHA-1 `44:E4:2A:6D:11:5B:92:72:17:FB:C8:4B:01:A4:D2:9E:8D:63:E1:68`
+> is registered on the Firebase project alongside the debug one. A release APK
+> was built and verified to carry that certificate.
+>
+> The keystore and its passphrase are in `~/Downloads/timebuddy-release-signing/`
+> so they can be moved somewhere durable. **Step 5 is still open** and it is the
+> one that breaks sign-in for real users.
+
+The steps below are kept because they are what to do on a new machine, for a new
+project, or if the key is ever rotated.
 
 Until step 2 is done, `flutter build apk --release` still works: the Gradle
 config falls back to the debug key so a fresh clone and CI keep building. That
