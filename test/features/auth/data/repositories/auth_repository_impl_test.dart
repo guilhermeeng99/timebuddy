@@ -812,6 +812,33 @@ void main() {
         expect(isSignInCancelled(failureOf(result)), isTrue);
       });
 
+      test('the web SDK spelling of the code falls back too', () async {
+        // The regression this pins cost a working sign-in in production.
+        // Android and iOS hand over a bare `popup-blocked`, but
+        // firebase_auth_web forwards the JavaScript SDK's code verbatim and
+        // there it reads `auth/popup-blocked`. Matching only the bare form
+        // meant every branch missed on the web, a blocked popup was reported
+        // as an unrecoverable failure, and the redirect fallback that exists
+        // for exactly this case never ran.
+        popupThrows('auth/popup-blocked');
+
+        final result =
+            await repositoryOn(const _WebPlatform()).signInWithGoogle();
+
+        verify(() => firebaseAuth.signInWithRedirect(any())).called(1);
+        expect(isSignInCancelled(failureOf(result)), isTrue);
+      });
+
+      test('the web spelling of a dismissal is still a dismissal', () async {
+        popupThrows('auth/popup-closed-by-user');
+
+        final result =
+            await repositoryOn(const _WebPlatform()).signInWithGoogle();
+
+        verifyNever(() => firebaseAuth.signInWithRedirect(any()));
+        expect(isSignInCancelled(failureOf(result)), isTrue);
+      });
+
       test('an environment with no popup falls back too', () async {
         // A WebView, or a non-http origin. From here it is the same dead end
         // as a blocker: the popup is not available, so try the other flow.

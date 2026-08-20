@@ -256,19 +256,38 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   /// another way, and a browser withholding storage must be *said out loud*,
   /// because no amount of retrying will change it.
   GoogleSignInOutcome _readPopupRefusal(FirebaseException error) {
-    if (_popupDismissalCodes.contains(error.code)) {
+    final code = _bareCode(error.code);
+    if (_popupDismissalCodes.contains(code)) {
       return const GoogleSignInCancelled();
     }
-    if (error.code == _storageUnsupportedCode) {
+    if (code == _storageUnsupportedCode) {
       return const GoogleSignInStorageBlocked();
     }
-    if (_popupUnavailableCodes.contains(error.code)) {
+    if (_popupUnavailableCodes.contains(code)) {
       return const GoogleSignInPopupUnavailable();
     }
     // Everything else — `unauthorized-domain`, `network-request-failed`,
     // `account-exists-with-different-credential` — is a real failure, and one
     // the user cannot fix by tapping the button again in a different browser.
     throw AuthException(_describe(error));
+  }
+
+  /// The error code without the `auth/` namespace the web SDK keeps.
+  ///
+  /// On Android and iOS the plugin hands over a bare `popup-blocked`, but
+  /// `firebase_auth_web` forwards the JavaScript SDK's code verbatim, and
+  /// there it reads `auth/popup-blocked`. Matching the bare form only meant
+  /// that on the web every branch below missed, a blocked pop-up fell through
+  /// to "a real failure the user cannot fix", and the redirect fallback that
+  /// exists for exactly this case never ran. Verified against the deployed
+  /// build: the browser raised `auth/popup-blocked` and sign-in was
+  /// impossible on the web.
+  ///
+  /// Stripping rather than listing both spellings, so a code added later
+  /// cannot reintroduce the same asymmetry.
+  static String _bareCode(String code) {
+    const namespace = 'auth/';
+    return code.startsWith(namespace) ? code.substring(namespace.length) : code;
   }
 
   /// Android: the plugin authenticates, Firebase adopts the credential.
@@ -398,6 +417,6 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   /// reaches a user: the UI picks its string from the failure *type*
   /// (`failures.dart`).
   String _describe(FirebaseException error) {
-    return '${error.plugin} rejected the request (${error.code}).';
+    return '${error.plugin} rejected the request (${_bareCode(error.code)}).';
   }
 }
