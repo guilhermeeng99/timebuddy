@@ -126,6 +126,12 @@ Start here:
 | [preferences.md](docs/specs/preferences.md) | Settings, working hours, theme |
 | [startup.md](docs/specs/startup.md) | Boot sequence and the splash gate |
 
+Backend setup (run once, by the project owner):
+[docs/firebase_setup.md](docs/firebase_setup.md). It covers creating the
+project, enabling Google as the only sign-in provider, creating Firestore and
+deploying the security rules, plus the authorised-domain step that Google
+sign-in fails on in production without saying so.
+
 ## Running locally
 
 Prerequisites: Flutter 3.47 or newer, Dart >= 3.13 (the SDK constraint in

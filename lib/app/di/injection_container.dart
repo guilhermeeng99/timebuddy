@@ -1,9 +1,21 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/widgets.dart';
 import 'package:get_it/get_it.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:timebuddy/core/platform/app_platform.dart';
 import 'package:timebuddy/core/storage/local_store.dart';
+import 'package:timebuddy/core/sync/remote_settings_datasource.dart';
+import 'package:timebuddy/core/sync/sync_service.dart';
+import 'package:timebuddy/core/sync/sync_service_impl.dart';
 import 'package:timebuddy/core/time/clock.dart';
 import 'package:timebuddy/core/time/ticker_service.dart';
 import 'package:timebuddy/core/time/timezone_engine.dart';
+import 'package:timebuddy/features/auth/data/datasources/auth_remote_datasource.dart';
+import 'package:timebuddy/features/auth/data/repositories/auth_repository_impl.dart';
+import 'package:timebuddy/features/auth/domain/repositories/auth_repository.dart';
+import 'package:timebuddy/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:timebuddy/features/locations/data/datasources/board_local_datasource.dart';
 import 'package:timebuddy/features/locations/data/repositories/board_repository_impl.dart';
 import 'package:timebuddy/features/locations/data/repositories/city_catalog_repository_impl.dart';
@@ -13,6 +25,7 @@ import 'package:timebuddy/features/preferences/data/datasources/preferences_loca
 import 'package:timebuddy/features/preferences/data/repositories/preferences_repository_impl.dart';
 import 'package:timebuddy/features/preferences/domain/repositories/preferences_repository.dart';
 import 'package:timebuddy/features/preferences/presentation/cubit/preferences_cubit.dart';
+import 'package:timebuddy/features/startup/presentation/cubit/startup_cubit.dart';
 import 'package:timebuddy/features/time_grid/domain/usecases/build_grid_usecase.dart';
 import 'package:uuid/uuid.dart';
 
@@ -39,6 +52,10 @@ final GetIt sl = GetIt.instance;
 /// The registration order is irrelevant — the factories run on first
 /// resolution — but the dependency direction is not: nothing in `core` may
 /// depend on a feature.
+///
+/// **`Firebase.initializeApp` must have completed first.** `main` awaits it
+/// before calling this, and every Firebase handle below is registered lazily,
+/// so nothing here touches `.instance` while the SDK is still starting.
 Future<void> configureDependencies() async {
   // The one await in the graph. `SharedPreferences.getInstance()` has to
   // resolve before a LocalStore can wrap it, and doing it here keeps the
@@ -99,5 +116,81 @@ Future<void> configureDependencies() async {
     // grid cubit from constructing a use case per rebuild.
     ..registerLazySingleton<BuildGridUseCase>(
       () => BuildGridUseCase(engine: sl<TimeZoneEngine>()),
+    )
+    // The three Firebase handles, registered rather than read statically so a
+    // data source takes them as arguments and a test can hand it fakes. They
+    // resolve lazily, which is what lets `main` finish `Firebase.initializeApp`
+    // before anything touches `.instance`.
+    ..registerLazySingleton<FirebaseAuth>(() => FirebaseAuth.instance)
+    ..registerLazySingleton<FirebaseFirestore>(() => FirebaseFirestore.instance)
+    // `GoogleSignIn` 7.x has a private constructor and one instance per
+    // process; `AuthRemoteDataSourceImpl` still takes it as a parameter,
+    // because the Android sign-in path is otherwise untestable.
+    ..registerLazySingleton<GoogleSignIn>(() => GoogleSignIn.instance)
+    // Asked one question — "is this a browser?" — by the two auth paths that
+    // fork on it (docs/specs/auth.md rules 2 and 6). A `kIsWeb` at those call
+    // sites would make the web half unreachable from any test.
+    ..registerLazySingleton<AppPlatform>(FlutterAppPlatform.new)
+    ..registerLazySingleton<AuthRemoteDataSource>(
+      () => AuthRemoteDataSourceImpl(
+        firebaseAuth: sl<FirebaseAuth>(),
+        firestore: sl<FirebaseFirestore>(),
+        googleSignIn: sl<GoogleSignIn>(),
+        platform: sl<AppPlatform>(),
+        clock: sl<Clock>(),
+      ),
+    )
+    ..registerLazySingleton<AuthRepository>(
+      () => AuthRepositoryImpl(
+        remoteDataSource: sl<AuthRemoteDataSource>(),
+        localStore: sl<LocalStore>(),
+      ),
+    )
+    // Singleton, and the app's only answer to "who is signed in": the router
+    // redirect, the startup cubit and the profile page all read this one
+    // instance, and a second would be a second answer (docs/specs/auth.md).
+    // It subscribes to `authStateChanges` in its constructor, so resolving it
+    // is what starts listening.
+    ..registerLazySingleton<AuthBloc>(
+      () => AuthBloc(repository: sl<AuthRepository>()),
+    )
+    ..registerLazySingleton<RemoteSettingsDataSource>(
+      () => FirestoreRemoteSettingsDataSource(sl<FirebaseFirestore>()),
+    )
+    // Singleton because its status stream is: the passive indicator on the
+    // profile page replays the last status it published (docs/specs/sync.md
+    // rule 4), which a per-call instance could not remember.
+    //
+    // The device locale is read at resolution rather than captured at startup
+    // because it is only ever consulted to seed a *missing* preferences
+    // document (preferences.md rule 2), and the freshest reading is the
+    // better guess.
+    ..registerLazySingleton<SyncService>(
+      () => SyncServiceImpl(
+        remoteDataSource: sl<RemoteSettingsDataSource>(),
+        boardRepository: sl<BoardRepository>(),
+        preferencesRepository: sl<PreferencesRepository>(),
+        localStore: sl<LocalStore>(),
+        engine: sl<TimeZoneEngine>(),
+        deviceLocale: WidgetsBinding.instance.platformDispatcher.locale,
+      ),
+    )
+    // Singleton and provided app-wide by `TimeBuddyApp`, because the router's
+    // redirect reads its state to decide whether anything but the splash may
+    // render (docs/specs/startup.md, Lifecycle & DI).
+    //
+    // `PreferencesCubit` is passed as the sink for the reconciled preferences
+    // document: it is loaded before the router exists, so without this its
+    // in-memory copy would outlive the document sync just replaced. The board
+    // needs no equivalent — `AppShell` builds `BoardCubit` only after the
+    // router leaves `/startup`, so its load reads the reconciled document.
+    ..registerLazySingleton<StartupCubit>(
+      () => StartupCubit(
+        authBloc: sl<AuthBloc>(),
+        engine: sl<TimeZoneEngine>(),
+        catalog: sl<CityCatalogRepository>(),
+        syncService: sl<SyncService>(),
+        preferencesCubit: sl<PreferencesCubit>(),
+      ),
     );
 }

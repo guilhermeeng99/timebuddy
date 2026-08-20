@@ -8,12 +8,40 @@
 /// context.push(AppRoutes.addLocation);
 /// ```
 abstract class AppRoutes {
-  /// The comparison grid, and the app's start route
+  /// The splash, and the app's entry route (docs/specs/startup.md).
+  ///
+  /// Everything passes through here, including a deep link: tzdata is loaded
+  /// on this route, and a grid built before it lands renders plausible hours
+  /// that are simply wrong (CLAUDE.md, Time & Timezone Rules). It is also
+  /// where a fresh sign-in comes back to, so the new account's documents are
+  /// reconciled before any page reads them.
+  static const String startup = '/startup';
+
+  /// The unauthenticated landing: the three-slide tour whose last slide holds
+  /// the Google button (docs/specs/auth.md).
+  ///
+  /// Not `/sign-in`, and there is no page by that name: the app is
+  /// Google-only, so a screen whose whole content is one button would be a
+  /// second stop on the way to the same tap.
+  static const String onboarding = '/onboarding';
+
+  /// The account page: who is signed in, the sync status, sign out, delete
+  /// account (docs/specs/auth.md).
+  ///
+  /// A root-level route rather than a fourth shell branch. It is reached from
+  /// the sidebar's profile slot and from settings, it is not one of the three
+  /// things the nav offers, and it is the one screen that can end the session
+  /// under the chrome that would otherwise be drawn around it.
+  static const String profile = '/profile';
+
+  /// The comparison grid: where a signed-in launch lands
   /// (docs/specs/time_grid.md).
   ///
   /// It replaced milestone 1's placeholder home page rather than sitting
   /// behind it: the grid is the answer the user opened the app for, and a
-  /// landing screen in front of it is a tap that buys nothing.
+  /// landing screen in front of it is a tap that buys nothing. [startup] is
+  /// not such a screen — it is work the user would otherwise wait through on
+  /// a half-drawn grid.
   static const String grid = '/';
 
   /// The saved board: add, reorder, remove (docs/specs/locations.md).

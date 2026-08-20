@@ -1,12 +1,20 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:timebuddy/app/di/injection_container.dart';
 import 'package:timebuddy/app/routes/app_routes.dart';
 import 'package:timebuddy/app/routes/app_shell.dart';
 import 'package:timebuddy/app/widgets/sub_page_scope.dart';
 import 'package:timebuddy/core/extensions/context_extensions.dart';
+import 'package:timebuddy/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:timebuddy/features/auth/presentation/pages/onboarding_page.dart';
 import 'package:timebuddy/features/locations/presentation/pages/add_location_sheet.dart';
 import 'package:timebuddy/features/locations/presentation/pages/locations_page.dart';
+import 'package:timebuddy/features/profile/presentation/pages/profile_page.dart';
 import 'package:timebuddy/features/settings/presentation/pages/settings_page.dart';
+import 'package:timebuddy/features/startup/presentation/cubit/startup_cubit.dart';
+import 'package:timebuddy/features/startup/presentation/pages/startup_page.dart';
 import 'package:timebuddy/features/time_grid/presentation/pages/time_grid_page.dart';
 
 /// How dark the add-location route dims the page it was opened from.
@@ -100,14 +108,81 @@ abstract class AppRouter {
   ];
 
   static final GoRouter router = GoRouter(
-    initialLocation: AppRoutes.grid,
+    // Every launch, and every deep link, starts on the splash: it is where
+    // tzdata is loaded and where the account's documents are reconciled
+    // (docs/specs/startup.md), and [_redirect] holds anything that tries to
+    // skip it.
+    initialLocation: AppRoutes.startup,
+    refreshListenable: _authRefresh,
+    redirect: _redirect,
     routes: <RouteBase>[
+      GoRoute(
+        path: AppRoutes.startup,
+        builder: (context, state) => const StartupPage(),
+      ),
+      GoRoute(
+        path: AppRoutes.onboarding,
+        builder: (context, state) => const OnboardingPage(),
+      ),
+      // Root level rather than a fourth branch: the account page is not one of
+      // the three nav destinations, and it is the one screen that can end the
+      // session that the shell's chrome and board are built on.
+      GoRoute(
+        path: AppRoutes.profile,
+        builder: (context, state) => const ProfilePage(),
+      ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) =>
             AppShell(navigationShell: navigationShell),
         branches: _branches,
       ),
     ],
+  );
+
+  /// What every navigation is allowed to do, in three rules.
+  ///
+  /// 1. Until startup resolves, nothing but the splash renders. A deep link
+  ///    that skipped it would build a grid against uninitialized tzdata, and
+  ///    `StartupError` holds here too, because its recovery is the page's
+  ///    retry rather than a route out (startup.md, responsibility 6).
+  /// 2. No session, no app: the landing for a signed-out user is onboarding
+  ///    (auth.md rule 1).
+  /// 3. A session that lands while onboarding is showing goes back through the
+  ///    splash, not straight to the grid. That sign-in may be a *different*
+  ///    account, whose board and preferences have not been pulled yet;
+  ///    `StartupCubit` is what owns that first sync.
+  ///
+  /// Leaving the splash on success is deliberately *not* here: that is
+  /// `StartupPage`'s own `context.go`, so the one place that knows startup
+  /// finished is the one place that acts on it.
+  static String? _redirect(BuildContext context, GoRouterState state) {
+    final location = state.matchedLocation;
+    if (!_startupResolved(sl<StartupCubit>().state)) {
+      return location == AppRoutes.startup ? null : AppRoutes.startup;
+    }
+
+    if (sl<AuthBloc>().state is! Authenticated) {
+      return location == AppRoutes.onboarding ? null : AppRoutes.onboarding;
+    }
+    return location == AppRoutes.onboarding ? AppRoutes.startup : null;
+  }
+
+  /// Whether startup has produced a route decision.
+  ///
+  /// `StartupInitial`, `StartupLoading` and `StartupError` all mean "not yet",
+  /// which is why this asks for the two states that are answers rather than
+  /// excluding the three that are not: a fourth non-terminal state added later
+  /// would otherwise open the app by default.
+  static bool _startupResolved(StartupState state) =>
+      state is StartupAuthenticated || state is StartupUnauthenticated;
+
+  /// Re-runs [_redirect] whenever the session changes.
+  ///
+  /// Without it the rules above would only be applied on a navigation, so a
+  /// sign-out performed on the profile page would leave the user sitting on a
+  /// screen they are no longer allowed to see until they tapped something.
+  static final Listenable _authRefresh = _BlocRefreshListenable(
+    sl<AuthBloc>().stream,
   );
 
   /// The add-location route: the city picker, wearing a modal's clothes.
@@ -158,5 +233,29 @@ abstract class AppRouter {
       end: Offset.zero,
     ).chain(CurveTween(curve: Curves.easeOutCubic));
     return SlideTransition(position: animation.drive(slide), child: child);
+  }
+}
+
+/// A bloc's state stream, wearing the `Listenable` go_router wants.
+///
+/// go_router only re-evaluates `redirect` on a navigation or when its
+/// `refreshListenable` notifies, and the session changes without either: a
+/// revoked token or a sign-out in another browser tab arrives on this stream
+/// and nowhere else.
+///
+/// Never disposed, deliberately. It is owned by the `static final` router and
+/// lives exactly as long as the process; a `dispose` that could be called
+/// would be a way to leave the app with a redirect that has stopped listening.
+class _BlocRefreshListenable extends ChangeNotifier {
+  _BlocRefreshListenable(Stream<Object?> states) {
+    _subscription = states.listen((_) => notifyListeners());
+  }
+
+  late final StreamSubscription<Object?> _subscription;
+
+  @override
+  void dispose() {
+    unawaited(_subscription.cancel());
+    super.dispose();
   }
 }

@@ -1,0 +1,69 @@
+rules_version = '2';
+
+// TimeBuddy Firestore security rules.
+//
+// The entire remote state is one profile document per user plus two documents
+// under it, always read by document id and only ever written by their owner:
+//
+//   users/{userId}                       profile      (docs/specs/auth.md)
+//   users/{userId}/settings/board        the board    (docs/specs/sync.md)
+//   users/{userId}/settings/preferences  preferences  (docs/specs/sync.md)
+//
+// There is no shared collection, no public read path, no admin role and no
+// server component, so these rules stay small on purpose: one condition, two
+// matches, and a deny for everything else.
+//
+// The rules deliberately do not validate field shapes. The only writer is this
+// app, every reader is the defensive parser in the models, and a schema
+// asserted in two places drifts in one of them; the rules answer "whose data is
+// this", the parser answers "is this document sane".
+//
+// Deploy:  firebase deploy --only firestore:rules
+// Setup:   docs/firebase_setup.md
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // The single condition every rule below is built from: the caller is
+    // signed in, and is asking about their own subtree. The null check is
+    // explicit because reading `.uid` off a null `request.auth` makes the whole
+    // expression error out, and an erroring rule denies the request without
+    // ever saying why in the client's error message.
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    // Protects the profile document `users/{userId}`: name, email, photoUrl,
+    // createdAt. Owner-only read and write, which is also what makes the
+    // client-side account deletion in auth.md safe to allow at all.
+    match /users/{userId} {
+      allow read, write: if isOwner(userId);
+
+      // Protects everything nested under that profile, which today means
+      // `settings/board` and `settings/preferences`, under the same owner-only
+      // condition. The recursive wildcard is deliberate: a document added to
+      // this subtree later inherits the rule instead of shipping unprotected
+      // because nobody remembered to write a match for it. In rules v2
+      // `{document=**}` matches one *or more* path segments, so it never
+      // covers `users/{userId}` itself, which is why the rule above exists as
+      // well and is not redundant.
+      match /{document=**} {
+        allow read, write: if isOwner(userId);
+      }
+    }
+
+    // Documents the default rather than changing it. Firestore denies any path
+    // no rule allows, and `allow` results are OR-ed together, so this block
+    // cannot revoke the grants above; it is here so that "is anything in this
+    // database public?" is answered by reading the file instead of by knowing
+    // how the engine behaves when a match is missing.
+    //
+    // It also covers the shape this app never uses: a collection group query
+    // over `settings` evaluates against `/{path=**}/settings/{doc}`, which the
+    // owner-scoped match above does not cover, so such a query is denied. The
+    // app only reads by document id (see the empty firestore.indexes.json).
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

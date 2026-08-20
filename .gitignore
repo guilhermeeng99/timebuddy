@@ -49,3 +49,8 @@ app.*.map.json
 
 # Claude Code local settings
 .claude/settings.local.json
+
+# Firebase project alias. Committed on purpose: it names the project, and the
+# project id is already public in lib/firebase_options.dart. Firebase web keys
+# identify a project, they do not authorise anything; firestore.rules does.
+# Ignoring this file would only break `firebase deploy` for everyone else.

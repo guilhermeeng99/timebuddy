@@ -36,6 +36,41 @@
     "errorBody": "A base de fusos horários não carregou, então os relógios sairiam errados. Tente de novo.",
     "errorRetry": "Tentar de novo"
   },
+  "auth": {
+    "onboardingTitle1": "Todas as cidades num painel só",
+    "onboardingBody1": "Coloque lado a lado os lugares com que você trabalha e veja o mesmo momento em todos eles.",
+    "onboardingTitle2": "Saiba a hora certa de chamar",
+    "onboardingBody2": "O horário de trabalho fica destacado na grade, então achar um horário bom para todo mundo é questão de olhar, não de calcular.",
+    "onboardingTitle3": "O mesmo painel em qualquer lugar",
+    "onboardingBody3": "Entre com o Google e suas cidades vão junto do celular para o navegador.",
+    "onboardingSkip": "Pular",
+    "onboardingNext": "Avançar",
+    "onboardingSkipHint": "Pule a apresentação e vá direto para a entrada.",
+    "signInWithGoogle": "Entrar com o Google",
+    "signInFailed": "Não conseguimos entrar. Tente de novo.",
+    "signInCancelled": "Você cancelou a entrada.",
+    "signOut": "Sair da conta",
+    "signOutConfirm": "Sair da conta?",
+    "signOutConfirmBody": "Suas cidades continuam na sua conta. A cópia guardada neste aparelho é apagada até você entrar de novo.",
+    "signOutFailed": "Não conseguimos sair da conta. Tente de novo.",
+    "deleteAccount": "Excluir conta",
+    "deleteAccountConfirm": "Excluir sua conta?",
+    "deleteAccountWarning": "Isso apaga seu painel, suas preferências e seu perfil de todos os aparelhos. Não dá para desfazer.",
+    "deleteAccountFailed": "Não conseguimos excluir sua conta. Tente de novo."
+  },
+  "profile": {
+    "title": "Conta",
+    "signedInAs": "Você entrou como",
+    "syncStatusIdle": "Tudo sincronizado",
+    "syncStatusSyncing": "Sincronizando...",
+    "syncStatusOffline": "Sem conexão. Suas mudanças ficam salvas neste aparelho.",
+    "syncStatusError": "A sincronização não rolou. Suas mudanças estão salvas neste aparelho.",
+    "syncNow": "Sincronizar agora",
+    "lastSynced": "Última sincronização ${time}",
+    "neverSynced": "Ainda não sincronizou",
+    "boardUpdatedFromAnotherDevice": "Seu painel foi atualizado em outro aparelho.",
+    "preferencesUpdatedFromAnotherDevice": "Suas configurações foram atualizadas em outro aparelho."
+  },
   "settings": {
     "title": "Configurações",
     "groupAppearance": "Aparência",
@@ -82,7 +117,8 @@
   "nav": {
     "grid": "Grade",
     "locations": "Cidades",
-    "settings": "Configurações"
+    "settings": "Configurações",
+    "profile": "Conta"
   },
   "grid": {
     "title": "Grade de horários",

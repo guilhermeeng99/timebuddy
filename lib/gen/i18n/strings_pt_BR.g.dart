@@ -41,6 +41,8 @@ class TranslationsPtBr with BaseTranslations<AppLocale, Translations> implements
 	@override late final _Translations$common$pt_BR common = _Translations$common$pt_BR._(_root);
 	@override late final _Translations$home$pt_BR home = _Translations$home$pt_BR._(_root);
 	@override late final _Translations$startup$pt_BR startup = _Translations$startup$pt_BR._(_root);
+	@override late final _Translations$auth$pt_BR auth = _Translations$auth$pt_BR._(_root);
+	@override late final _Translations$profile$pt_BR profile = _Translations$profile$pt_BR._(_root);
 	@override late final _Translations$settings$pt_BR settings = _Translations$settings$pt_BR._(_root);
 	@override late final _Translations$bands$pt_BR bands = _Translations$bands$pt_BR._(_root);
 	@override late final _Translations$nav$pt_BR nav = _Translations$nav$pt_BR._(_root);
@@ -113,6 +115,55 @@ class _Translations$startup$pt_BR implements Translations$startup$en {
 	@override String get errorRetry => 'Tentar de novo';
 }
 
+// Path: auth
+class _Translations$auth$pt_BR implements Translations$auth$en {
+	_Translations$auth$pt_BR._(this._root);
+
+	final TranslationsPtBr _root; // ignore: unused_field
+
+	// Translations
+	@override String get onboardingTitle1 => 'Todas as cidades num painel só';
+	@override String get onboardingBody1 => 'Coloque lado a lado os lugares com que você trabalha e veja o mesmo momento em todos eles.';
+	@override String get onboardingTitle2 => 'Saiba a hora certa de chamar';
+	@override String get onboardingBody2 => 'O horário de trabalho fica destacado na grade, então achar um horário bom para todo mundo é questão de olhar, não de calcular.';
+	@override String get onboardingTitle3 => 'O mesmo painel em qualquer lugar';
+	@override String get onboardingBody3 => 'Entre com o Google e suas cidades vão junto do celular para o navegador.';
+	@override String get onboardingSkip => 'Pular';
+	@override String get onboardingNext => 'Avançar';
+	@override String get onboardingSkipHint => 'Pule a apresentação e vá direto para a entrada.';
+	@override String get signInWithGoogle => 'Entrar com o Google';
+	@override String get signInFailed => 'Não conseguimos entrar. Tente de novo.';
+	@override String get signInCancelled => 'Você cancelou a entrada.';
+	@override String get signOut => 'Sair da conta';
+	@override String get signOutConfirm => 'Sair da conta?';
+	@override String get signOutConfirmBody => 'Suas cidades continuam na sua conta. A cópia guardada neste aparelho é apagada até você entrar de novo.';
+	@override String get signOutFailed => 'Não conseguimos sair da conta. Tente de novo.';
+	@override String get deleteAccount => 'Excluir conta';
+	@override String get deleteAccountConfirm => 'Excluir sua conta?';
+	@override String get deleteAccountWarning => 'Isso apaga seu painel, suas preferências e seu perfil de todos os aparelhos. Não dá para desfazer.';
+	@override String get deleteAccountFailed => 'Não conseguimos excluir sua conta. Tente de novo.';
+}
+
+// Path: profile
+class _Translations$profile$pt_BR implements Translations$profile$en {
+	_Translations$profile$pt_BR._(this._root);
+
+	final TranslationsPtBr _root; // ignore: unused_field
+
+	// Translations
+	@override String get title => 'Conta';
+	@override String get signedInAs => 'Você entrou como';
+	@override String get syncStatusIdle => 'Tudo sincronizado';
+	@override String get syncStatusSyncing => 'Sincronizando...';
+	@override String get syncStatusOffline => 'Sem conexão. Suas mudanças ficam salvas neste aparelho.';
+	@override String get syncStatusError => 'A sincronização não rolou. Suas mudanças estão salvas neste aparelho.';
+	@override String get syncNow => 'Sincronizar agora';
+	@override String lastSynced({required Object time}) => 'Última sincronização ${time}';
+	@override String get neverSynced => 'Ainda não sincronizou';
+	@override String get boardUpdatedFromAnotherDevice => 'Seu painel foi atualizado em outro aparelho.';
+	@override String get preferencesUpdatedFromAnotherDevice => 'Suas configurações foram atualizadas em outro aparelho.';
+}
+
 // Path: settings
 class _Translations$settings$pt_BR implements Translations$settings$en {
 	_Translations$settings$pt_BR._(this._root);
@@ -180,6 +231,7 @@ class _Translations$nav$pt_BR implements Translations$nav$en {
 	@override String get grid => 'Grade';
 	@override String get locations => 'Cidades';
 	@override String get settings => 'Configurações';
+	@override String get profile => 'Conta';
 }
 
 // Path: grid
@@ -273,6 +325,37 @@ extension on TranslationsPtBr {
 			'startup.errorTitle' => 'O TimeBuddy não conseguiu iniciar',
 			'startup.errorBody' => 'A base de fusos horários não carregou, então os relógios sairiam errados. Tente de novo.',
 			'startup.errorRetry' => 'Tentar de novo',
+			'auth.onboardingTitle1' => 'Todas as cidades num painel só',
+			'auth.onboardingBody1' => 'Coloque lado a lado os lugares com que você trabalha e veja o mesmo momento em todos eles.',
+			'auth.onboardingTitle2' => 'Saiba a hora certa de chamar',
+			'auth.onboardingBody2' => 'O horário de trabalho fica destacado na grade, então achar um horário bom para todo mundo é questão de olhar, não de calcular.',
+			'auth.onboardingTitle3' => 'O mesmo painel em qualquer lugar',
+			'auth.onboardingBody3' => 'Entre com o Google e suas cidades vão junto do celular para o navegador.',
+			'auth.onboardingSkip' => 'Pular',
+			'auth.onboardingNext' => 'Avançar',
+			'auth.onboardingSkipHint' => 'Pule a apresentação e vá direto para a entrada.',
+			'auth.signInWithGoogle' => 'Entrar com o Google',
+			'auth.signInFailed' => 'Não conseguimos entrar. Tente de novo.',
+			'auth.signInCancelled' => 'Você cancelou a entrada.',
+			'auth.signOut' => 'Sair da conta',
+			'auth.signOutConfirm' => 'Sair da conta?',
+			'auth.signOutConfirmBody' => 'Suas cidades continuam na sua conta. A cópia guardada neste aparelho é apagada até você entrar de novo.',
+			'auth.signOutFailed' => 'Não conseguimos sair da conta. Tente de novo.',
+			'auth.deleteAccount' => 'Excluir conta',
+			'auth.deleteAccountConfirm' => 'Excluir sua conta?',
+			'auth.deleteAccountWarning' => 'Isso apaga seu painel, suas preferências e seu perfil de todos os aparelhos. Não dá para desfazer.',
+			'auth.deleteAccountFailed' => 'Não conseguimos excluir sua conta. Tente de novo.',
+			'profile.title' => 'Conta',
+			'profile.signedInAs' => 'Você entrou como',
+			'profile.syncStatusIdle' => 'Tudo sincronizado',
+			'profile.syncStatusSyncing' => 'Sincronizando...',
+			'profile.syncStatusOffline' => 'Sem conexão. Suas mudanças ficam salvas neste aparelho.',
+			'profile.syncStatusError' => 'A sincronização não rolou. Suas mudanças estão salvas neste aparelho.',
+			'profile.syncNow' => 'Sincronizar agora',
+			'profile.lastSynced' => ({required Object time}) => 'Última sincronização ${time}',
+			'profile.neverSynced' => 'Ainda não sincronizou',
+			'profile.boardUpdatedFromAnotherDevice' => 'Seu painel foi atualizado em outro aparelho.',
+			'profile.preferencesUpdatedFromAnotherDevice' => 'Suas configurações foram atualizadas em outro aparelho.',
 			'settings.title' => 'Configurações',
 			'settings.groupAppearance' => 'Aparência',
 			'settings.groupTime' => 'Hora',
@@ -315,6 +398,7 @@ extension on TranslationsPtBr {
 			'nav.grid' => 'Grade',
 			'nav.locations' => 'Cidades',
 			'nav.settings' => 'Configurações',
+			'nav.profile' => 'Conta',
 			'grid.title' => 'Grade de horários',
 			'grid.today' => 'Hoje',
 			'grid.emptyTitle' => 'Nenhuma cidade por aqui',

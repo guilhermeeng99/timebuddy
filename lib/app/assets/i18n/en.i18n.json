@@ -36,6 +36,41 @@
     "errorBody": "The time zone data failed to load, so the clocks would be wrong. Try again.",
     "errorRetry": "Try again"
   },
+  "auth": {
+    "onboardingTitle1": "Every city on one board",
+    "onboardingBody1": "Put the places you work with side by side and read the same moment in all of them.",
+    "onboardingTitle2": "Know when to call",
+    "onboardingBody2": "Working hours are shaded on the grid, so a time that suits everyone is something you see instead of something you calculate.",
+    "onboardingTitle3": "The same board everywhere",
+    "onboardingBody3": "Sign in with Google and your cities follow you from the phone to the browser.",
+    "onboardingSkip": "Skip",
+    "onboardingNext": "Next",
+    "onboardingSkipHint": "Skip the tour and go straight to signing in.",
+    "signInWithGoogle": "Sign in with Google",
+    "signInFailed": "Sign-in didn't go through. Try again.",
+    "signInCancelled": "Sign-in was cancelled.",
+    "signOut": "Sign out",
+    "signOutConfirm": "Sign out?",
+    "signOutConfirmBody": "Your cities stay in your account. The copy kept on this device is cleared until you sign in again.",
+    "signOutFailed": "We couldn't sign you out. Try again.",
+    "deleteAccount": "Delete account",
+    "deleteAccountConfirm": "Delete your account?",
+    "deleteAccountWarning": "This removes your board, your preferences and your profile from every device. It cannot be undone.",
+    "deleteAccountFailed": "We couldn't delete your account. Try again."
+  },
+  "profile": {
+    "title": "Account",
+    "signedInAs": "Signed in as",
+    "syncStatusIdle": "Everything is synced",
+    "syncStatusSyncing": "Syncing...",
+    "syncStatusOffline": "Offline. Your changes are saved on this device.",
+    "syncStatusError": "Sync didn't work. Your changes are safe on this device.",
+    "syncNow": "Sync now",
+    "lastSynced": "Last synced ${time}",
+    "neverSynced": "Not synced yet",
+    "boardUpdatedFromAnotherDevice": "Your board was updated from another device.",
+    "preferencesUpdatedFromAnotherDevice": "Your settings were updated from another device."
+  },
   "settings": {
     "title": "Settings",
     "groupAppearance": "Appearance",
@@ -82,7 +117,8 @@
   "nav": {
     "grid": "Grid",
     "locations": "Cities",
-    "settings": "Settings"
+    "settings": "Settings",
+    "profile": "Account"
   },
   "grid": {
     "title": "Time grid",

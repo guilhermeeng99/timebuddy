@@ -1,32 +1,34 @@
-import 'dart:async';
-
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/widgets.dart';
 import 'package:timebuddy/app/app_widget.dart';
 import 'package:timebuddy/app/di/injection_container.dart';
-import 'package:timebuddy/core/time/timezone_engine.dart';
-import 'package:timebuddy/features/locations/domain/repositories/city_catalog_repository.dart';
+import 'package:timebuddy/firebase_options.dart';
 import 'package:timebuddy/gen/i18n/strings.g.dart';
 
-/// Boots the app: dependencies, tzdata, locale, then the widget tree.
+/// Boots the app: Firebase, dependencies, locale, then the widget tree.
 ///
-/// The tzdata load is awaited here rather than lazily inside the first screen
-/// because every clock in the app is wrong until it lands, and one late frame
-/// is cheaper than a screen that renders the wrong hour and then corrects
-/// itself. Anything longer than a line belongs in [configureDependencies].
+/// Deliberately four lines. Everything that used to be here and is longer than
+/// a line has moved to the place that owns it: the wiring to
+/// [configureDependencies], and tzdata plus the city catalog to `StartupCubit`
+/// (docs/specs/startup.md rules 1 and 2), which is also the only place that can
+/// *report* their failure — `main` runs before there is a screen to show one
+/// on.
 ///
-/// The board is deliberately *not* loaded here: `BoardCubit` is session-scoped
-/// and owned by `AppShell` (docs/specs/locations.md, CLAUDE.md Lifecycle), so
-/// `main` has nowhere to keep one.
+/// Firebase comes first because the DI graph registers `FirebaseAuth` and
+/// `FirebaseFirestore` handles; they are lazy, so nothing resolves them here,
+/// but the app must never reach a state where one could be touched before the
+/// SDK has started.
+///
+/// The board is likewise *not* loaded here: `BoardCubit` is session-scoped and
+/// owned by `AppShell` (docs/specs/locations.md, CLAUDE.md Lifecycle), which
+/// the router only builds once startup has left `/startup` — so by then the
+/// first sync has already written the reconciled document it reads.
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
   await configureDependencies();
-  await sl<TimeZoneEngine>().initialize();
-  // Warmed, not awaited. The catalog is a static asset that only the
-  // add-location sheet reads, so parsing it once at startup (CLAUDE.md,
-  // Performance) must not buy itself a slower first frame. The repository
-  // caches in memory, so the sheet either finds it hot or waits on this same
-  // work; a failure surfaces there, where it can be shown, rather than here.
-  unawaited(sl<CityCatalogRepository>().load());
   // The stored preference (which may pin a locale) is applied by TimeBuddyApp
   // once it loads; the device locale is the right guess until then.
   await LocaleSettings.useDeviceLocale();

@@ -44,6 +44,8 @@ class Translations with BaseTranslations<AppLocale, Translations> {
 	late final Translations$common$en common = Translations$common$en._(_root);
 	late final Translations$home$en home = Translations$home$en._(_root);
 	late final Translations$startup$en startup = Translations$startup$en._(_root);
+	late final Translations$auth$en auth = Translations$auth$en._(_root);
+	late final Translations$profile$en profile = Translations$profile$en._(_root);
 	late final Translations$settings$en settings = Translations$settings$en._(_root);
 	late final Translations$bands$en bands = Translations$bands$en._(_root);
 	late final Translations$nav$en nav = Translations$nav$en._(_root);
@@ -172,6 +174,117 @@ class Translations$startup$en {
 
 	/// en: 'Try again'
 	String get errorRetry => 'Try again';
+}
+
+// Path: auth
+class Translations$auth$en {
+	Translations$auth$en._(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Every city on one board'
+	String get onboardingTitle1 => 'Every city on one board';
+
+	/// en: 'Put the places you work with side by side and read the same moment in all of them.'
+	String get onboardingBody1 => 'Put the places you work with side by side and read the same moment in all of them.';
+
+	/// en: 'Know when to call'
+	String get onboardingTitle2 => 'Know when to call';
+
+	/// en: 'Working hours are shaded on the grid, so a time that suits everyone is something you see instead of something you calculate.'
+	String get onboardingBody2 => 'Working hours are shaded on the grid, so a time that suits everyone is something you see instead of something you calculate.';
+
+	/// en: 'The same board everywhere'
+	String get onboardingTitle3 => 'The same board everywhere';
+
+	/// en: 'Sign in with Google and your cities follow you from the phone to the browser.'
+	String get onboardingBody3 => 'Sign in with Google and your cities follow you from the phone to the browser.';
+
+	/// en: 'Skip'
+	String get onboardingSkip => 'Skip';
+
+	/// en: 'Next'
+	String get onboardingNext => 'Next';
+
+	/// en: 'Skip the tour and go straight to signing in.'
+	String get onboardingSkipHint => 'Skip the tour and go straight to signing in.';
+
+	/// en: 'Sign in with Google'
+	String get signInWithGoogle => 'Sign in with Google';
+
+	/// en: 'Sign-in didn't go through. Try again.'
+	String get signInFailed => 'Sign-in didn\'t go through. Try again.';
+
+	/// en: 'Sign-in was cancelled.'
+	String get signInCancelled => 'Sign-in was cancelled.';
+
+	/// en: 'Sign out'
+	String get signOut => 'Sign out';
+
+	/// en: 'Sign out?'
+	String get signOutConfirm => 'Sign out?';
+
+	/// en: 'Your cities stay in your account. The copy kept on this device is cleared until you sign in again.'
+	String get signOutConfirmBody => 'Your cities stay in your account. The copy kept on this device is cleared until you sign in again.';
+
+	/// en: 'We couldn't sign you out. Try again.'
+	String get signOutFailed => 'We couldn\'t sign you out. Try again.';
+
+	/// en: 'Delete account'
+	String get deleteAccount => 'Delete account';
+
+	/// en: 'Delete your account?'
+	String get deleteAccountConfirm => 'Delete your account?';
+
+	/// en: 'This removes your board, your preferences and your profile from every device. It cannot be undone.'
+	String get deleteAccountWarning => 'This removes your board, your preferences and your profile from every device. It cannot be undone.';
+
+	/// en: 'We couldn't delete your account. Try again.'
+	String get deleteAccountFailed => 'We couldn\'t delete your account. Try again.';
+}
+
+// Path: profile
+class Translations$profile$en {
+	Translations$profile$en._(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Account'
+	String get title => 'Account';
+
+	/// en: 'Signed in as'
+	String get signedInAs => 'Signed in as';
+
+	/// en: 'Everything is synced'
+	String get syncStatusIdle => 'Everything is synced';
+
+	/// en: 'Syncing...'
+	String get syncStatusSyncing => 'Syncing...';
+
+	/// en: 'Offline. Your changes are saved on this device.'
+	String get syncStatusOffline => 'Offline. Your changes are saved on this device.';
+
+	/// en: 'Sync didn't work. Your changes are safe on this device.'
+	String get syncStatusError => 'Sync didn\'t work. Your changes are safe on this device.';
+
+	/// en: 'Sync now'
+	String get syncNow => 'Sync now';
+
+	/// en: 'Last synced ${time}'
+	String lastSynced({required Object time}) => 'Last synced ${time}';
+
+	/// en: 'Not synced yet'
+	String get neverSynced => 'Not synced yet';
+
+	/// en: 'Your board was updated from another device.'
+	String get boardUpdatedFromAnotherDevice => 'Your board was updated from another device.';
+
+	/// en: 'Your settings were updated from another device.'
+	String get preferencesUpdatedFromAnotherDevice => 'Your settings were updated from another device.';
 }
 
 // Path: settings
@@ -325,6 +438,9 @@ class Translations$nav$en {
 
 	/// en: 'Settings'
 	String get settings => 'Settings';
+
+	/// en: 'Account'
+	String get profile => 'Account';
 }
 
 // Path: grid
@@ -490,6 +606,37 @@ extension on Translations {
 			'startup.errorTitle' => 'TimeBuddy could not start',
 			'startup.errorBody' => 'The time zone data failed to load, so the clocks would be wrong. Try again.',
 			'startup.errorRetry' => 'Try again',
+			'auth.onboardingTitle1' => 'Every city on one board',
+			'auth.onboardingBody1' => 'Put the places you work with side by side and read the same moment in all of them.',
+			'auth.onboardingTitle2' => 'Know when to call',
+			'auth.onboardingBody2' => 'Working hours are shaded on the grid, so a time that suits everyone is something you see instead of something you calculate.',
+			'auth.onboardingTitle3' => 'The same board everywhere',
+			'auth.onboardingBody3' => 'Sign in with Google and your cities follow you from the phone to the browser.',
+			'auth.onboardingSkip' => 'Skip',
+			'auth.onboardingNext' => 'Next',
+			'auth.onboardingSkipHint' => 'Skip the tour and go straight to signing in.',
+			'auth.signInWithGoogle' => 'Sign in with Google',
+			'auth.signInFailed' => 'Sign-in didn\'t go through. Try again.',
+			'auth.signInCancelled' => 'Sign-in was cancelled.',
+			'auth.signOut' => 'Sign out',
+			'auth.signOutConfirm' => 'Sign out?',
+			'auth.signOutConfirmBody' => 'Your cities stay in your account. The copy kept on this device is cleared until you sign in again.',
+			'auth.signOutFailed' => 'We couldn\'t sign you out. Try again.',
+			'auth.deleteAccount' => 'Delete account',
+			'auth.deleteAccountConfirm' => 'Delete your account?',
+			'auth.deleteAccountWarning' => 'This removes your board, your preferences and your profile from every device. It cannot be undone.',
+			'auth.deleteAccountFailed' => 'We couldn\'t delete your account. Try again.',
+			'profile.title' => 'Account',
+			'profile.signedInAs' => 'Signed in as',
+			'profile.syncStatusIdle' => 'Everything is synced',
+			'profile.syncStatusSyncing' => 'Syncing...',
+			'profile.syncStatusOffline' => 'Offline. Your changes are saved on this device.',
+			'profile.syncStatusError' => 'Sync didn\'t work. Your changes are safe on this device.',
+			'profile.syncNow' => 'Sync now',
+			'profile.lastSynced' => ({required Object time}) => 'Last synced ${time}',
+			'profile.neverSynced' => 'Not synced yet',
+			'profile.boardUpdatedFromAnotherDevice' => 'Your board was updated from another device.',
+			'profile.preferencesUpdatedFromAnotherDevice' => 'Your settings were updated from another device.',
 			'settings.title' => 'Settings',
 			'settings.groupAppearance' => 'Appearance',
 			'settings.groupTime' => 'Time',
@@ -532,6 +679,7 @@ extension on Translations {
 			'nav.grid' => 'Grid',
 			'nav.locations' => 'Cities',
 			'nav.settings' => 'Settings',
+			'nav.profile' => 'Account',
 			'grid.title' => 'Time grid',
 			'grid.today' => 'Today',
 			'grid.emptyTitle' => 'No cities yet',

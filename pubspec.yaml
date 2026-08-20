@@ -45,6 +45,13 @@ dependencies:
   # Utils
   uuid: ^4.6.0
 
+  # Firebase (milestone 3: the account exists so the same board follows the
+  # user between the browser and the phone, see docs/specs/sync.md)
+  firebase_core: ^4.13.0
+  firebase_auth: ^6.5.7
+  cloud_firestore: ^6.8.0
+  google_sign_in: ^7.2.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -54,6 +61,8 @@ dev_dependencies:
   slang_build_runner: ^4.19.0
   build_runner: ^2.16.0
   flutter_launcher_icons: ^0.14.4
+  fake_cloud_firestore: ^4.2.0
+  firebase_auth_mocks: ^0.15.2
 
 flutter:
   uses-material-design: true

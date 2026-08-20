@@ -10,9 +10,12 @@ import 'package:timebuddy/app/theme/app_colors.dart';
 import 'package:timebuddy/app/theme/app_theme.dart';
 import 'package:timebuddy/app/theme/dark_palettes.dart';
 import 'package:timebuddy/app/theme/light_palettes.dart';
+import 'package:timebuddy/core/sync/sync_service.dart';
 import 'package:timebuddy/core/time/ticker_service.dart';
+import 'package:timebuddy/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:timebuddy/features/preferences/domain/entities/preferences_entity.dart';
 import 'package:timebuddy/features/preferences/presentation/cubit/preferences_cubit.dart';
+import 'package:timebuddy/features/startup/presentation/cubit/startup_cubit.dart';
 import 'package:timebuddy/gen/i18n/strings.g.dart';
 
 /// The root widget: theme, locale, router and the app-wide lifecycle hook.
@@ -23,13 +26,19 @@ import 'package:timebuddy/gen/i18n/strings.g.dart';
 /// sources of truth for it. This widget reads the preferences state, reassigns
 /// `AppColors.light` / `AppColors.dark`, and only then builds `MaterialApp`.
 ///
-/// It owns the preferences load and nothing else. The board is loaded one
-/// level down, by `AppShell`, which is the first widget that both outlives a
-/// page and sits above every page that reads it (see `app_shell.dart`). The
-/// two loads are therefore sequential — the router is not built until
-/// preferences resolve — which is correct rather than merely convenient: the
-/// grid is rendered in the user's palette and clock format, and starting it
-/// before those are known would paint a screen that restyles itself.
+/// It owns three things and no more: the preferences load, the app-wide bloc
+/// providers, and the lifecycle hook.
+///
+/// **Why preferences load here and not in `StartupCubit`.** The splash is a
+/// *route*, so it lives inside `MaterialApp.router` — which cannot be built
+/// until the theme, the palettes and the locale are known. Loading them here
+/// is what lets the splash itself be drawn in the user's own colors. Every
+/// other startup concern (tzdata, the catalog, the session, the first sync)
+/// belongs to `StartupCubit`, where a failure has a screen to be reported on.
+///
+/// The board is loaded one level further down, by `AppShell`
+/// (see `app_shell.dart`), which the router only builds once startup has left
+/// `/startup` — so that load reads the document the first sync reconciled.
 ///
 /// ```dart
 /// runApp(TranslationProvider(child: const TimeBuddyApp()));
@@ -53,14 +62,21 @@ class _TimeBuddyAppState extends State<TimeBuddyApp>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    // There is no StartupCubit until M3 (docs/specs/startup.md), so the app
-    // widget owns the one-shot preferences load that every page depends on.
-    // The device locale only seeds the first launch (preferences.md rule 2).
+    // The one-shot preferences load every page depends on, including the
+    // splash. The device locale only seeds the first launch
+    // (docs/specs/preferences.md rule 2).
     unawaited(
       sl<PreferencesCubit>().load(
         deviceLocale: WidgetsBinding.instance.platformDispatcher.locale,
       ),
     );
+    // Asked here rather than by `StartupCubit`, which is deliberately a
+    // read-only observer of `AuthBloc` (docs/specs/startup.md, Collaborators).
+    // This is the one place that runs exactly once per process and sits above
+    // the router, so the session check cannot be started twice by a route
+    // being rebuilt, and it is already in flight by the time the splash
+    // starts waiting on it.
+    sl<AuthBloc>().add(const AuthCheckRequested());
   }
 
   @override
@@ -83,6 +99,7 @@ class _TimeBuddyAppState extends State<TimeBuddyApp>
         ticker.pause();
       case AppLifecycleState.resumed:
         ticker.resume();
+        _flushPendingWrites();
       // inactive / hidden / detached are transient states on the way to one of
       // the two above; reacting to them would thrash the timer.
       case AppLifecycleState.inactive:
@@ -92,10 +109,32 @@ class _TimeBuddyAppState extends State<TimeBuddyApp>
     }
   }
 
+  /// Retries whatever a failed remote write left behind (docs/specs/sync.md,
+  /// Sync flow).
+  ///
+  /// Cheap enough to run on every resume: `flushDirty` costs zero reads and
+  /// publishes no status when nothing is dirty. Fire and forget on purpose — a
+  /// flush that fails again leaves the flag set for the next attempt and says
+  /// nothing to the user (sync.md rule 4).
+  void _flushPendingWrites() {
+    final session = sl<AuthBloc>().state;
+    if (session is! Authenticated) return;
+    unawaited(sl<SyncService>().flushDirty(userId: session.user.id));
+  }
+
   @override
   Widget build(BuildContext context) {
-    return BlocProvider<PreferencesCubit>.value(
-      value: sl<PreferencesCubit>(),
+    // `.value` for all three: they are `GetIt` singletons, so the provider
+    // must not adopt them and close them with this widget.
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider<PreferencesCubit>.value(value: sl<PreferencesCubit>()),
+        // Above the router, because the redirect reads both to decide what
+        // may render (`app_router.dart`), and the profile and onboarding
+        // pages read the session out of the same instance.
+        BlocProvider<AuthBloc>.value(value: sl<AuthBloc>()),
+        BlocProvider<StartupCubit>.value(value: sl<StartupCubit>()),
+      ],
       child: BlocListener<PreferencesCubit, PreferencesState>(
         listener: (_, state) => _applySideEffects(state),
         child: BlocBuilder<PreferencesCubit, PreferencesState>(
@@ -175,9 +214,10 @@ class _TimeBuddyAppState extends State<TimeBuddyApp>
 /// What the user sees between `runApp` and the first resolved preferences
 /// document: one frame or two on a warm start, longer on a cold web load.
 ///
-/// Deliberately bare. It cannot use the selected palette (that is what it is
-/// waiting for) and a branded splash belongs to the startup flow in M3
-/// (docs/specs/startup.md).
+/// Deliberately bare, and not to be confused with the splash. It cannot use
+/// the selected palette — that is exactly what it is waiting for — while
+/// `StartupPage` runs *inside* the router, in the user's own colors, and owns
+/// everything the app actually has to load (docs/specs/startup.md).
 class _BootstrapApp extends StatelessWidget {
   const _BootstrapApp();
 
