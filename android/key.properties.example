@@ -1,0 +1,12 @@
+# Copy to android/key.properties and fill in. That file is gitignored.
+#
+# storeFile is resolved relative to the android/ directory, so a keystore at
+# android/timebuddy-release.jks is written exactly as below.
+#
+# Generate the keystore with the command in docs/android_release.md. Whoever
+# holds it is the only person who can ever ship an update, so back it up
+# somewhere that survives this machine dying.
+storeFile=timebuddy-release.jks
+storePassword=
+keyAlias=timebuddy
+keyPassword=

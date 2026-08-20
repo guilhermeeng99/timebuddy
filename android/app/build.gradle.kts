@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     // START: FlutterFire Configuration
@@ -6,6 +8,21 @@ plugins {
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
+
+// The release signing material, kept out of the repository.
+//
+// `android/key.properties` names a keystore and its passwords, and
+// `android/.gitignore` already excludes it along with *.jks and *.keystore.
+// Losing this file's keystore means never being able to update the app on the
+// Play Store again, so it lives on the owner's machine and in their password
+// manager, never here. See docs/android_release.md.
+val keystoreProperties = Properties().apply {
+    val file = rootProject.file("key.properties")
+    if (file.exists()) {
+        file.inputStream().use { load(it) }
+    }
+}
+val hasReleaseKeystore = keystoreProperties.getProperty("storeFile") != null
 
 android {
     namespace = "com.guiga.timebuddy"
@@ -32,11 +49,34 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        if (hasReleaseKeystore) {
+            create("release") {
+                storeFile = rootProject.file(
+                    keystoreProperties.getProperty("storeFile"),
+                )
+                storePassword = keystoreProperties.getProperty("storePassword")
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            // Falls back to the debug key when key.properties is absent, so a
+            // fresh clone and CI can still run `flutter build apk --release`.
+            //
+            // That fallback is a convenience, never a shipping path: an APK
+            // signed with the debug key cannot be uploaded to the Play Store,
+            // and Google sign-in fails on it unless the debug SHA-1 happens to
+            // be registered. `flutter build appbundle` prints which config it
+            // used; check it before uploading anything.
+            signingConfig = if (hasReleaseKeystore) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
         }
     }
 }

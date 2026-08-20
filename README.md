@@ -143,6 +143,10 @@ Start here:
 | [preferences.md](docs/specs/preferences.md) | Settings, working hours, theme |
 | [startup.md](docs/specs/startup.md) | Boot sequence and the splash gate |
 
+Android release signing, including the Play App Signing step that silently
+breaks Google sign-in for everyone who installs from the store if it is
+skipped: [docs/android_release.md](docs/android_release.md).
+
 Backend setup (run once, per Firebase project):
 [docs/firebase_setup.md](docs/firebase_setup.md). It covers creating the
 project, enabling Google as the only sign-in provider, creating Firestore and
