@@ -248,6 +248,11 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       return GoogleSignInSucceeded(_profileFromSession(user));
     } on FirebaseException catch (error) {
       return _readPopupRefusal(error);
+    } on AuthException {
+      // Ours, thrown a few lines up when the popup resolved with no user.
+      // That is a real failure, not a popup the browser refused, and
+      // retrying it as a redirect would hide it behind a page load.
+      rethrow;
     } on Object catch (error) {
       // Anything the popup path throws that is not a FirebaseException.
       //
