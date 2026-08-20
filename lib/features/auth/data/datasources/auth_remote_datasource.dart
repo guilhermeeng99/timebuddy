@@ -1,3 +1,5 @@
+import 'dart:developer' as developer;
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -246,7 +248,36 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       return GoogleSignInSucceeded(_profileFromSession(user));
     } on FirebaseException catch (error) {
       return _readPopupRefusal(error);
+    } on Object catch (error) {
+      // Anything the popup path throws that is not a FirebaseException.
+      //
+      // Measured against the deployed build rather than reasoned about: a
+      // pop-up the browser blocks reaches the JavaScript SDK as
+      // `auth/popup-blocked`, but what arrives here is not a
+      // `FirebaseException` at all, so every branch of _readPopupRefusal was
+      // skipped and signing in on the web dead-ended with "didn't go through".
+      //
+      // The popup is an optimisation: it keeps the session first-party. The
+      // redirect is the flow auth.md rule 2 actually specifies. So an
+      // unrecognised popup failure degrades to the documented path instead of
+      // becoming a dead end, and `_redirectInstead` already allows only one
+      // attempt per session, so a browser that cannot carry a redirect either
+      // still ends at a real message rather than in a loop.
+      _logPopupFallback(error);
+      return const GoogleSignInPopupUnavailable();
     }
+  }
+
+  /// Records why the popup was abandoned, where a bug report can reach it.
+  ///
+  /// The code this app swallowed is what made the bug above expensive to
+  /// find: from outside, a failed sign-in looked identical whether the popup
+  /// was blocked, the domain was unauthorised or the network was down.
+  void _logPopupFallback(Object error) {
+    developer.log(
+      'popup sign-in failed, falling back to the redirect: $error',
+      name: 'timebuddy.auth',
+    );
   }
 
   /// Why the popup did not produce a session, in the caller's vocabulary.
