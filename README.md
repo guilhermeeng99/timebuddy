@@ -5,33 +5,43 @@ it is in every city you care about, and find an hour that works for all of them.
 
 **Live build: <https://guilhermeeng99.github.io/timebuddy/>**
 
-> Status: milestone 1 is implemented: the theme layer, the timezone engine, the
-> core time utilities, local storage, preferences and a settings page all ship
-> and are tested. The board, the grid, sync and the planning tools described
-> below are still documentation. See [docs/roadmap.md](docs/roadmap.md).
+> Status: milestones 1 and 2 are implemented. M1 shipped the theme layer, the
+> timezone engine, the core time utilities, local storage, preferences and the
+> settings page. M2 shipped the 500-city catalog and its search, the saved board
+> (add, remove with undo, reorder, set home, replace a zone), the comparison
+> grid and the shell chrome that carries them. Sync, sign-in and the planning
+> tools described below are still documentation. See
+> [docs/roadmap.md](docs/roadmap.md).
 >
-> The live build is therefore the milestone-1 shell: a device clock and a
-> working settings page, not the grid. It is published so the theme, the
-> palettes and the ticker can be looked at on a real device rather than
-> described.
+> The live build is therefore the app offline and signed out: add the cities you
+> care about and read one instant across all of them. Everything it stores stays
+> on the device, because there is no account yet.
 
 ## What it does
+
+Shipped:
 
 - **Time grid**: one row per saved city, one column per hour, colored by how
   reasonable that hour is locally. Drag the cursor and read the same instant
   everywhere at once. Handles half-hour zones, the date line, and days that have
   23 or 25 hours.
-- **World clock**: a live list of your cities with the current time, the offset
-  from home, and whether it is tomorrow there.
-- **Meeting planner**: select a range on the grid and get a pasteable summary
-  with the local time for every participant, plus a suggested better slot when
-  someone is stuck at 03:00.
-- **Time converter**: "15:00 on 12 March in Lisbon" resolved everywhere,
-  including dates far enough out that today's DST rules do not apply.
-- **Sync**: sign in with Google and the same board and preferences follow you
-  between the phone and the browser.
+- **Your cities**: search 500 cities by name, country or IANA id, accents
+  optional, and keep up to 20 on the board. Reorder them, pick the one you
+  measure everything else from, and undo a removal you did not mean.
 - **Theming**: light and dark, 10 selectable palettes each, shared with the
   Financo project.
+
+Specified, not built yet:
+
+- **World clock** (M4): a live list of your cities with the current time, the
+  offset from home, and whether it is tomorrow there.
+- **Meeting planner** (M4): select a range on the grid and get a pasteable
+  summary with the local time for every participant, plus a suggested better
+  slot when someone is stuck at 03:00.
+- **Time converter** (M4): "15:00 on 12 March in Lisbon" resolved everywhere,
+  including dates far enough out that today's DST rules do not apply.
+- **Sync** (M3): sign in with Google and the same board and preferences follow
+  you between the phone and the browser.
 
 ## Architecture
 
@@ -40,13 +50,15 @@ with feature-first organization:
 
 ```
 lib/
-├── app/          # App shell: DI, routing, theme, shared widgets
+├── app/          # App shell: DI, routing, theme, widgets, city asset
 ├── core/         # Time engine, storage, errors, extensions, utils
-├── features/     # Feature modules (each: data / domain / presentation)
+├── features/     # locations, time_grid, preferences, settings
+│                 #   (each: data / domain / presentation)
 └── gen/          # Generated code (slang i18n)
 
 docs/specs/       # Per-feature contracts (entities, business rules, state machines)
-scripts/          # build_city_catalog.dart: regenerates the city asset (M2)
+scripts/          # build_city_catalog.dart + city_seeds.dart: regenerate the
+                  #   city asset. Build tooling, not shipped in the app
 test/
 └── harness/      # Centralized mocks, factories, helpers, FakeClock
 ```
@@ -56,6 +68,10 @@ Each `features/<x>/` module follows:
 - `domain/`: entities, repository interfaces, use cases
 - `data/`: models, datasources, repository implementations
 - `presentation/`: cubits/blocs, pages, widgets
+
+`settings/` is the one exception: presentation only, a screen over the
+preferences feature, because giving it a domain of its own would put two owners
+on one document.
 
 ### The one architectural rule worth stating up front
 
@@ -69,7 +85,7 @@ widgets is how apps end up an hour wrong twice a year.
 |---|---|
 | State management | `flutter_bloc` (Cubits mostly; the auth Bloc arrives with M3) |
 | DI | `get_it` |
-| Routing | `go_router` (hash URLs on web; the shell route arrives with M2) |
+| Routing | `go_router` (hash URLs on web; `StatefulShellRoute`, one branch per destination) |
 | Timezones | `timezone` (IANA tzdata) + `flutter_timezone` |
 | Local storage | `shared_preferences` (two JSON documents, no database) |
 | Remote sync | Firebase Firestore, revision-based last-write-wins. Arrives with M3; nothing Firebase is in `pubspec.yaml` yet |

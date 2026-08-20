@@ -313,43 +313,45 @@ exists.
 |--------|--------|--------------------|
 | shipped | `ClockText` | Ticking wall-clock digits for one zone. Subscribes to the app's single `TickerService` and converts each tick's UTC instant through `TimeZoneEngine`, never by adding a stored offset. Formats through `formatClock()` under the user's `ClockFormat`, watched from `PreferencesCubit` so a 12h/24h switch repaints between ticks. `zoneId` (required), `showSeconds`, `fontSize`, `color`, plus `ticker` / `engine` / `clock` test overrides that fall back to `GetIt`. `showSeconds` renders the seconds but does **not** speed the ticker up: that rate is global (preferences.md rule 10). **Always use for a live time.** Never build a `Timer.periodic` in a page. |
 | planned | `StaticTimeText` | The same visual for a non-ticking instant (converter result, planner summary). Same formatter, no stream subscription. |
-| planned | `OffsetBadge` | The `+05:30` / `-03:00` pill, plus an optional relative form ("+4h from you"). Resolves through `offsetLabel()` / `relativeOffsetLabel()`; never receives a pre-formatted string. |
-| planned | `DayNightDot` | The small sun/moon indicator on a clock row, derived from `HourBand`. |
+| shipped | `OffsetBadge` | The `+05:30` / `-03:00` pill, plus an optional relative form (`+4h`). `offset`, `relativeToHome`, `dense`, and an assert that at least one of the two durations arrives. It takes `Duration`s and formats them through `offsetLabel()` / `relativeOffsetLabel()`; it never receives a pre-formatted string, because a call site interpolating `'${d.inHours}h'` drops the minutes for India, Nepal and Chatham. `relativeToHome: Duration.zero` is a real answer and renders `t.grid.sameTime`; `null` means no comparison was asked for. `dense` shows one chip instead of the pair, and the relative offset wins that slot. |
+| shipped | `DayNightDot` | The sun/moon indicator on a clock row. Takes the `HourBand` (`band`, `size`), never an hour, so the working-hours rule stays in `hourBandFor` and the colour in `hourBandColor`. It answers "is this person likely awake", not "is the sun up": a night-shift user's 23:00 is `good` and draws a sun. |
 | shipped | `HourCell` | One hour surface in the grid: band fill at 12% alpha, hour number, optional minute suffix for half-hour zones, optional cursor and selection overlays. Takes the band already computed by `hourBandFor`, so it decides nothing about time. **Every colored hour in the app goes through this widget**, including the settings working-hours preview. Ships with `hourBandColor(band, colors)`, the one band-to-token table. |
-| planned | `DstBadge` | Marks a row whose zone is currently observing DST, and a column where a transition happens. Tapping opens the explanation sheet. |
-| planned | `LocationRow` | A saved location's identity block: city label, country, zone abbreviation, `OffsetBadge`. Used as the pinned first column of the grid and as the leading block of a clock row. |
+| shipped | `DstBadge` | Two forms of one marker: `DstBadge` for a zone observing DST at the instant on screen, `DstBadge.transition` for the slot the clocks actually move in. `onTap`, `size`; `onTap: null` renders a non-interactive glyph for a context that already owns the gesture, such as an hour cell whose tap sets the cursor. It **never navigates**: it reports the tap and the page decides whether to open the explanation, so the same badge works in a grid, a sheet or a settings preview. |
+| shipped | `LocationRow` | A saved location's identity block: city label, country line, zone abbreviation, home chip or dense `OffsetBadge`. `location` (required), `abbreviation`, `relativeToHome`, `isHome`, `isUnresolved`, `dense`. Used as the pinned first column of the grid **and** as the identity half of a saved-cities row, because they state the same four facts and two widgets are how one screen ends up saying `Sao Paulo · BRT` while the other says `Sao Paulo (BR)`. Every value arrives resolved for the instant on screen; the widget decides nothing about time. `dense` drops the country line for the grid's 96px mobile column without shrinking the type. |
 
 ### Forms & inputs
 
 | Status | Widget | Purpose / contract |
 |--------|--------|--------------------|
 | planned | `TimeBuddyTextField` | App text field (wraps the input theme). `controller`, `label`, `hintText`, `onChanged`, `subdued`. |
-| planned | `TimeBuddySearchField` | App-wide search input used by every search-as-you-type sheet, most importantly the city picker. |
+| shipped | `TimeBuddySearchField` | App-wide search input used by every search-as-you-type sheet, most importantly the city picker. `hintText` and `onChanged` (required), `controller`, `autofocus`, `clearTooltip`. **Debouncing is the caller's business**: the field reports every keystroke immediately, because filtering an in-memory catalogue wants no delay while a networked query wants the 200ms `LocationSearchCubit` applies. An injected `controller` is read once on mount and never disposed by the field. |
 | planned | `TimeBuddyDateField` | Read-only date tile (`InputDecorator` look) that opens a picker on tap. `label`, `value`, `onTap`. |
 | planned | `TimeBuddyTimeField` | The same shape for a time-of-day value, honoring the 12h/24h preference. |
-| planned | `TimeBuddyPickerField` | Tap-to-open row selector: leading icon, label, value/placeholder, chevron. Backs the location and zone pickers. |
-| planned | `TimeBuddyPickerSheet` | Design-system chrome for modal picker bottom sheets: rounded surface, drag handle, left-aligned title. The draggable variant takes a `bodyBuilder(scrollController)` plus optional `header` widgets (for example a search field); `TimeBuddyPickerSheet.fixed` is a shrink-wrapped column for short content. |
-| planned | `TimeBuddyPickerRow` | One selectable row inside a `TimeBuddyPickerSheet`: optional `leading` widget, `title`, optional `subtitle`, `isSelected` (tinted `primary` at 8% + check mark + w600 title), `onTap`. Do not hand-roll a `Material > InkWell > Row` for the next picker. |
-| planned | `TimeBuddyPickerSheetEmpty` | Centered muted placeholder for picker bodies with nothing to list (no data or no search hits). `message`. |
+| shipped | `TimeBuddyPickerField` | Tap-to-open row selector: leading icon, label, value/placeholder, chevron. `icon`, `label`, `placeholder`, `onTap` (all required) and `value`. Backs the location and zone pickers. It wears the input look (`surfaceVariant`, `AppRadius.md`) rather than a button's, because in a form it is one: it holds a value the user picked. `placeholder` is required even for a field that always ends up filled, since every such field renders empty for the frame between mount and the first load. |
+| shipped | `TimeBuddyPickerSheet` | Design-system chrome for modal picker bottom sheets: rounded surface, drag handle, left-aligned title, optional `header` (usually a `TimeBuddySearchField`). The default constructor is **draggable**: `bodyBuilder(context, scrollController)` plus `initialSize` / `minSize` / `maxSize` (0.7 / 0.4 / 0.95). Attach that controller to the scroll view, or dragging the list stops resizing the sheet. `TimeBuddyPickerSheet.fixed` shrink-wraps a short body up to 70% of the screen. Open both through `showTimeBuddyPickerSheet<T>(context, builder:)`, which is where `isScrollControlled`, the rounded top and the safe-area inset are set: forget the first and the sheet caps at half the screen, putting a focused search field under the keyboard. |
+| shipped | `TimeBuddyPickerRow` | One selectable row inside a `TimeBuddyPickerSheet`: `title` and `onTap` (required), optional `leading` **widget** (a swatch, a flag, an icon), `subtitle`, `isSelected` (tinted `primary` at 8% + check mark + w600 title) and `indent`. Do not hand-roll a `Material > InkWell > Row` for the next picker: it is a `Material` so the ink is not swallowed, and it holds `kMinInteractiveDimension` so a one-line row stays tappable. |
+| shipped | `TimeBuddyPickerSheetEmpty` | Centered muted placeholder for picker bodies with nothing to list (no data or no search hits). `message`, plus the optional `scrollController` from a draggable sheet's `bodyBuilder`: pass it and the placeholder stays draggable, since an empty list is exactly when the user wants to pull the sheet back down. Deliberately smaller than `FeatureEmptyState`, which owns a whole screen. |
 | shipped | `TimeBuddyPillToggle<T>` | Segmented control (Grid / Clocks, 12h / 24h). `options` (a list of `PillOption<T>`, each carrying finished localized copy), `selected`, `onChanged`, `disabled`. |
 | planned | `TimeBuddySubmitBar` | Sticky bottom bar with the primary action. `label`, `isLoading`, `isEnabled`, `onSubmit`. |
 
-The settings palette sheet is the one deliberate exception to this table: it
-carries its own local chrome until the city picker exists to be the second
-caller. Shipping a shared `TimeBuddyPickerSheet` designed against a single
-caller would fix the wrong shape, so the sheet is scheduled to migrate onto the
-shared chrome when the second caller lands.
+The settings palette sheet is the one remaining exception to this table: it
+still carries the local chrome it was written with before the shared sheet
+existed. That was the right call at the time, since a `TimeBuddyPickerSheet`
+designed against a single caller would have fixed the wrong shape. The second
+and third callers have now landed (the city picker and the row-actions sheet),
+so the shared chrome is settled and the palette sheet is queued to move onto it.
+Nothing new may copy its local chrome.
 
 ### Structure & navigation
 
 | Status | Widget | Purpose |
 |--------|--------|---------|
 | shipped | `TimeBuddyLargeAppBar` | iOS-style large left-aligned title app bar (default page header). Left-aligned because city and feature names differ wildly in length, and a centered title truncates from both ends once an action sits beside it. |
-| planned | `TimeBuddySidebar` | Web/tablet navigation rail (>= 600px): brand, nav, date stepper, profile. |
-| planned | `TimeBuddyBottomBar` | Floating pill bottom nav for mobile (< 600px); the active item expands to a label. |
-| planned | `TimeBuddyDatePill` | Compact date stepper for the grid's reference day. Lives in the sidebar at >= 600px and on the page itself below that. Mirrors Financo's month-filter pill. |
-| planned | `LiftedFab` | Wraps a FAB so it floats above the mobile bottom bar (see §7). |
-| planned | `SubPageScope` | Marks a pushed sub-page so the shell hides its bottom bar and date pill (see §7). |
+| shipped | `TimeBuddySidebar` | Web/tablet navigation rail (>= 600px), `width` 240: brand, destinations, date stepper, profile. `currentRoute` and `onSelect` (required), plus the `datePill` and `profile` slots. **Renders nothing below 600px**, so the shell places it unconditionally and the breakpoint is decided here instead of at the call site. The stepper arrives as a widget rather than as a date plus a callback, because the reference day belongs to the grid's cubit and screens without one have no date to hand over; the rail hides that slot while a `SubPageScope` is open. The destinations themselves are `TimeBuddyNavDestination`, declared here and imported by the bottom bar so the two surfaces cannot disagree on an icon, a label or the order. |
+| shipped | `TimeBuddyBottomBar` | Floating pill bottom nav for mobile (< 600px); the active item expands to a label, the other two carry no information their icons do not. `currentRoute`, `onSelect`. **Renders nothing at >= 600px or on a sub-page**, so both halves of the §7 rule live in the widget. It floats over the page instead of taking a `bottomNavigationBar` slot so the grid keeps the full window height; the price is that scroll views pad for it, which is what `reservedHeight` (`16 + 64 + 16 = 96`) exists to be read from. |
+| shipped | `TimeBuddyDatePill` | Compact day stepper for the grid's reference day: chevrons, the date, a horizontal swipe, and a Today reset that shows only when the day is not today. `value`, `today`, `todayLabel`, `onChanged` (required), plus `previousDayLabel`, `nextDayLabel` and `localeTag`. It does not own the date, and `today` is a parameter because "today" is a question about the home zone, not about the device. Steps are rebuilt from calendar fields, never by adding 24 hours. It takes the place Financo's month-filter pill held, stepping days rather than months. Lives in the sidebar at >= 600px and on the page itself below that, never both. |
+| shipped | `LiftedFab` | Wraps a FAB so it floats above the mobile bottom bar (see §7). `child` only: it reads `subPageDepth` itself, because the FAB's owner is the page *under* any pushed sub-page and has no way to know one is there. |
+| shipped | `SubPageScope` | Marks a pushed sub-page so the shell hides its bottom bar and date pill and `LiftedFab` stops lifting (see §7). Wrap the pushed page's body; it renders `child` unchanged and contributes only its lifetime. It publishes into the app-scoped `subPageDepth` (a `ValueListenable<int>`, not an `InheritedWidget`) because every consumer sits *above* the pushed route, and `preferredSize` has no `BuildContext` to look anything up with. A counter and not a bool, since sub-pages stack. Call `subPageDepth.reset()` in test teardown. |
 | planned | `TimeBuddyAppBarIconButton` | Circular tinted icon button for app-bar actions. |
 
 ### Display & feedback
@@ -358,7 +360,7 @@ shared chrome when the second caller lands.
 |--------|--------|---------|
 | shipped | `TimeBuddySection` | **The one section widget.** `label` (passed in sentence case, rendered uppercased) and `child`, plus an optional `dot` (6x6 accent dot), `count` pill, `trailing` slot, and `card` flag. Financo shipped three overlapping variants that drifted apart; this is the merged shape (see §10). Its card is a `Material`, not a coloured box: `ListTile` and `InkWell` paint their ink on the nearest `Material` ancestor, so a card that is not one swallows every ripple inside it, and the row only looks dead under the finger. Flutter asserts on it, and `timebuddy_section_test.dart` pins it. |
 | planned | `TimeBuddyDialog` | App dialog: icon badge, title, message, weighted action buttons (`TimeBuddyDialogAction`). Use `showTimeBuddyConfirmDialog` for confirms. |
-| planned | `FeatureEmptyState` | Shared first-impression empty state: tinted icon disc, headline, message, optional muted example chip, primary CTA and footer. |
+| shipped | `FeatureEmptyState` | Shared first-impression empty state: tinted icon disc, headline, message, optional muted example chip, full-width primary CTA and footer. `icon`, `title`, `message` (required), `example`, `ctaLabel` + `onCta` (asserted to arrive together or not at all), `footer`. An empty board is a valid state, not an error, so it gets the product's voice instead of `ErrorView`'s apology. Name the feature's subject in the icon, never its absence: a crossed-out glyph reads as a failure and nothing failed. |
 | shipped | `LoadingShimmer` | Standard loading placeholder: `rowCount` pulsing blocks of `rowHeight`. Show while a cubit is in its loading state, sized to the rows it stands in for, so nothing jumps when the real content lands. |
 | shipped | `ErrorView` | Full-screen error and retry from a domain `Failure`. Standard error state. The failure picks the icon and is never rendered as text: `Failure.message` is a developer string for logs. |
 | shipped | `context.showSnack(message)` | Extension on `BuildContext`, the default feedback channel for plain-text snackbars. Dismisses the current bar first, so a burst of feedback shows the newest message instead of queueing behind a stale one. |
@@ -391,14 +393,31 @@ shared chrome when the second caller lands.
 
 ### FAB & bottom clearance
 
-- The floating mobile bar is `16 + 64 + 16 = 96px`. `LiftedFab` lifts the FAB by
-  `80` only on mobile and only at `SubPageScope` depth 0.
-- Because the FAB floats over scrolling content, every scroll view that has a FAB
-  must pad its bottom so the last row clears it. Use
-  `bottomSafeForFab(context, isSubPage: …)` from `lib/app/widgets/fab_safe_area.dart`.
-  This is the helper Financo listed as backlog item 4; it lands with the first
-  FAB rather than after the third one, and a per-page magic number is not an
-  acceptable stand-in in the meantime.
+- The floating mobile bar is `16 + 64 + 16 = 96px`, read from
+  `TimeBuddyBottomBar.reservedHeight` and never retyped. `LiftedFab` lifts the
+  FAB by `reservedHeight - kFloatingActionButtonMargin` (`80`) only on mobile
+  and only at `SubPageScope` depth 0, which is exactly when the bar is on
+  screen. Deriving the lift means retuning the bar moves the FAB with it.
+- The bar and the FAB both float **over** the content, so neither reserves
+  layout space and a list that stops at its own last pixel hands the user a
+  final row they can see and cannot tap. Every scroll view under either one pads
+  its bottom through `lib/app/widgets/fab_safe_area.dart`. Both helpers add the
+  unconsumed bottom system inset (`MediaQuery.paddingOf`, so they read zero
+  under a `SafeArea` and stay self-correcting), and both take `isSubPage` as a
+  parameter rather than reading `subPageDepth`, because the page knows the
+  answer statically and a listenable read there would go stale without
+  rebuilding anything:
+
+| Helper | Use it when | Returns on mobile at depth 0 | Elsewhere |
+|---|---|---|---|
+| `bottomSafeForFab(context, isSubPage: …)` | the page hosts a FAB (the grid, the saved cities list) | `168` = `96` bar + `56` FAB + `16` | `88` = `16` margin + `56` FAB + `16` |
+| `bottomSafeForBar(context, isSubPage: …)` | the page is a primary destination with no FAB (settings) | `96`, the bar block alone | the system inset alone |
+
+A sub-page has no bar over it, and at `>= 600px` the sidebar takes its own column
+and nothing off the bottom, which is why both helpers collapse there. This is the
+helper Financo listed as backlog item 4; it lands with the first FAB rather than
+after the third one, and a per-page magic number is not an acceptable stand-in in
+the meantime.
 
 ---
 
@@ -490,6 +509,6 @@ needed they will have to diverge.
 - [ ] Spacing and radius from `AppSpacing` / `AppRadius`; page gutter `lg`, section gap `xl`.
 - [ ] Loading / error / empty states handled.
 - [ ] Responsive: works < 600 (bottom bar, own date pill) and >= 600 (sidebar, no pill); sub-pages wrap in `SubPageScope`.
-- [ ] If it has a FAB and a scroll view, the list clears the FAB.
+- [ ] If it has a scroll view, the list clears whatever floats over it: `bottomSafeForFab` with a FAB, `bottomSafeForBar` without one.
 - [ ] Looks right in **both** light and dark, and survives a palette switch.
 - [ ] Digits do not jitter while ticking (tabular figures).

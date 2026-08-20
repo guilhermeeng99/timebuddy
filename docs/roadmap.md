@@ -88,34 +88,86 @@ hand. M3 keeps only the syncing of that document.
   goes through Actions. Routing stays on the default hash strategy, so a deep
   link needs no 404 fallback.
 
+### M2: Board and grid
+
+- 2026-08-19: City catalog end to end: `scripts/build_city_catalog.dart`, the
+  curated table in `scripts/city_seeds.dart`, the generated
+  `lib/app/assets/data/cities.json` (**500 cities**), `CityCatalogRepository`
+  over the asset, and ranked search across name, country, admin area, aliases
+  and raw IANA id, accent- and case-folded on both sides.
+  → [specs/locations.md](specs/locations.md)
+- 2026-08-19: `BoardCubit` and the board document: add, remove with a 5 second
+  undo, reorder, set home and replace a row's zone, every mutation optimistic
+  and persisted behind the emit, with a rejected write rolled back and its
+  failure returned once to the caller rather than parked in the state.
+  Locations whose zone no longer resolves are kept and flagged, never dropped.
+  → [specs/locations.md](specs/locations.md)
+- 2026-08-19: `BuildGridUseCase` and its test suite: the column set comes from
+  the home zone's own day, so a 23 or 25 hour day is ordinary rather than a
+  special case, and every cell is derived from its instant.
+  → [specs/time_grid.md](specs/time_grid.md)
+- 2026-08-19: Grid page: pinned label column; one horizontal controller, owned
+  by the header strip, whose offset every row and the now marker track, so
+  nothing scrolls out of step; the hour cursor by tap, drag, arrow keys and
+  `Home`; the date stepper; the empty state; and the unresolved-home banner.
+  → [specs/time_grid.md](specs/time_grid.md)
+- 2026-08-19: App shell: `StatefulShellRoute.indexedStack` with one branch per
+  destination (grid, cities, settings), so each keeps its own navigator and
+  scroll position; the floating bottom bar below `600px` and the sidebar at and
+  above it; and the add-location sheet as a real URL under `/locations/add`.
+  Settings became a primary destination instead of a pushed sub-page.
+- 2026-08-19: Component library, continued: `OffsetBadge`, `LocationRow`,
+  `TimeBuddyDatePill`, `TimeBuddySearchField`, the picker family
+  (`TimeBuddyPickerField`, `TimeBuddyPickerRow`, `TimeBuddyPickerSheet`),
+  `FeatureEmptyState`, `LiftedFab`, `SubPageScope`, `bottomSafeForFab` /
+  `bottomSafeForBar`, the bottom bar and the sidebar.
+  → [specs/design_system.md](specs/design_system.md)
+- 2026-08-19: 474 tests passing, `flutter analyze` clean.
+
+Four M2 details did not ship, and are named here rather than left to be
+rediscovered as bugs:
+
+- **Row actions and reordering from the grid**
+  ([specs/time_grid.md](specs/time_grid.md), Interaction). Both live on the
+  cities page instead, where a row is a list item with room for a drag handle
+  and a tap target. On the grid the label column is 96px on a phone and the
+  vertical drag already belongs to the row list. `t.grid.rowAction*` is
+  therefore unused copy: the board's own `t.locations.*` says the same three
+  things.
+- **The DST explanation sheet** (`t.grid.dstExplainTitle` /
+  `dstExplainBody`). A transition hour is marked in the grid with a dot and a
+  tooltip, which is the whole of it today. `DstBadge` exists as a widget with
+  an `onTap` waiting for the sheet, and `DayNightDot` waits on the M4 world
+  clock; neither has a call site yet.
+- **A dedicated home-city picker** (`t.locations.pickHome*`). An unresolved
+  home zone raises the grid banner, which navigates to the cities page where
+  "set as home" is one row action. One repair path is easier to keep correct
+  than two.
+- **The tzdata version in Settings → About**, still a dash, for the reason M1
+  recorded: the `timezone` package does not expose the release it embeds.
+
+None of the four blocks M3. The first two are grid polish and are best picked up
+with M4, when the planner reopens the grid's interaction surface; the third
+stays declined while one repair path is enough; the fourth still waits on a
+`TimeZoneEngine` that can report the release it loaded.
+
 ---
 
 ## In progress
 
-- **M2: board and grid.** M1 is done, so the next milestone is the city catalog,
-  the board and the comparison grid. Its first constraint is already known and
-  recorded under Deferred decisions: the shipped tz database carries canonical
-  zones only, so the catalog cannot be built from the IANA list.
+- **M3: account and sync.** M2 is done, so the next milestone is Firebase,
+  Google sign-in and the revision-based reconciliation of the two documents the
+  app already writes locally. Both shapes exist and are exercised today, which
+  is the point: sync has real data to argue about instead of a schema. The
+  `StartupCubit` and the splash route land with it, and they take over the board
+  load `AppShell` performs today.
 
 ---
 
 ## Planned
 
-### M2: Board and grid (target: 2026-09-09)
-
-The app is useful, offline, signed out.
-
-1. City catalog: `scripts/build_city_catalog.dart`, the asset, the repository and
-   the ranked search. → [specs/locations.md](specs/locations.md)
-2. `BoardCubit`, add / remove / reorder / set home, local persistence only.
-3. `BuildGridUseCase` and its full test suite (the rules live here, not in the
-   widget). → [specs/time_grid.md](specs/time_grid.md)
-4. Grid page: pinned column, shared scroll, hour cursor, now marker, date pill,
-   responsive chrome.
-5. Component library, continued: `OffsetBadge`, `LocationRow`, the pickers, the
-   floating bottom bar and the sidebar, plus the `ShellRoute` that keeps the
-   last three mounted across navigation instead of rebuilding them per page.
-   `ClockText`, `HourCell`, `TimeBuddySection` and the app bar shipped in M1.
+Numbering continues from M2's items 1 to 5, which are now under Done, so an
+item number still points at the piece of work it always did.
 
 ### M3: Account and sync (target: 2026-09-23)
 
@@ -180,12 +232,13 @@ Recorded here so they are not re-litigated in every review.
   `Link` line, so `Europe/Oslo`, `Asia/Kuala_Lumpur`, `Africa/Accra` and roughly
   two hundred other current ids do not exist in it, and neither does a plain
   `UTC`. The engine therefore imports `data/latest_all.dart` (598 names, 185 KB
-  more bundle). The constraint on M2 stands either way: the city catalog must
-  resolve every id through `zoneOrNull` and store the canonical result, and
-  `build_city_catalog.dart` must be verified against the database the app
-  actually ships instead of against the IANA list.
-  Skip that and the catalog offers cities whose clocks quietly fall back to UTC,
-  which reads as a plausible time and is wrong by an hour for half the year.
+  more bundle). M2 was built under the constraint that follows from it, and kept
+  it: `build_city_catalog.dart` derives its rows from the database the app
+  actually ships rather than from the IANA list, resolves every id through
+  `zoneOrNull`, stores the canonical result and aborts the build on a miss.
+  That is what stops the catalog offering cities whose clocks quietly fall back
+  to UTC, which reads as a plausible time and is wrong by an hour for half the
+  year.
 - **Full vs trimmed tzdata on web.** Roughly 500 KB of bundle against pre-1970
   historical accuracy. Must be decided before the M5 web deploy
   ([specs/timezone_engine.md](specs/timezone_engine.md), Open questions).

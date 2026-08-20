@@ -26,8 +26,12 @@ user's last reference date, which is view state, not data.
 - **Pinned first column** (`GridMetrics.labelColumnWidth`): the `LocationRow`
   identity block. Never scrolls horizontally.
 - **Hour track**: one `HourCell` per slot, `GridMetrics.hourColumnWidth` each.
-  Scrolls horizontally, all rows locked to one shared `ScrollController`.
-- **Header strip**: the reference row's hour numbers plus the date label.
+  Only the header strip is a horizontal `Scrollable`; every row draws its cells
+  at the offset the header publishes, so header and rows cannot drift apart.
+- **Header strip**: the reference **zone's** hour numbers plus the date label.
+  Read from the zone and not from the home row, because home is a zone and is
+  not required to be a board row (locations rule 3): a header fed by a row would
+  go blank exactly when the user has not added their own city.
 - **Hour cursor**: a vertical `primary` highlight over one column, following
   pointer or keyboard.
 
@@ -54,12 +58,15 @@ user's last reference date, which is view state, not data.
    hour to the previous cell's local time breaks on the row's own DST transition,
    which does not have to coincide with the reference zone's.
 
-5. **Half-hour and 45-minute zones render their minutes.** When
-   `relativeOffset(home, row, instant)` is not a whole number of hours, the cell
-   shows `hh:mm` (`05:30`) rather than `hh`. The column stays aligned to the
-   reference hour: the row is genuinely offset, and hiding that would be a lie.
-   Cell width does not change; the type scale drops from `labelSmall` to a
-   compact variant for these rows.
+5. **Half-hour and 45-minute zones render their minutes.** A cell shows `hh:mm`
+   (`05:30`) rather than `hh` when its own wall clock carries minutes
+   (`GridCell.hasOffsetMinutes`), which is exactly when the row's offset from
+   the reference zone is not a whole number of hours. The column stays aligned
+   to the reference hour: the row is genuinely offset, and hiding that would be
+   a lie. Cell width does not change; the type scale drops from `labelSmall` to
+   a compact size on the cells that carry minutes. The question is asked per
+   cell and not per row, because Lord Howe grows its `:30` mid-row when its
+   30-minute DST starts.
 
 6. **Day boundaries are marked per row.** A `1px` vertical rule sits before the
    cell where that row's local date changes, and the new date's short label
@@ -113,28 +120,55 @@ GridCell {
   isDayStart:   bool      (required, this cell begins a new local date)
   dateLabel:    String?   (nullable, present only when isDayStart)
   hasTransition: bool     (required, a DST change happens inside this slot)
+  hasOffsetMinutes: bool  (getter, localTime.minute != 0: render hh:mm, rule 5)
 }
 
 GridRow {
-  location:  SavedLocationEntity (required)
-  zoneState: ZoneEntity          (required, resolved for the reference instant)
-  isHome:    bool                (required)
-  cells:     List<GridCell>      (required, same length for every row)
+  location:       SavedLocationEntity (required)
+  zoneState:      ZoneState?          (nullable, resolved for one instant
+                                       inside the visible window; null exactly
+                                       when isUnresolved)
+  isHome:         bool                (required)
+  isUnresolved:   bool                (required, the saved zone id matches no
+                                       tzdata entry, rule 14)
+  cells:          List<GridCell>      (required, aligned index for index with
+                                       slots; empty when, and only when,
+                                       isUnresolved)
+  relativeToHome: Duration            (offset(row) - offset(home) at the
+                                       instant zoneState describes; zero when
+                                       isUnresolved, and zero for the home row)
 }
 
 GridViewModel {
-  referenceDate: DateTime      (required, local date in the home zone)
-  slots:         List<DateTime> (required, the shared UTC instants, ascending)
-  rows:          List<GridRow>  (required, board order)
-  nowInstant:    DateTime       (required, UTC)
-  cursorInstant: DateTime?      (nullable)
+  referenceDate:      DateTime       (required, local date in the home zone)
+  slots:              List<DateTime> (required, the shared UTC instants,
+                                      ascending)
+  rows:               List<GridRow>  (required, board order, unresolved rows
+                                      included)
+  nowInstant:         DateTime       (required, UTC)
+  cursorInstant:      DateTime?      (nullable)
+  homeZoneUnresolved: bool           (required, the home zone resolves against
+                                      no tzdata entry so the columns fell back
+                                      to UTC; the page banners it)
 }
 ```
 
+`GridRow.relativeToHome` lives on the row rather than being subtracted in a
+widget, because the home zone is not required to be a row of its own (locations
+rule 3), so a widget would have nothing to subtract from. It is resolved
+pairwise for one instant, never as the difference of two stored offsets
+(engine rule 10).
+
+`GridViewModel.copyWith` takes a `clearCursor` flag: passing
+`cursorInstant: null` cannot say "drop the cursor", being indistinguishable from
+"leave it alone".
+
 `BuildGridUseCase` produces the whole `GridViewModel` from
-`(board, preferences, referenceDate, nowInstant)`. It is pure and synchronous,
-which makes it the natural place for every one of the rules above to be tested
-without a widget.
+`(board, workingHours, referenceDate, nowInstant, cursorInstant?, localeTag)`.
+It takes `nowInstant` rather than a `Clock` so every rule above is pinnable by a
+unit test at a real historical transition. It is pure and synchronous, which
+makes it the natural place for every one of the rules to be tested without a
+widget.
 
 ---
 
@@ -143,7 +177,14 @@ without a widget.
 ### TimeGridCubit
 
 Page-scoped. Depends on `BoardCubit` (read-only), `PreferencesCubit`
-(read-only), `TimeZoneEngine`, `Clock` and `TickerService`.
+(read-only), `BuildGridUseCase`, `TimeZoneEngine` and `Clock`. Not
+`TickerService`: a minute tick that re-emitted the model would rebuild every row
+once a minute, which is what the marker's `CustomPainter` exists to avoid
+(Performance, below).
+
+Subscribing is `start()`, called after construction rather than from it, so a
+test can observe the very first emission: a cubit that emitted from its own
+constructor would have finished before anything could listen.
 
 ```dart
 sealed class TimeGridState extends Equatable
@@ -160,20 +201,42 @@ TimeGridLoading ──board loaded, non-empty──→ TimeGridReady(model)
                 ──board loaded, empty──────→ TimeGridEmpty
                 ──board failed─────────────→ TimeGridError(failure)
 
-TimeGridReady ──stepDate(±1)───────→ TimeGridReady(rebuilt, cursor time-of-day kept)
-              ──goToToday()────────→ TimeGridReady(rebuilt)
-              ──setCursor(instant)─→ TimeGridReady(cursorInstant updated)
-              ──clearCursor()──────→ TimeGridReady(cursorInstant: null)
-              ──tick(now)──────────→ TimeGridReady(nowInstant updated)
-              ──board changed──────→ TimeGridReady(rebuilt) | TimeGridEmpty
-              ──preferences changed→ TimeGridReady(rebuilt)
+TimeGridReady ──setReferenceDate(d)─→ TimeGridReady(rebuilt, cursor time-of-day kept)
+              ──stepDate(±1)────────→ setReferenceDate(current ± whole days)
+              ──goToToday()─────────→ setReferenceDate(todayInHomeZone)
+              ──setCursor(instant)──→ TimeGridReady(cursorInstant updated)
+              ──clearCursor()───────→ TimeGridReady(cursorInstant: null)
+              ──tick(now)───────────→ TimeGridReady(nowInstant updated)
+              ──board changed───────→ TimeGridReady(rebuilt) | TimeGridEmpty
+              ──board failed────────→ TimeGridError(failure)
+              ──preferences changed─→ TimeGridReady(rebuilt)
 ```
 
 The cubit subscribes to `BoardCubit.stream` and `PreferencesCubit.stream` and
-rebuilds the model on any change. It never writes to either.
+rebuilds the model on any change. It never writes to either. Any preference can
+repaint the grid, so the whole stream is watched rather than one field: the
+working window decides every band (rule 7) and the locale decides every date
+label (rule 6).
 
-`tick` only replaces `nowInstant`; it does not rebuild rows or cells. The full
-rebuild happens on date, board or preference changes.
+A board state that is neither loaded nor failed leaves a grid already on screen
+alone, and only falls back to `TimeGridLoading` when no board has ever arrived.
+A refresh re-emits `BoardLoaded`, so holding the last grid beats blanking a
+screen the user is reading.
+
+`tick` only replaces `nowInstant`; it does not rebuild rows or cells, and emits
+nothing when now has not moved. The full rebuild happens on date, board or
+preference changes.
+
+`setCursor` snaps to the slot holding the instant it is given and ignores an
+instant outside the window, so a drag across the cells and a tap on one cell
+produce the same value and every row highlights the same column. Every rebuild
+re-snaps the stored cursor against the new `slots` and drops it when the window
+no longer holds it, which is what keeps `cursorInstant` a member of `slots` for
+the widgets that rely on it.
+
+Two derived values the state does not carry, because both are pure functions of
+the board: `referenceZoneId` (the home zone, or `UTC` when it does not resolve)
+and `todayInHomeZone` (rule 11, never the device's date).
 
 ---
 
@@ -210,14 +273,17 @@ own.
 
 ## Performance
 
-- One shared horizontal `ScrollController` for the header and all rows. Rows do
-  not each own a controller.
-- Cells are built lazily per row with a `ListView.builder` on the horizontal
-  axis, so a 20-row board with a 30-slot window does not build 600 widgets when
-  8 columns are visible.
-- `GridViewModel` is rebuilt only on the four triggers listed in the state
-  machine. Cursor movement mutates one field and repaints via a
-  `ValueListenable`, not by rebuilding the model.
+- One horizontal `ScrollController`, owned by the header strip, which is the
+  grid's only horizontal `Scrollable`. Its offset is republished as a
+  `ValueListenable<double>` that every row and the "now" marker read. One
+  controller attached to several viewports would give each its own position and
+  sync nothing, which is the bug this removes rather than papers over.
+- Each row draws only the columns that offset puts inside the viewport, so a
+  20-row board with a 30-slot window builds roughly the 8 visible columns per
+  row instead of 600.
+- `GridViewModel` is rebuilt only on the triggers listed in the state machine.
+  A cursor move and a tick each replace one field through `copyWith` and leave
+  every row and cell object identical, so no row is recomputed.
 - The "now" marker repaints from a `CustomPainter` fed by the 1/60 Hz ticker, so
   it never rebuilds a widget subtree.
 
@@ -227,13 +293,14 @@ own.
 
 - **Reference day is a DST transition day** → 23 or 25 columns, rule 2. The
   skipped hour simply has no column; the repeated hour has two columns with the
-  same local label and different instants, distinguished by the `DstBadge`.
+  same local label and different instants, and the column the clocks move in
+  carries `hasTransition`, which the cell renders as a `warning` dot.
 - **A row's zone transitions on a day the reference zone does not** → that row
   shows a duplicated or missing local hour while the columns stay whole. Rule 4
   is what makes this render correctly.
-- **Lord Howe's 30-minute DST shift** → after its transition the row's minutes
-  change from `:00` to `:30` mid-row. Rule 5 already renders minutes per cell, so
-  no special case is needed.
+- **Lord Howe's 30-minute DST shift** → its transition moves the row's minutes
+  mid-row, `:30` to `:00` going forward in October and back again in April.
+  Rule 5 already asks the question per cell, so no special case is needed.
 - **Row across the date line** → its date label appears at a different column
   than every other row's, rule 6.
 - **All rows in the same zone** → impossible, locations rule 2 rejects it.
@@ -242,6 +309,18 @@ own.
 - **Board has exactly one location and it is home** → renders one row. Valid.
 - **Home zone unresolved** → the grid falls back to `UTC` as reference and shows
   a banner prompting the user to fix their home city. It does not go blank.
+- **The reference date does not exist in the home zone at all** → `dayIn`
+  reports `hourCount 0` and the day contributes no columns of its own, so the
+  window is the six flanking slots from the neighbouring days and the grid still
+  draws. `Pacific/Apia` has no 2011-12-30: Samoa dropped that date outright
+  when it crossed the date line. `BuildGridUseCase` also defends against the
+  slot list coming out empty altogether, resolving each row's `zoneState` and
+  `relativeToHome` against `nowInstant` rather than against the middle of the
+  window, because `slots[slots.length ~/ 2]` on an empty list is a crash on a
+  day the user is allowed to step onto. **Known rough edge:** the engine
+  reports an absent day by handing back a `ZoneDay` with no hours rather than by
+  saying so, which leaves every caller to notice the empty list for itself. An
+  explicit answer from the engine is worth revisiting.
 - **Reference date far in the future** (a year out) → allowed. Offsets are
   resolved per instant, so scheduled future transitions apply automatically
   (engine rule 2).
@@ -254,9 +333,11 @@ own.
 ## i18n
 
 Copy under `t.grid.*`: `title`, `today`, `emptyTitle`, `emptyMessage`,
-`emptyCta`, `homeBadge`, `dstOn`, `dstTransitionHere`, `unresolvedRow`,
-`homeZoneBrokenBanner`, `rowActionSetHome`, `rowActionRemove`,
-`rowActionReplaceZone`.
+`emptyCta`, `homeBadge`, `sameTime`, `dstOn`, `dstTransitionHere`,
+`dstExplainTitle`, `dstExplainBody`, `unresolvedRow`, `homeZoneBrokenBanner`,
+`rowActionSetHome`, `rowActionRemove`, `rowActionReplaceZone`, `cursorHint`.
+Band names live under `t.bands.*`, because the day/night indicator and the grid
+read the same four words.
 
 Date labels (`Tue 24`) and hour labels go through `intl` with the app locale, not
 through hardcoded strings.
@@ -266,24 +347,60 @@ through hardcoded strings.
 ## Testing
 
 `test/features/time_grid/domain/build_grid_usecase_test.dart` is where the rules
-live. It is a pure-function test, so every case below is cheap:
+live. It is a pure-function test pinned to real IANA transitions, so every case
+below is cheap:
 
-- Column count is 25 on a US fall-back reference day and 23 on the spring-forward
-  one (rule 2).
-- Window includes 3 slots before and after the day (rule 3).
-- A row in `Asia/Kolkata` against a `America/Sao_Paulo` reference produces `:30`
-  minutes in every cell (rule 5).
-- A row whose zone transitions mid-window shows the local hour repeating, while
-  the reference row does not (rule 4).
-- `isDayStart` and `dateLabel` land on different columns for `Pacific/Kiritimati`
-  and `Pacific/Niue` (rule 6).
-- Band assignment respects a custom working window from preferences (rule 7).
-- An unresolved zone yields a row with an empty cell list and `isUnresolved`
-  (rule 14).
+- **Rule 1:** column `n` is the same instant in every row, and Tokyo opens the
+  window on the following calendar day while sharing column 0; the home row is
+  flagged, including when the board stored a legacy alias (`Brazil/East`) of the
+  home zone; rows keep board order.
+- **Rule 2:** a plain day is 24 day slots and 30 total, the 2024-11-03 New York
+  fall-back day 25 and 31, the 2024-03-10 spring-forward day 23 and 29. That
+  spring-forward row has no `02:00` column at all, and the fall-back row reads
+  `01:00` twice at two different instants, with `hasTransition` on the second.
+- **Rule 3:** the window opens three hours before local midnight and closes
+  three after; the flanks come from the neighbouring days on both DST days;
+  `America/Santiago` on 2024-09-08, a day that begins on its own transition and
+  has no midnight, still gets its three flanks; consecutive slots are always
+  exactly one real hour apart.
+- **Rule 4:** New York repeats `01:00` on the fall-back day while a Sao Paulo
+  reference row does not, and the transition is flagged on the row that has it
+  rather than across the grid.
+- **Rule 5:** `Asia/Kolkata` reads `:30` and `Asia/Kathmandu` `:45` in every
+  cell against a Sao Paulo reference, with `relativeToHome` carrying the
+  minutes; `Australia/Lord_Howe` loses its `:30` mid-window on 2024-10-06,
+  which is what a per-row minute would get wrong.
+- **Rule 6:** `Pacific/Kiritimati` and `Pacific/Niue` turn the date on different
+  columns of the same window; a UTC row marks both midnights; the first cell
+  never opens a day; `dateLabel` is present exactly when `isDayStart` is set;
+  labels are formatted under the locale tag (`pt-BR` gives `ter`).
+- **Rule 7:** a night-shift working window makes 23:00 `good` where the default
+  makes it `night`, the default window bands 17:00 `fair` and 19:00 `poor`, and
+  a band follows the row's local hour rather than the reference hour.
+- **Rule 14:** an unresolved row carries no cells, no `zoneState` and a zero
+  `relativeToHome`, and the rows around it keep their cells and their order.
+- **Unresolved home zone:** `homeZoneUnresolved` is set, the columns fall back
+  to UTC hours, and the board still renders every row; the flag is clear for a
+  home zone that resolves.
+- **Zone state and offsets:** they answer for the reference day and not for
+  `nowInstant` (a January reference day reads `EST` and `-2h` while now is in
+  July), and the home row carries a zero relative offset.
+- **Model plumbing:** `nowInstant` and `cursorInstant` are carried through
+  untouched, there is no cursor unless one is passed, `referenceDate` is reduced
+  to the local date it names, and an empty board still produces the column
+  window.
 
-`test/features/time_grid/presentation/time_grid_cubit_test.dart` covers the state
-machine, including cursor time-of-day preservation across `stepDate` (rule 10)
-and rebuild-on-board-change.
+`test/features/time_grid/presentation/cubit/time_grid_cubit_test.dart` covers the
+state machine: the first state before `start()`, opening on today in the home
+zone rather than on the device date, holding the last grid through a transient
+board state, stopping after `close()`, rebuild on board change (row added, board
+emptied, new home zone, unresolvable home zone) and on a preference change,
+cursor snapping and clearing, rule 10 across the 25-hour fall-back day and
+across `goToToday`, and `tick` moving now without rebuilding a row.
 
-Widget tests cover: pinned column does not scroll horizontally, cursor highlights
-the same instant across rows, and the empty state renders.
+`test/features/time_grid/presentation/pages/time_grid_page_test.dart` covers:
+the pinned label column does not move with the hours, the cursor lights the same
+instant in every row, a half-hour zone renders its minutes while home does not,
+the empty board invites a first city with no grid behind it, the placeholder
+holds until the board resolves, the home-zone banner appears only when the zone
+did not resolve, and the last row scrolls clear of the FAB.
