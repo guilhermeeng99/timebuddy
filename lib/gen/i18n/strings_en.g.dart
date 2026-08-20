@@ -46,6 +46,9 @@ class Translations with BaseTranslations<AppLocale, Translations> {
 	late final Translations$startup$en startup = Translations$startup$en._(_root);
 	late final Translations$settings$en settings = Translations$settings$en._(_root);
 	late final Translations$bands$en bands = Translations$bands$en._(_root);
+	late final Translations$nav$en nav = Translations$nav$en._(_root);
+	late final Translations$grid$en grid = Translations$grid$en._(_root);
+	late final Translations$locations$en locations = Translations$locations$en._(_root);
 }
 
 // Path: app
@@ -91,6 +94,24 @@ class Translations$common$en {
 
 	/// en: 'That didn't work. Check your connection and try again.'
 	String get errorBody => 'That didn\'t work. Check your connection and try again.';
+
+	/// en: 'Add'
+	String get add => 'Add';
+
+	/// en: 'Edit'
+	String get edit => 'Edit';
+
+	/// en: 'Remove'
+	String get remove => 'Remove';
+
+	/// en: 'Done'
+	String get done => 'Done';
+
+	/// en: 'Search'
+	String get search => 'Search';
+
+	/// en: 'Clear'
+	String get clear => 'Clear';
 }
 
 // Path: home
@@ -288,6 +309,150 @@ class Translations$bands$en {
 	String get night => 'Night';
 }
 
+// Path: nav
+class Translations$nav$en {
+	Translations$nav$en._(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Grid'
+	String get grid => 'Grid';
+
+	/// en: 'Cities'
+	String get locations => 'Cities';
+
+	/// en: 'Settings'
+	String get settings => 'Settings';
+}
+
+// Path: grid
+class Translations$grid$en {
+	Translations$grid$en._(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Time grid'
+	String get title => 'Time grid';
+
+	/// en: 'Today'
+	String get today => 'Today';
+
+	/// en: 'No cities yet'
+	String get emptyTitle => 'No cities yet';
+
+	/// en: 'Add a city and its hours line up next to yours, hour by hour.'
+	String get emptyMessage => 'Add a city and its hours line up next to yours, hour by hour.';
+
+	/// en: 'Add your first city'
+	String get emptyCta => 'Add your first city';
+
+	/// en: 'Home'
+	String get homeBadge => 'Home';
+
+	/// en: 'Same time as home'
+	String get sameTime => 'Same time as home';
+
+	/// en: 'Daylight saving'
+	String get dstOn => 'Daylight saving';
+
+	/// en: 'The clocks change during this hour'
+	String get dstTransitionHere => 'The clocks change during this hour';
+
+	/// en: 'Why this day looks odd'
+	String get dstExplainTitle => 'Why this day looks odd';
+
+	/// en: 'This zone moves its clocks on this day, so the day is 23 or 25 hours long. One hour is skipped or repeated, and every hour after it shifts.'
+	String get dstExplainBody => 'This zone moves its clocks on this day, so the day is 23 or 25 hours long. One hour is skipped or repeated, and every hour after it shifts.';
+
+	/// en: 'Time zone unavailable'
+	String get unresolvedRow => 'Time zone unavailable';
+
+	/// en: 'We could not resolve your home time zone, so the grid is lined up to UTC. Pick your home city to fix it.'
+	String get homeZoneBrokenBanner => 'We could not resolve your home time zone, so the grid is lined up to UTC. Pick your home city to fix it.';
+
+	/// en: 'Set as home'
+	String get rowActionSetHome => 'Set as home';
+
+	/// en: 'Remove from board'
+	String get rowActionRemove => 'Remove from board';
+
+	/// en: 'Replace time zone'
+	String get rowActionReplaceZone => 'Replace time zone';
+
+	/// en: 'Tap or drag across the hours to read one moment in every city.'
+	String get cursorHint => 'Tap or drag across the hours to read one moment in every city.';
+}
+
+// Path: locations
+class Translations$locations$en {
+	Translations$locations$en._(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'My cities'
+	String get title => 'My cities';
+
+	/// en: 'Your board is empty'
+	String get emptyTitle => 'Your board is empty';
+
+	/// en: 'Add the cities you work with and see their hours side by side.'
+	String get emptyMessage => 'Add the cities you work with and see their hours side by side.';
+
+	/// en: 'Add a city'
+	String get emptyCta => 'Add a city';
+
+	/// en: 'Add a city'
+	String get addTitle => 'Add a city';
+
+	/// en: 'Search a city, country or time zone'
+	String get searchHint => 'Search a city, country or time zone';
+
+	/// en: 'No city matches that. Try the country, or a time zone id like America/Sao_Paulo.'
+	String get searchNoResults => 'No city matches that. Try the country, or a time zone id like America/Sao_Paulo.';
+
+	/// en: '${city} already covers this time zone.'
+	String duplicateZone({required Object city}) => '${city} already covers this time zone.';
+
+	/// en: 'Your board holds up to ${max} cities. Remove one to add another.'
+	String boardFull({required Object max}) => 'Your board holds up to ${max} cities. Remove one to add another.';
+
+	/// en: '${city} removed'
+	String removed({required Object city}) => '${city} removed';
+
+	/// en: 'Undo'
+	String get undo => 'Undo';
+
+	/// en: 'This time zone is no longer available.'
+	String get unresolvedZone => 'This time zone is no longer available.';
+
+	/// en: 'Replace time zone'
+	String get replaceZone => 'Replace time zone';
+
+	/// en: 'Pick your home city'
+	String get pickHomeTitle => 'Pick your home city';
+
+	/// en: 'We could not detect your time zone, so every difference is measured from UTC. Choose your home city to fix it.'
+	String get pickHomeMessage => 'We could not detect your time zone, so every difference is measured from UTC. Choose your home city to fix it.';
+
+	/// en: 'Set as home'
+	String get setAsHome => 'Set as home';
+
+	/// en: 'Home'
+	String get homeLabel => 'Home';
+
+	/// en: 'Press and hold a city to drag it into place.'
+	String get reorderHint => 'Press and hold a city to drag it into place.';
+
+	/// en: '${count} of ${max} cities'
+	String countLabel({required Object count, required Object max}) => '${count} of ${max} cities';
+}
+
 /// The flat map containing all translations for locale <en>.
 /// Only for edge cases! For simple maps, use the map function of this library.
 ///
@@ -305,6 +470,12 @@ extension on Translations {
 			'common.loading' => 'Loading...',
 			'common.errorTitle' => 'Something went wrong',
 			'common.errorBody' => 'That didn\'t work. Check your connection and try again.',
+			'common.add' => 'Add',
+			'common.edit' => 'Edit',
+			'common.remove' => 'Remove',
+			'common.done' => 'Done',
+			'common.search' => 'Search',
+			'common.clear' => 'Clear',
 			'home.title' => 'TimeBuddy',
 			'home.deviceClockLabel' => 'Your device',
 			'home.settingsAction' => 'Settings',
@@ -358,6 +529,45 @@ extension on Translations {
 			'bands.fair' => 'Borderline',
 			'bands.poor' => 'Off hours',
 			'bands.night' => 'Night',
+			'nav.grid' => 'Grid',
+			'nav.locations' => 'Cities',
+			'nav.settings' => 'Settings',
+			'grid.title' => 'Time grid',
+			'grid.today' => 'Today',
+			'grid.emptyTitle' => 'No cities yet',
+			'grid.emptyMessage' => 'Add a city and its hours line up next to yours, hour by hour.',
+			'grid.emptyCta' => 'Add your first city',
+			'grid.homeBadge' => 'Home',
+			'grid.sameTime' => 'Same time as home',
+			'grid.dstOn' => 'Daylight saving',
+			'grid.dstTransitionHere' => 'The clocks change during this hour',
+			'grid.dstExplainTitle' => 'Why this day looks odd',
+			'grid.dstExplainBody' => 'This zone moves its clocks on this day, so the day is 23 or 25 hours long. One hour is skipped or repeated, and every hour after it shifts.',
+			'grid.unresolvedRow' => 'Time zone unavailable',
+			'grid.homeZoneBrokenBanner' => 'We could not resolve your home time zone, so the grid is lined up to UTC. Pick your home city to fix it.',
+			'grid.rowActionSetHome' => 'Set as home',
+			'grid.rowActionRemove' => 'Remove from board',
+			'grid.rowActionReplaceZone' => 'Replace time zone',
+			'grid.cursorHint' => 'Tap or drag across the hours to read one moment in every city.',
+			'locations.title' => 'My cities',
+			'locations.emptyTitle' => 'Your board is empty',
+			'locations.emptyMessage' => 'Add the cities you work with and see their hours side by side.',
+			'locations.emptyCta' => 'Add a city',
+			'locations.addTitle' => 'Add a city',
+			'locations.searchHint' => 'Search a city, country or time zone',
+			'locations.searchNoResults' => 'No city matches that. Try the country, or a time zone id like America/Sao_Paulo.',
+			'locations.duplicateZone' => ({required Object city}) => '${city} already covers this time zone.',
+			'locations.boardFull' => ({required Object max}) => 'Your board holds up to ${max} cities. Remove one to add another.',
+			'locations.removed' => ({required Object city}) => '${city} removed',
+			'locations.undo' => 'Undo',
+			'locations.unresolvedZone' => 'This time zone is no longer available.',
+			'locations.replaceZone' => 'Replace time zone',
+			'locations.pickHomeTitle' => 'Pick your home city',
+			'locations.pickHomeMessage' => 'We could not detect your time zone, so every difference is measured from UTC. Choose your home city to fix it.',
+			'locations.setAsHome' => 'Set as home',
+			'locations.homeLabel' => 'Home',
+			'locations.reorderHint' => 'Press and hold a city to drag it into place.',
+			'locations.countLabel' => ({required Object count, required Object max}) => '${count} of ${max} cities',
 			_ => null,
 		};
 	}

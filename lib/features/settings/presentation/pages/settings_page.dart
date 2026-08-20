@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:timebuddy/app/theme/app_spacing.dart';
 import 'package:timebuddy/app/theme/dark_palettes.dart';
 import 'package:timebuddy/app/theme/light_palettes.dart';
+import 'package:timebuddy/app/widgets/fab_safe_area.dart';
 import 'package:timebuddy/app/widgets/loading_shimmer.dart';
 import 'package:timebuddy/app/widgets/responsive_layout.dart';
 import 'package:timebuddy/app/widgets/timebuddy_large_app_bar.dart';
@@ -93,7 +94,16 @@ class _SettingsBody extends StatelessWidget {
           maxWidth: ResponsiveLayout.maxContentWidth,
         ),
         child: ListView(
-          padding: const EdgeInsets.all(AppSpacing.lg),
+          // Settings is a primary destination, so on mobile the floating
+          // bottom bar hovers over the end of this list. A flat inset leaves
+          // the licenses row visible but untappable, which design_system §9
+          // lists among the things a screen must never do.
+          padding: EdgeInsets.fromLTRB(
+            AppSpacing.lg,
+            AppSpacing.lg,
+            AppSpacing.lg,
+            bottomSafeForBar(context, isSubPage: false),
+          ),
           children: [
             _AppearanceSection(preferences: preferences),
             const SizedBox(height: AppSpacing.xl),

@@ -43,6 +43,9 @@ class TranslationsPtBr with BaseTranslations<AppLocale, Translations> implements
 	@override late final _Translations$startup$pt_BR startup = _Translations$startup$pt_BR._(_root);
 	@override late final _Translations$settings$pt_BR settings = _Translations$settings$pt_BR._(_root);
 	@override late final _Translations$bands$pt_BR bands = _Translations$bands$pt_BR._(_root);
+	@override late final _Translations$nav$pt_BR nav = _Translations$nav$pt_BR._(_root);
+	@override late final _Translations$grid$pt_BR grid = _Translations$grid$pt_BR._(_root);
+	@override late final _Translations$locations$pt_BR locations = _Translations$locations$pt_BR._(_root);
 }
 
 // Path: app
@@ -70,6 +73,12 @@ class _Translations$common$pt_BR implements Translations$common$en {
 	@override String get loading => 'Carregando...';
 	@override String get errorTitle => 'Algo deu errado';
 	@override String get errorBody => 'Não rolou desta vez. Confira sua conexão e tente de novo.';
+	@override String get add => 'Adicionar';
+	@override String get edit => 'Editar';
+	@override String get remove => 'Remover';
+	@override String get done => 'Pronto';
+	@override String get search => 'Buscar';
+	@override String get clear => 'Limpar';
 }
 
 // Path: home
@@ -161,6 +170,72 @@ class _Translations$bands$pt_BR implements Translations$bands$en {
 	@override String get night => 'Madrugada';
 }
 
+// Path: nav
+class _Translations$nav$pt_BR implements Translations$nav$en {
+	_Translations$nav$pt_BR._(this._root);
+
+	final TranslationsPtBr _root; // ignore: unused_field
+
+	// Translations
+	@override String get grid => 'Grade';
+	@override String get locations => 'Cidades';
+	@override String get settings => 'Configurações';
+}
+
+// Path: grid
+class _Translations$grid$pt_BR implements Translations$grid$en {
+	_Translations$grid$pt_BR._(this._root);
+
+	final TranslationsPtBr _root; // ignore: unused_field
+
+	// Translations
+	@override String get title => 'Grade de horários';
+	@override String get today => 'Hoje';
+	@override String get emptyTitle => 'Nenhuma cidade por aqui';
+	@override String get emptyMessage => 'Adicione uma cidade e as horas dela ficam lado a lado com as suas, hora a hora.';
+	@override String get emptyCta => 'Adicionar a primeira cidade';
+	@override String get homeBadge => 'Base';
+	@override String get sameTime => 'Mesmo horário da sua base';
+	@override String get dstOn => 'Horário de verão';
+	@override String get dstTransitionHere => 'O relógio muda dentro desta hora';
+	@override String get dstExplainTitle => 'Por que este dia parece estranho';
+	@override String get dstExplainBody => 'Este fuso muda o relógio neste dia, então o dia tem 23 ou 25 horas. Uma hora é pulada ou repetida, e todas as horas seguintes se deslocam.';
+	@override String get unresolvedRow => 'Fuso horário indisponível';
+	@override String get homeZoneBrokenBanner => 'Não conseguimos identificar o fuso da sua cidade base, então a grade está alinhada pelo UTC. Escolha sua cidade base para corrigir.';
+	@override String get rowActionSetHome => 'Definir como base';
+	@override String get rowActionRemove => 'Remover do painel';
+	@override String get rowActionReplaceZone => 'Trocar o fuso horário';
+	@override String get cursorHint => 'Toque ou arraste sobre as horas para ver o mesmo momento em todas as cidades.';
+}
+
+// Path: locations
+class _Translations$locations$pt_BR implements Translations$locations$en {
+	_Translations$locations$pt_BR._(this._root);
+
+	final TranslationsPtBr _root; // ignore: unused_field
+
+	// Translations
+	@override String get title => 'Minhas cidades';
+	@override String get emptyTitle => 'Seu painel está vazio';
+	@override String get emptyMessage => 'Adicione as cidades com que você trabalha e veja os horários delas lado a lado.';
+	@override String get emptyCta => 'Adicionar cidade';
+	@override String get addTitle => 'Adicionar cidade';
+	@override String get searchHint => 'Busque por cidade, país ou fuso horário';
+	@override String get searchNoResults => 'Nenhuma cidade encontrada. Tente pelo país ou por um id de fuso, como America/Sao_Paulo.';
+	@override String duplicateZone({required Object city}) => '${city} já cobre esse fuso horário.';
+	@override String boardFull({required Object max}) => 'Seu painel comporta até ${max} cidades. Remova uma para adicionar outra.';
+	@override String removed({required Object city}) => '${city} foi removida';
+	@override String get undo => 'Desfazer';
+	@override String get unresolvedZone => 'Este fuso horário não está mais disponível.';
+	@override String get replaceZone => 'Trocar o fuso horário';
+	@override String get pickHomeTitle => 'Escolha sua cidade base';
+	@override String get pickHomeMessage => 'Não detectamos seu fuso horário, então todas as diferenças estão sendo medidas a partir do UTC. Escolha sua cidade base para corrigir.';
+	@override String get setAsHome => 'Definir como base';
+	@override String get homeLabel => 'Base';
+	@override String get reorderHint => 'Toque e segure uma cidade para arrastá-la até a posição.';
+	@override String countLabel({required Object count, required Object max}) => '${count} de ${max} cidades';
+}
+
 /// The flat map containing all translations for locale <pt-BR>.
 /// Only for edge cases! For simple maps, use the map function of this library.
 ///
@@ -178,6 +253,12 @@ extension on TranslationsPtBr {
 			'common.loading' => 'Carregando...',
 			'common.errorTitle' => 'Algo deu errado',
 			'common.errorBody' => 'Não rolou desta vez. Confira sua conexão e tente de novo.',
+			'common.add' => 'Adicionar',
+			'common.edit' => 'Editar',
+			'common.remove' => 'Remover',
+			'common.done' => 'Pronto',
+			'common.search' => 'Buscar',
+			'common.clear' => 'Limpar',
 			'home.title' => 'TimeBuddy',
 			'home.deviceClockLabel' => 'Seu dispositivo',
 			'home.settingsAction' => 'Configurações',
@@ -231,6 +312,45 @@ extension on TranslationsPtBr {
 			'bands.fair' => 'No limite',
 			'bands.poor' => 'Fora do expediente',
 			'bands.night' => 'Madrugada',
+			'nav.grid' => 'Grade',
+			'nav.locations' => 'Cidades',
+			'nav.settings' => 'Configurações',
+			'grid.title' => 'Grade de horários',
+			'grid.today' => 'Hoje',
+			'grid.emptyTitle' => 'Nenhuma cidade por aqui',
+			'grid.emptyMessage' => 'Adicione uma cidade e as horas dela ficam lado a lado com as suas, hora a hora.',
+			'grid.emptyCta' => 'Adicionar a primeira cidade',
+			'grid.homeBadge' => 'Base',
+			'grid.sameTime' => 'Mesmo horário da sua base',
+			'grid.dstOn' => 'Horário de verão',
+			'grid.dstTransitionHere' => 'O relógio muda dentro desta hora',
+			'grid.dstExplainTitle' => 'Por que este dia parece estranho',
+			'grid.dstExplainBody' => 'Este fuso muda o relógio neste dia, então o dia tem 23 ou 25 horas. Uma hora é pulada ou repetida, e todas as horas seguintes se deslocam.',
+			'grid.unresolvedRow' => 'Fuso horário indisponível',
+			'grid.homeZoneBrokenBanner' => 'Não conseguimos identificar o fuso da sua cidade base, então a grade está alinhada pelo UTC. Escolha sua cidade base para corrigir.',
+			'grid.rowActionSetHome' => 'Definir como base',
+			'grid.rowActionRemove' => 'Remover do painel',
+			'grid.rowActionReplaceZone' => 'Trocar o fuso horário',
+			'grid.cursorHint' => 'Toque ou arraste sobre as horas para ver o mesmo momento em todas as cidades.',
+			'locations.title' => 'Minhas cidades',
+			'locations.emptyTitle' => 'Seu painel está vazio',
+			'locations.emptyMessage' => 'Adicione as cidades com que você trabalha e veja os horários delas lado a lado.',
+			'locations.emptyCta' => 'Adicionar cidade',
+			'locations.addTitle' => 'Adicionar cidade',
+			'locations.searchHint' => 'Busque por cidade, país ou fuso horário',
+			'locations.searchNoResults' => 'Nenhuma cidade encontrada. Tente pelo país ou por um id de fuso, como America/Sao_Paulo.',
+			'locations.duplicateZone' => ({required Object city}) => '${city} já cobre esse fuso horário.',
+			'locations.boardFull' => ({required Object max}) => 'Seu painel comporta até ${max} cidades. Remova uma para adicionar outra.',
+			'locations.removed' => ({required Object city}) => '${city} foi removida',
+			'locations.undo' => 'Desfazer',
+			'locations.unresolvedZone' => 'Este fuso horário não está mais disponível.',
+			'locations.replaceZone' => 'Trocar o fuso horário',
+			'locations.pickHomeTitle' => 'Escolha sua cidade base',
+			'locations.pickHomeMessage' => 'Não detectamos seu fuso horário, então todas as diferenças estão sendo medidas a partir do UTC. Escolha sua cidade base para corrigir.',
+			'locations.setAsHome' => 'Definir como base',
+			'locations.homeLabel' => 'Base',
+			'locations.reorderHint' => 'Toque e segure uma cidade para arrastá-la até a posição.',
+			'locations.countLabel' => ({required Object count, required Object max}) => '${count} de ${max} cidades',
 			_ => null,
 		};
 	}

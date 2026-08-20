@@ -112,20 +112,38 @@ tz.Location? locationOrNull(String zoneId) {
 /// `tz.getLocation` throws on an unknown name, so the database map is read
 /// directly: a miss here is an ordinary answer, not an exception.
 tz.Location? _locationNamed(String name) {
-  // The shipped database registers UTC under its IANA name `Etc/UTC` only, so
-  // the short id this app persists has to be wired to it explicitly.
+  // `latest_all` does register the short `UTC`, unlike `latest`, which knows
+  // it only as `Etc/UTC`. The wiring stays explicit anyway so the one id this
+  // app persists cannot be taken away by a dataset change
+  // (docs/specs/timezone_engine.md rule 4).
   if (name == utcZoneId) return tz.UTC;
   return tz.timeZoneDatabase.locations[name];
 }
 
 /// Legacy and merged IANA ids mapped to the canonical id the tzdata ships.
 ///
-/// This map is not a convenience. The `timezone` package embeds only the
-/// *canonical* zones: every `Link` line of the IANA distribution is dropped, so
-/// `Europe/Oslo`, `Asia/Kuala_Lumpur`, `Africa/Accra` and roughly two hundred
-/// other perfectly current ids simply do not exist in the database. Without
-/// this map a saved location for Oslo silently falls back to UTC and the user
-/// sees a clock that is one hour wrong for half the year.
+/// This map **canonicalises**, it does not rescue. The engine imports
+/// `data/latest_all.dart` (598 names), which keeps every `Link` line of the
+/// IANA distribution, so `Europe/Oslo`, `Asia/Kuala_Lumpur` and
+/// `Africa/Accra` already resolve on their own. What they resolve to is the
+/// problem: a `Link` and its target are one clock under two spellings, and
+/// without the rewrite the board takes them for two places, slips both past
+/// the duplicate-zone check (docs/specs/locations.md rule 2) and draws two
+/// identical rows. The ids renamed upstream (`Asia/Calcutta`) and the pre-IANA
+/// names (`US/Pacific`) are the same story: `latest_all` still answers to them,
+/// and the answer has to be rewritten to the one name the rest of the app
+/// stores and compares against.
+///
+/// **These entries are not dead weight, and the two datasets do not differ
+/// only in size.** Delete a row and the id it covered still resolves, which is
+/// precisely why the damage is invisible: the board just gains a second row for
+/// a clock it already had, and an id stored under its old name is never
+/// rewritten. Switch the import to `data/latest.dart` because 185 KB looks
+/// worth saving and the damage moves rather than disappearing: that dataset
+/// carries 341 locations and no `Link` at all, so every link name this map does
+/// not happen to list stops resolving, degrades to UTC, and reads as a
+/// perfectly plausible clock that is an hour wrong for half the year. See
+/// CLAUDE.md rule 8 and docs/specs/timezone_engine.md rule 4.
 ///
 /// Three groups live here:
 ///   * renamed zones (`Asia/Calcutta`, `Europe/Kiev`, `America/Godthab`),

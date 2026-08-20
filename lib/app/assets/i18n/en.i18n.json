@@ -10,7 +10,13 @@
     "close": "Close",
     "loading": "Loading...",
     "errorTitle": "Something went wrong",
-    "errorBody": "That didn't work. Check your connection and try again."
+    "errorBody": "That didn't work. Check your connection and try again.",
+    "add": "Add",
+    "edit": "Edit",
+    "remove": "Remove",
+    "done": "Done",
+    "search": "Search",
+    "clear": "Clear"
   },
   "home": {
     "title": "TimeBuddy",
@@ -72,5 +78,50 @@
     "fair": "Borderline",
     "poor": "Off hours",
     "night": "Night"
+  },
+  "nav": {
+    "grid": "Grid",
+    "locations": "Cities",
+    "settings": "Settings"
+  },
+  "grid": {
+    "title": "Time grid",
+    "today": "Today",
+    "emptyTitle": "No cities yet",
+    "emptyMessage": "Add a city and its hours line up next to yours, hour by hour.",
+    "emptyCta": "Add your first city",
+    "homeBadge": "Home",
+    "sameTime": "Same time as home",
+    "dstOn": "Daylight saving",
+    "dstTransitionHere": "The clocks change during this hour",
+    "dstExplainTitle": "Why this day looks odd",
+    "dstExplainBody": "This zone moves its clocks on this day, so the day is 23 or 25 hours long. One hour is skipped or repeated, and every hour after it shifts.",
+    "unresolvedRow": "Time zone unavailable",
+    "homeZoneBrokenBanner": "We could not resolve your home time zone, so the grid is lined up to UTC. Pick your home city to fix it.",
+    "rowActionSetHome": "Set as home",
+    "rowActionRemove": "Remove from board",
+    "rowActionReplaceZone": "Replace time zone",
+    "cursorHint": "Tap or drag across the hours to read one moment in every city."
+  },
+  "locations": {
+    "title": "My cities",
+    "emptyTitle": "Your board is empty",
+    "emptyMessage": "Add the cities you work with and see their hours side by side.",
+    "emptyCta": "Add a city",
+    "addTitle": "Add a city",
+    "searchHint": "Search a city, country or time zone",
+    "searchNoResults": "No city matches that. Try the country, or a time zone id like America/Sao_Paulo.",
+    "duplicateZone": "${city} already covers this time zone.",
+    "boardFull": "Your board holds up to ${max} cities. Remove one to add another.",
+    "removed": "${city} removed",
+    "undo": "Undo",
+    "unresolvedZone": "This time zone is no longer available.",
+    "replaceZone": "Replace time zone",
+    "pickHomeTitle": "Pick your home city",
+    "pickHomeMessage": "We could not detect your time zone, so every difference is measured from UTC. Choose your home city to fix it.",
+    "setAsHome": "Set as home",
+    "homeLabel": "Home",
+    "reorderHint": "Press and hold a city to drag it into place.",
+    "countLabel": "${count} of ${max} cities"
   }
 }

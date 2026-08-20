@@ -23,6 +23,14 @@ import 'package:timebuddy/gen/i18n/strings.g.dart';
 /// sources of truth for it. This widget reads the preferences state, reassigns
 /// `AppColors.light` / `AppColors.dark`, and only then builds `MaterialApp`.
 ///
+/// It owns the preferences load and nothing else. The board is loaded one
+/// level down, by `AppShell`, which is the first widget that both outlives a
+/// page and sits above every page that reads it (see `app_shell.dart`). The
+/// two loads are therefore sequential — the router is not built until
+/// preferences resolve — which is correct rather than merely convenient: the
+/// grid is rendered in the user's palette and clock format, and starting it
+/// before those are known would paint a screen that restyles itself.
+///
 /// ```dart
 /// runApp(TranslationProvider(child: const TimeBuddyApp()));
 /// ```

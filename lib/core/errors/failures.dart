@@ -16,10 +16,10 @@ import 'package:equatable/equatable.dart';
 /// result.fold(
 ///   (failure) => switch (failure) {
 ///     DuplicateZoneFailure(:final existingLabel) =>
-///       context.showSnack(t.locations.duplicate(city: existingLabel)),
+///       context.showSnack(t.locations.duplicateZone(city: existingLabel)),
 ///     BoardFullFailure(:final max) =>
 ///       context.showSnack(t.locations.boardFull(max: max)),
-///     _ => context.showSnack(t.errors.generic),
+///     _ => context.showSnack(t.common.errorBody),
 ///   },
 ///   (board) => emit(BoardReady(board)),
 /// );

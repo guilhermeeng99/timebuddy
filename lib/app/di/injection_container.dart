@@ -4,10 +4,17 @@ import 'package:timebuddy/core/storage/local_store.dart';
 import 'package:timebuddy/core/time/clock.dart';
 import 'package:timebuddy/core/time/ticker_service.dart';
 import 'package:timebuddy/core/time/timezone_engine.dart';
+import 'package:timebuddy/features/locations/data/datasources/board_local_datasource.dart';
+import 'package:timebuddy/features/locations/data/repositories/board_repository_impl.dart';
+import 'package:timebuddy/features/locations/data/repositories/city_catalog_repository_impl.dart';
+import 'package:timebuddy/features/locations/domain/repositories/board_repository.dart';
+import 'package:timebuddy/features/locations/domain/repositories/city_catalog_repository.dart';
 import 'package:timebuddy/features/preferences/data/datasources/preferences_local_datasource.dart';
 import 'package:timebuddy/features/preferences/data/repositories/preferences_repository_impl.dart';
 import 'package:timebuddy/features/preferences/domain/repositories/preferences_repository.dart';
 import 'package:timebuddy/features/preferences/presentation/cubit/preferences_cubit.dart';
+import 'package:timebuddy/features/time_grid/domain/usecases/build_grid_usecase.dart';
+import 'package:uuid/uuid.dart';
 
 /// The app's service locator.
 ///
@@ -25,7 +32,9 @@ final GetIt sl = GetIt.instance;
 /// Called once from `main`, before `runApp`. Everything here is
 /// `registerLazySingleton`: these are the session-independent services listed
 /// in CLAUDE.md (State Management, Lifecycle). Session- and page-scoped cubits
-/// are created by their route, not here.
+/// are created by their route or their page, not here — `BoardCubit` in
+/// particular is built by `AppShell`, so its lifetime is the shell's and a
+/// stray `sl<BoardCubit>()` cannot hand a second one out.
 ///
 /// The registration order is irrelevant — the factories run on first
 /// resolution — but the dependency direction is not: nothing in `core` may
@@ -49,6 +58,10 @@ Future<void> configureDependencies() async {
     ..registerLazySingleton<TickerService>(
       () => TickerService(clock: sl<Clock>()),
     )
+    // Stateless generator, but a singleton anyway: `Uuid` is injected rather
+    // than called statically so a test can hand `BoardCubit` a counter and
+    // assert on the ids it wrote.
+    ..registerLazySingleton<Uuid>(Uuid.new)
     ..registerLazySingleton<PreferencesLocalDataSource>(
       () => PreferencesLocalDataSourceImpl(sl<LocalStore>()),
     )
@@ -66,5 +79,25 @@ Future<void> configureDependencies() async {
         repository: sl<PreferencesRepository>(),
         clock: sl<Clock>(),
       ),
+    )
+    ..registerLazySingleton<BoardLocalDataSource>(
+      () => BoardLocalDataSourceImpl(sl<LocalStore>()),
+    )
+    ..registerLazySingleton<BoardRepository>(
+      () => BoardRepositoryImpl(
+        localDataSource: sl<BoardLocalDataSource>(),
+        clock: sl<Clock>(),
+      ),
+    )
+    // Singleton because the parsed catalog is the cache: roughly 400 entries
+    // read from an asset once and kept in memory (CLAUDE.md, Performance). A
+    // factory would re-parse the JSON on every keystroke in the city picker.
+    ..registerLazySingleton<CityCatalogRepository>(
+      CityCatalogRepositoryImpl.new,
+    )
+    // Pure and stateless, so sharing one instance costs nothing and saves the
+    // grid cubit from constructing a use case per rebuild.
+    ..registerLazySingleton<BuildGridUseCase>(
+      () => BuildGridUseCase(engine: sl<TimeZoneEngine>()),
     );
 }

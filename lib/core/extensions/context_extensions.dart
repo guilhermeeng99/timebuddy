@@ -11,7 +11,7 @@ import 'package:timebuddy/app/theme/app_colors.dart';
 /// ```dart
 /// final colors = context.appColors;
 /// Text(city.label, style: context.textTheme.titleLarge);
-/// context.showSnack(t.locations.added);
+/// context.showSnack(t.locations.removed(city: city.label));
 /// ```
 extension ContextExtensions on BuildContext {
   /// Semantic color tokens of the brightness currently rendering.
