@@ -221,15 +221,15 @@ void main() {
     required Size surface,
     String initialLocation = AppRoutes.grid,
   }) async {
-    tester.view
-      ..devicePixelRatio = 1
-      ..physicalSize = surface;
-    // The view is process-wide. Without the reset the next test in this file
-    // inherits this width and quietly asserts the wrong side of the
-    // breakpoint.
-    addTearDown(tester.view.reset);
-
-    final app = await pumpApp(tester, const SizedBox.shrink());
+    // Through the harness rather than by setting `tester.view` here, which is
+    // what this file used to do: `surfaceSize` now moves `MediaQuery` as well
+    // as the render surface, and owns the reset that stops one test's width
+    // reaching the next.
+    final app = await pumpApp(
+      tester,
+      const SizedBox.shrink(),
+      surfaceSize: surface,
+    );
 
     // Hoisted out of the stub: building the answer inside `when` is what makes
     // mocktail throw "Cannot call `when` within a stub response".

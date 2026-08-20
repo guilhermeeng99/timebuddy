@@ -46,26 +46,26 @@ import '../../../../harness/pump_app.dart';
 // cannot tell a rail that took the stepper from a rail that never existed.
 //
 // ---------------------------------------------------------------------------
-// KNOWN FAILURE — the three mobile tests, and the finding this file was
-// written to make.
+// WHAT THIS FILE FOUND, and why the mobile half of it is worth keeping.
 //
-// They fail inside `pumpGridShell`, on a `RenderFlex` overflow raised by
-// `lib/app/widgets/location_row.dart:144`, not on anything they assert. The
-// dense column's status line puts the zone abbreviation and the `Home` chip
-// into a `Row` as two *unflexed* children, so the pair takes its natural
-// width and overflows the 80px left inside the 96px column
-// (`96 - 2 * AppSpacing.sm`). Only the home row is affected: every other row
-// carries its offset badge in a `Flexible`, which ellipsizes instead. Set the
-// overflow aside and all six tests pass, so nothing below is waiting on a
-// second fix.
+// The three mobile tests here were the first in the suite to lay the dense
+// 96px column out at all, and they failed on a `RenderFlex` overflow raised
+// inside `LocationRow` rather than on anything they assert: the status line
+// put the zone abbreviation and the `Home` chip into a `Row` as two unflexed
+// children, so the pair took its natural width and overran the 80px left
+// inside the column (`96 - 2 * AppSpacing.sm`). In a test it shouts; in
+// release it silently painted the chip across the grid's first hour column.
+// `_StatusLine` now drops the abbreviation on any dense row that already has
+// something more useful in that slot, and these tests pass.
 //
-// The assertions stay as they are. time_grid.md "Responsive" promises that at
-// `< 600px` the 96px column keeps the city label and the offset badge, and a
-// column that paints its badge across the first hour column has not kept it.
-// This file is the first test in the suite to render that column at all — the
-// other page tests reach for `tester.binding.setSurfaceSize`, which resizes
-// the render surface without moving `MediaQuery`, so `dense` was false in
-// every one of them and the narrow form has never been laid out until now.
+// They were the first because the page harness used to widen the viewport
+// with `tester.binding.setSurfaceSize`, which moves the render surface and
+// leaves `MediaQuery` at 800x600 — so a page handed a 400x720 "phone" still
+// answered `ResponsiveLayout.isMobile` with `false` and drew the 132px
+// column. This file set `tester.view` directly, which is why it saw the truth
+// first. `pumpApp`'s `surfaceSize` does that now (see `pump_app.dart`), so a
+// mobile test elsewhere in the suite is genuinely mobile and the assertions
+// below are no longer the only ones laying this column out.
 // ---------------------------------------------------------------------------
 
 /// A phone: below the 600px breakpoint, so the column goes dense and the page
@@ -252,15 +252,15 @@ void main() {
     required Size surface,
     required BoardEntity board,
   }) async {
-    tester.view
-      ..devicePixelRatio = 1
-      ..physicalSize = surface;
-    // The view is process-wide. Without the reset the next test in this file
-    // inherits this width and quietly asserts the wrong side of the
-    // breakpoint.
-    addTearDown(tester.view.reset);
-
-    final app = await pumpApp(tester, const SizedBox.shrink());
+    // Through the harness rather than by setting `tester.view` here, which is
+    // what this file used to do: `surfaceSize` now moves `MediaQuery` as well
+    // as the render surface, and owns the reset that stops one test's width
+    // reaching the next.
+    final app = await pumpApp(
+      tester,
+      const SizedBox.shrink(),
+      surfaceSize: surface,
+    );
 
     // Hoisted out of the stub: building the answer inside `when` is what makes
     // mocktail throw "Cannot call `when` within a stub response".

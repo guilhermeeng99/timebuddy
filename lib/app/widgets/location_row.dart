@@ -143,19 +143,19 @@ class _StatusLine extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final relative = relativeToHome;
-    // Dropped on the dense home row, and only there. The 96px mobile column
-    // leaves about 80px inside its padding, the Home chip eats roughly 46 of
-    // them, and a zone abbreviation is routinely four characters (CEST, AEDT)
-    // or five for a numeric zone (Asia/Kathmandu renders `+0545`). Showing
-    // both meant a RenderFlex overflow: in a test it shouts, in release it
-    // silently paints the chip across the grid's first hour column. Between
-    // ellipsizing the abbreviation down to `CE...` and dropping it, dropping
-    // reads better, and the chip already says which row this is.
-    // Dropped on every dense row that has something more useful to show.
-    // On the home row that is the Home chip; on any other it is the relative
-    // offset, which the code below calls the one number this column exists
-    // for. Measured on the deployed build at 390px: keeping both ellipsized
-    // `+8h30` down to `+...`, which is the badge being present in name only.
+    // Dropped on every dense row that already has something more useful in
+    // this slot: the Home chip on the home row, the unresolved mark on a
+    // broken one, the relative offset on all the rest.
+    //
+    // The 96px mobile column leaves about 80px inside its padding, the Home
+    // chip eats roughly 46 of them, and a zone abbreviation is routinely four
+    // characters (CEST, AEDT) or five for a numeric zone (Asia/Kathmandu
+    // renders `+0545`). Showing both meant a RenderFlex overflow: in a test it
+    // shouts, in release it silently painted the chip across the grid's first
+    // hour column. Measured on the deployed build at 390px, keeping both
+    // ellipsized `+8h30` down to `+...`, which is the badge being present in
+    // name only. Between that and dropping the abbreviation, dropping reads
+    // better — the chip or the offset already says what the row is.
     final crowded = isHome || isUnresolved || relative != null;
     final zoneAbbreviation = dense && crowded ? null : abbreviation;
     return Row(

@@ -88,21 +88,51 @@ void _stubDeviceZone(Future<Object?> Function(MethodCall call)? handler) =>
 /// cannot pass by accident.
 final DateTime harnessNowUtc = utcDate(2024, 6, 15, 12, 30);
 
+/// Lays the next `pumpWidget` out in a [size]-logical-pixel window.
+///
+/// Through the view and not `tester.binding.setSurfaceSize`, which is the
+/// distinction this harness got wrong for a milestone. `setSurfaceSize`
+/// overrides the *render surface* only; `MediaQuery` is derived from the view,
+/// whose `physicalSize` stays at the default 2400x1800 at dpr 3 — 800x600
+/// logical — no matter what the surface says. Pages asked for a 400x720
+/// "phone" were therefore laid out 400px wide while every
+/// `MediaQuery.sizeOf(context).width` in them read 800, so
+/// `ResponsiveLayout.isMobile` answered `false` and the mobile form of the
+/// grid's pinned column was never laid out by any test. A `RenderFlex`
+/// overflow shipped through that hole.
+///
+/// `devicePixelRatio` is pinned to 1 so [size] is read literally: the view
+/// takes physical pixels, and leaving the default 3 in place would ask for a
+/// window a third of the size written at the call site.
+///
+/// The view is process-wide and survives the test that set it, so the reset is
+/// not optional — without it the next test in the file silently inherits this
+/// width and asserts the wrong side of the breakpoint.
+///
+/// `responsive_layout_test.dart` and `time_grid_responsive_test.dart` wrote
+/// this by hand, which is how they became the first tests in the suite to see
+/// a real width; both now go through here instead, so there is one place that
+/// decides what a viewport is and one place to get it wrong.
+/// `pump_app_test.dart` is what keeps it honest.
+void _setViewport(WidgetTester tester, Size size) {
+  tester.view
+    ..devicePixelRatio = 1
+    ..physicalSize = size;
+  addTearDown(tester.view.reset);
+}
+
 /// Mounts [child] under the app's real shell: translations, the preferences
 /// cubit and the light theme.
 ///
 /// [preferences] seeds the cubit through `load`, so the page sees exactly the
 /// document a test names. [engine] defaults to the real `TzTimeZoneEngine`;
 /// pass a stub only for answers real tzdata cannot be made to give, such as
-/// which zone the device reports. [surfaceSize] widens the default 800x600
-/// viewport for a page whose lazy list is taller than it.
+/// which zone the device reports. [surfaceSize] replaces the default 800x600
+/// viewport, for a page whose lazy list is taller than it or whose layout
+/// depends on how wide the window is.
 ///
-/// **[surfaceSize] resizes the render surface and nothing else.** `MediaQuery`
-/// is derived from the view, which `setSurfaceSize` does not touch, so a page
-/// asked for a 400x720 "phone" still reads 800x600 and still answers
-/// `ResponsiveLayout.isMobile` with `false`. A test about a breakpoint has to
-/// set `tester.view.physicalSize` and `devicePixelRatio` itself, and reset the
-/// view in a tear-down.
+/// **[surfaceSize] is the whole viewport, `MediaQuery` included.** It is
+/// applied through [_setViewport], for the reason spelled out there.
 Future<PumpedApp> pumpApp(
   WidgetTester tester,
   Widget child, {
@@ -196,8 +226,7 @@ Future<PumpedApp> _install(
   addTearDown(() => _stubDeviceZone(null));
 
   if (surfaceSize != null) {
-    await tester.binding.setSurfaceSize(surfaceSize);
-    addTearDown(() => tester.binding.setSurfaceSize(null));
+    _setViewport(tester, surfaceSize);
   }
 
   await GetIt.I.reset();

@@ -55,10 +55,20 @@ const int _tokyoHoursFromHome = 12;
 
 /// Wide enough for the full label column plus roughly seventeen hour columns,
 /// and tall enough that all three rows are built.
+///
+/// Above `ResponsiveLayout.mobileBreakpoint` on purpose, and now genuinely so:
+/// the geometry below is written against the full pinned column
+/// (`GridMetrics.labelColumnWidth`), which is the form the grid takes at a
+/// desktop width. The dense 96px form is what [_phoneSurface] reaches.
 const Size _wideSurface = Size(900, 700);
 
 /// A phone: below `ResponsiveLayout.mobileBreakpoint`, so the page renders its
-/// own date pill and the bottom bar's clearance applies.
+/// own date pill, the pinned column goes dense at 96px, and the bottom bar's
+/// clearance applies under the list.
+///
+/// It reads that way in `MediaQuery` and not merely on the render surface,
+/// which is what `pumpApp`'s `surfaceSize` used to get wrong: these two tests
+/// called themselves phone tests while laying out the 132px desktop column.
 const Size _phoneSurface = Size(400, 720);
 
 /// Enough rows to make the vertical list scroll on [_phoneSurface].
