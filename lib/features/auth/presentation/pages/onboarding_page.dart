@@ -46,9 +46,29 @@ class _OnboardingPageState extends State<OnboardingPage> {
   /// down as the user pages through the tour.
   static const double _actionsHeight = 112;
 
-  final PageController _controller = PageController();
+  /// How many slides [_buildSlides] returns.
+  ///
+  /// A constant because the opening slide has to be chosen in [initState],
+  /// before the localized list exists. The assertion in [build] is what stops
+  /// the two from drifting apart.
+  static const int _slideCount = 3;
 
-  int _index = 0;
+  late final PageController _controller;
+
+  late int _index;
+
+  @override
+  void initState() {
+    super.initState();
+    // A user coming back from a sign-in this browser blocked is being told to
+    // press one button, and that button lives on the last slide. Opening on
+    // slide 1 would put the advice three swipes from the thing it is advice
+    // about — and they have already been through the tour on the way out.
+    _index = _blockOf(context.read<AuthBloc>().state) == null
+        ? 0
+        : _slideCount - 1;
+    _controller = PageController(initialPage: _index);
+  }
 
   @override
   void dispose() {
@@ -81,14 +101,34 @@ class _OnboardingPageState extends State<OnboardingPage> {
   /// [Unauthenticated] is silent: it is where a *cancelled* dialog lands (rule
   /// 5), and it is also the state this page opens in, so anything said about
   /// it would be said to a user who did nothing.
+  ///
+  /// It stays silent *here* even when it carries a [SignInBlock], because a
+  /// listener only fires on a change. The boot-leg diagnosis is settled while
+  /// the splash is still up, so by the time this page mounts there is no
+  /// change left to hear and a snackbar raised from here would be shown to
+  /// nobody — on precisely the failure the whole mechanism exists for. The
+  /// advice is built instead ([_SignInBlockedNotice]), which also keeps it on
+  /// screen beside the button it is about instead of for four seconds.
   void _onAuthState(BuildContext context, AuthState state) {
     if (state is! AuthError) return;
     context.showSnack(t.auth.signInFailed);
   }
 
+  /// The obstacle [state] is carrying, if it is carrying one.
+  ///
+  /// Only a signed-out state can: a sign-in the browser blocked ends with
+  /// nobody signed in, so `AuthBloc` hangs the diagnosis on [Unauthenticated]
+  /// rather than inventing a state that would mean the same thing.
+  static SignInBlock? _blockOf(AuthState state) =>
+      state is Unauthenticated ? state.blockedBy : null;
+
   @override
   Widget build(BuildContext context) {
     final slides = _buildSlides();
+    assert(
+      slides.length == _slideCount,
+      'initState picks the opening slide from _slideCount.',
+    );
     return Scaffold(
       body: SafeArea(
         child: Center(
@@ -111,6 +151,18 @@ class _OnboardingPageState extends State<OnboardingPage> {
                   ),
                   _SlideDots(count: slides.length, index: _index),
                   const SizedBox(height: AppSpacing.lg),
+                  // Above the button rather than over it: this is something to
+                  // read before pressing it again, not a dialog to dismiss.
+                  if (_blockOf(state) case final block?)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(
+                        AppSpacing.xl,
+                        0,
+                        AppSpacing.xl,
+                        AppSpacing.lg,
+                      ),
+                      child: _SignInBlockedNotice(block: block),
+                    ),
                   SizedBox(
                     height: _actionsHeight,
                     child: Padding(
@@ -321,4 +373,80 @@ class _Actions extends StatelessWidget {
       ],
     );
   }
+}
+
+/// What this browser did to the sign-in, and what the user can do about it.
+///
+/// Drawn, never announced. Both legs of rule 2 end up here, and the boot leg —
+/// the redirect that came back empty — settles before this page exists, so a
+/// snackbar would be shown to nobody on exactly the failure the mechanism was
+/// built for (see `_OnboardingPageState._onAuthState`).
+///
+/// Warning-toned, not error-toned: nothing is broken, a browser setting is in
+/// the way, and the app's first screen painting itself red would say the app
+/// is the problem (docs/specs/design_system.md §6).
+class _SignInBlockedNotice extends StatelessWidget {
+  const _SignInBlockedNotice({required this.block});
+
+  final SignInBlock block;
+
+  static const double _tintAlpha = 0.12;
+  static const double _iconSize = 20;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Semantics(
+      // It arrives without the user moving focus — already on screen when the
+      // page mounts after a redirect, or in place of the spinner when a
+      // sign-in comes back blocked — so a screen reader has to be told rather
+      // than left to be walked into it.
+      liveRegion: true,
+      container: true,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: colors.warning.withValues(alpha: _tintAlpha),
+          borderRadius: BorderRadius.circular(AppRadius.md),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                Icons.warning_amber_rounded,
+                size: _iconSize,
+                color: colors.warning,
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              // Expanded, not a bare Text: this is two sentences of advice
+              // sharing a row with a fixed-width icon, and an unflexed child
+              // takes its full intrinsic width and overflows the phone it is
+              // meant to be read on.
+              Expanded(
+                child: Text(
+                  _advice,
+                  style: context.textTheme.bodySmall?.copyWith(
+                    color: colors.onBackground,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// The copy says what to *do*, which is the whole point of telling them:
+  /// one of these is a pop-up blocker the user can turn off, the other is a
+  /// browser that will not carry the sign-in at all and wants a different
+  /// browser (docs/specs/auth.md rule 2).
+  ///
+  /// No default branch, so a third obstacle has to be given words here before
+  /// it compiles, rather than reaching the user as an empty box.
+  String get _advice => switch (block) {
+    SignInBlock.storage => t.auth.signInStorageBlocked,
+    SignInBlock.popup => t.auth.signInPopupBlocked,
+  };
 }

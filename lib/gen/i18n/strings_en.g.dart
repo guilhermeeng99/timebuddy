@@ -50,6 +50,9 @@ class Translations with BaseTranslations<AppLocale, Translations> {
 	late final Translations$bands$en bands = Translations$bands$en._(_root);
 	late final Translations$nav$en nav = Translations$nav$en._(_root);
 	late final Translations$grid$en grid = Translations$grid$en._(_root);
+	late final Translations$worldClock$en worldClock = Translations$worldClock$en._(_root);
+	late final Translations$planner$en planner = Translations$planner$en._(_root);
+	late final Translations$converter$en converter = Translations$converter$en._(_root);
 	late final Translations$locations$en locations = Translations$locations$en._(_root);
 }
 
@@ -219,6 +222,12 @@ class Translations$auth$en {
 
 	/// en: 'Sign-in was cancelled.'
 	String get signInCancelled => 'Sign-in was cancelled.';
+
+	/// en: 'This browser is blocking the storage the sign-in needs. Allow cross-site cookies for this site, or allow pop-ups, and try again.'
+	String get signInStorageBlocked => 'This browser is blocking the storage the sign-in needs. Allow cross-site cookies for this site, or allow pop-ups, and try again.';
+
+	/// en: 'The sign-in window was blocked. Allow pop-ups for this site and press the button again.'
+	String get signInPopupBlocked => 'The sign-in window was blocked. Allow pop-ups for this site and press the button again.';
 
 	/// en: 'Sign out'
 	String get signOut => 'Sign out';
@@ -433,6 +442,12 @@ class Translations$nav$en {
 	/// en: 'Grid'
 	String get grid => 'Grid';
 
+	/// en: 'Clocks'
+	String get clocks => 'Clocks';
+
+	/// en: 'Converter'
+	String get converter => 'Converter';
+
 	/// en: 'Cities'
 	String get locations => 'Cities';
 
@@ -501,6 +516,171 @@ class Translations$grid$en {
 
 	/// en: 'Tap or drag across the hours to read one moment in every city.'
 	String get cursorHint => 'Tap or drag across the hours to read one moment in every city.';
+}
+
+// Path: worldClock
+class Translations$worldClock$en {
+	Translations$worldClock$en._(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'World clock'
+	String get title => 'World clock';
+
+	/// en: 'Same time'
+	String get sameTime => 'Same time';
+
+	/// en: 'Tomorrow'
+	String get tomorrow => 'Tomorrow';
+
+	/// en: 'Yesterday'
+	String get yesterday => 'Yesterday';
+
+	/// en: 'Daylight saving is on'
+	String get dstActive => 'Daylight saving is on';
+
+	/// en: 'The clocks change here on ${date}'
+	String nextTransition({required Object date}) => 'The clocks change here on ${date}';
+
+	/// en: 'Only your clock so far'
+	String get emptyTitle => 'Only your clock so far';
+
+	/// en: 'Add a city and its clock ticks right below yours.'
+	String get emptyMessage => 'Add a city and its clock ticks right below yours.';
+
+	/// en: 'Add a city'
+	String get emptyCta => 'Add a city';
+
+	/// en: 'Time zone id'
+	String get detailZoneId => 'Time zone id';
+
+	/// en: 'Offset from UTC'
+	String get detailOffsetUtc => 'Offset from UTC';
+
+	/// en: 'Offset from home'
+	String get detailOffsetHome => 'Offset from home';
+
+	/// en: 'Set as home'
+	String get actionSetHome => 'Set as home';
+
+	/// en: 'Remove from board'
+	String get actionRemove => 'Remove from board';
+
+	/// en: 'Open in the grid'
+	String get actionOpenInGrid => 'Open in the grid';
+}
+
+// Path: planner
+class Translations$planner$en {
+	Translations$planner$en._(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Compare'
+	String get modeCompare => 'Compare';
+
+	/// en: 'Plan'
+	String get modePlan => 'Plan';
+
+	/// en: 'Drag across the hours to pick a window, and every city's local time shows up below.'
+	String get selectHint => 'Drag across the hours to pick a window, and every city\'s local time shows up below.';
+
+	/// en: 'Lasts ${duration}'
+	String durationLabel({required Object duration}) => 'Lasts ${duration}';
+
+	/// en: 'Works well'
+	String get verdictGood => 'Works well';
+
+	/// en: 'Tight, but doable'
+	String get verdictFair => 'Tight, but doable';
+
+	/// en: 'Bad time here'
+	String get verdictPoor => 'Bad time here';
+
+	/// en: 'A better window'
+	String get suggestionTitle => 'A better window';
+
+	/// en: 'Use this instead'
+	String get suggestionApply => 'Use this instead';
+
+	/// en: 'No better window today: every hour leaves someone out.'
+	String get noSuggestion => 'No better window today: every hour leaves someone out.';
+
+	/// en: 'Compact'
+	String get copyCompact => 'Compact';
+
+	/// en: 'Detailed'
+	String get copyVerbose => 'Detailed';
+
+	/// en: 'Copied to the clipboard'
+	String get copied => 'Copied to the clipboard';
+
+	/// en: 'The clocks change inside this window, so it is not as long as the columns suggest.'
+	String get crossesDst => 'The clocks change inside this window, so it is not as long as the columns suggest.';
+
+	/// en: 'Tomorrow'
+	String get dayTomorrow => 'Tomorrow';
+
+	/// en: 'Yesterday'
+	String get dayYesterday => 'Yesterday';
+
+	/// en: 'Your meeting'
+	String get summaryTitle => 'Your meeting';
+}
+
+// Path: converter
+class Translations$converter$en {
+	Translations$converter$en._(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Time converter'
+	String get title => 'Time converter';
+
+	/// en: 'Source city'
+	String get sourceLabel => 'Source city';
+
+	/// en: 'Date'
+	String get dateLabel => 'Date';
+
+	/// en: 'Time'
+	String get timeLabel => 'Time';
+
+	/// en: 'Everywhere else'
+	String get resultTitle => 'Everywhere else';
+
+	/// en: '${requested} does not exist on this date, so we are showing ${shown}.'
+	String shiftedForwardNotice({required Object requested, required Object shown}) => '${requested} does not exist on this date, so we are showing ${shown}.';
+
+	/// en: 'The clocks go back in ${zone} on this date, so this time happens twice.'
+	String ambiguousNotice({required Object zone}) => 'The clocks go back in ${zone} on this date, so this time happens twice.';
+
+	/// en: 'First occurrence'
+	String get ambiguousFirst => 'First occurrence';
+
+	/// en: 'Second occurrence'
+	String get ambiguousSecond => 'Second occurrence';
+
+	/// en: 'Back to now'
+	String get resetToNow => 'Back to now';
+
+	/// en: 'Copy'
+	String get copy => 'Copy';
+
+	/// en: 'Copied to the clipboard'
+	String get copied => 'Copied to the clipboard';
+
+	/// en: 'We only convert up to ${years} years from today. Past that, the rules are still guesses.'
+	String outOfRange({required Object years}) => 'We only convert up to ${years} years from today. Past that, the rules are still guesses.';
+
+	/// en: 'Add another city to see this moment somewhere else.'
+	String get needMoreCities => 'Add another city to see this moment somewhere else.';
 }
 
 // Path: locations
@@ -618,6 +798,8 @@ extension on Translations {
 			'auth.signInWithGoogle' => 'Sign in with Google',
 			'auth.signInFailed' => 'Sign-in didn\'t go through. Try again.',
 			'auth.signInCancelled' => 'Sign-in was cancelled.',
+			'auth.signInStorageBlocked' => 'This browser is blocking the storage the sign-in needs. Allow cross-site cookies for this site, or allow pop-ups, and try again.',
+			'auth.signInPopupBlocked' => 'The sign-in window was blocked. Allow pop-ups for this site and press the button again.',
 			'auth.signOut' => 'Sign out',
 			'auth.signOutConfirm' => 'Sign out?',
 			'auth.signOutConfirmBody' => 'Your cities stay in your account. The copy kept on this device is cleared until you sign in again.',
@@ -677,6 +859,8 @@ extension on Translations {
 			'bands.poor' => 'Off hours',
 			'bands.night' => 'Night',
 			'nav.grid' => 'Grid',
+			'nav.clocks' => 'Clocks',
+			'nav.converter' => 'Converter',
 			'nav.locations' => 'Cities',
 			'nav.settings' => 'Settings',
 			'nav.profile' => 'Account',
@@ -697,6 +881,52 @@ extension on Translations {
 			'grid.rowActionRemove' => 'Remove from board',
 			'grid.rowActionReplaceZone' => 'Replace time zone',
 			'grid.cursorHint' => 'Tap or drag across the hours to read one moment in every city.',
+			'worldClock.title' => 'World clock',
+			'worldClock.sameTime' => 'Same time',
+			'worldClock.tomorrow' => 'Tomorrow',
+			'worldClock.yesterday' => 'Yesterday',
+			'worldClock.dstActive' => 'Daylight saving is on',
+			'worldClock.nextTransition' => ({required Object date}) => 'The clocks change here on ${date}',
+			'worldClock.emptyTitle' => 'Only your clock so far',
+			'worldClock.emptyMessage' => 'Add a city and its clock ticks right below yours.',
+			'worldClock.emptyCta' => 'Add a city',
+			'worldClock.detailZoneId' => 'Time zone id',
+			'worldClock.detailOffsetUtc' => 'Offset from UTC',
+			'worldClock.detailOffsetHome' => 'Offset from home',
+			'worldClock.actionSetHome' => 'Set as home',
+			'worldClock.actionRemove' => 'Remove from board',
+			'worldClock.actionOpenInGrid' => 'Open in the grid',
+			'planner.modeCompare' => 'Compare',
+			'planner.modePlan' => 'Plan',
+			'planner.selectHint' => 'Drag across the hours to pick a window, and every city\'s local time shows up below.',
+			'planner.durationLabel' => ({required Object duration}) => 'Lasts ${duration}',
+			'planner.verdictGood' => 'Works well',
+			'planner.verdictFair' => 'Tight, but doable',
+			'planner.verdictPoor' => 'Bad time here',
+			'planner.suggestionTitle' => 'A better window',
+			'planner.suggestionApply' => 'Use this instead',
+			'planner.noSuggestion' => 'No better window today: every hour leaves someone out.',
+			'planner.copyCompact' => 'Compact',
+			'planner.copyVerbose' => 'Detailed',
+			'planner.copied' => 'Copied to the clipboard',
+			'planner.crossesDst' => 'The clocks change inside this window, so it is not as long as the columns suggest.',
+			'planner.dayTomorrow' => 'Tomorrow',
+			'planner.dayYesterday' => 'Yesterday',
+			'planner.summaryTitle' => 'Your meeting',
+			'converter.title' => 'Time converter',
+			'converter.sourceLabel' => 'Source city',
+			'converter.dateLabel' => 'Date',
+			'converter.timeLabel' => 'Time',
+			'converter.resultTitle' => 'Everywhere else',
+			'converter.shiftedForwardNotice' => ({required Object requested, required Object shown}) => '${requested} does not exist on this date, so we are showing ${shown}.',
+			'converter.ambiguousNotice' => ({required Object zone}) => 'The clocks go back in ${zone} on this date, so this time happens twice.',
+			'converter.ambiguousFirst' => 'First occurrence',
+			'converter.ambiguousSecond' => 'Second occurrence',
+			'converter.resetToNow' => 'Back to now',
+			'converter.copy' => 'Copy',
+			'converter.copied' => 'Copied to the clipboard',
+			'converter.outOfRange' => ({required Object years}) => 'We only convert up to ${years} years from today. Past that, the rules are still guesses.',
+			'converter.needMoreCities' => 'Add another city to see this moment somewhere else.',
 			'locations.title' => 'My cities',
 			'locations.emptyTitle' => 'Your board is empty',
 			'locations.emptyMessage' => 'Add the cities you work with and see their hours side by side.',

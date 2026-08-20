@@ -16,7 +16,7 @@ it is in every city you care about, and find an hour that works for all of them.
 >
 > **Sign-in is required**, so what a visitor meets is a splash while tzdata
 > loads, then a three-slide tour whose last slide holds a single *Sign in with
-> Google* button — there is no guest mode and no email/password. Once the
+> Google* button: there is no guest mode and no email/password. Once the
 > Google popup (or the redirect the browser falls back to) comes back, the app
 > opens on the grid, and the board and preferences that account already had
 > follow it there. Anyone with a Google account can sign in; there is no
@@ -42,7 +42,7 @@ Shipped:
   reconciled by revision number. A write that cannot reach the server is never
   an error the user has to read: it is remembered and retried later, and the
   profile page carries a passive synced / syncing / offline indicator that says
-  so. That page lives at `/profile` and nothing links to it yet — see the
+  so. That page lives at `/profile` and nothing links to it yet, see the
   roadmap's list of what M3 left open.
 
 Specified, not built yet:
@@ -105,7 +105,7 @@ widgets is how apps end up an hour wrong twice a year.
 | Routing | `go_router` (hash URLs on web; `StatefulShellRoute`, one branch per destination) |
 | Timezones | `timezone` (IANA tzdata) + `flutter_timezone` |
 | Local storage | `shared_preferences` (two JSON documents, no database) |
-| Remote sync | `cloud_firestore` — two documents per user, revision-based last-write-wins, no listeners and no timers |
+| Remote sync | `cloud_firestore`: two documents per user, revision-based last-write-wins, no listeners and no timers |
 | Auth | `firebase_auth` + `google_sign_in` (Google only; popup with a redirect fallback on web, the plugin on Android) |
 | Error model | `dartz` `Either<Failure, T>` |
 | i18n | `slang` (type-safe, generated), pt-BR and en |
@@ -167,7 +167,7 @@ flutter run             # connected Android device
 
 That is the whole setup for the project's own Firebase project: both
 `lib/firebase_options.dart` and `android/app/google-services.json` are
-committed, and they are safe to commit — a Firebase API key identifies a project
+committed, and they are safe to commit: a Firebase API key identifies a project
 and authorises nothing, which is why `firestore.rules` is what actually protects
 the data.
 

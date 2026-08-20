@@ -34,9 +34,15 @@ import 'package:uuid/uuid.dart';
 /// it is the earliest honest point for the load. Doing it in the grid page
 /// instead would re-run on every visit and would leave the locations page
 /// loading the same document a second time, which is two answers to "is the
-/// board ready". `StartupCubit` takes this over in M3
-/// (docs/specs/startup.md); until it exists, inventing one here would be a
-/// second startup flow to delete.
+/// board ready". `StartupCubit` reconciles the *documents* before the router
+/// leaves `/startup` (docs/specs/startup.md), so the load below reads an
+/// already-synced board; it deliberately does not own the cubit, because the
+/// board's lifetime is the shell's and the startup flow outlives no session.
+///
+/// From M4 the shell hosts five branches, and one `BoardCubit` above all of
+/// them is the whole point: the grid, the world clock and the converter read
+/// the same list of places, and an `IndexedStack` keeps all three mounted, so
+/// a per-page load would be three answers to the same question.
 ///
 /// ```dart
 /// StatefulShellRoute.indexedStack(
@@ -80,10 +86,13 @@ class AppShell extends StatelessWidget {
             TimeBuddySidebar(
               currentRoute: currentRoute,
               onSelect: _select,
-              // Only the grid has a reference day. Every branch stays mounted
-              // in the indexed stack, so without this gate a stepper
-              // published by the grid would keep showing while the user is
-              // reading settings.
+              // Only the grid has a reference day, in compare and in planner
+              // mode alike. The converter has a date too, but it is a field
+              // inside its own form with its own chevrons
+              // (docs/specs/time_converter.md), not the shell's stepper.
+              // Every branch stays mounted in the indexed stack, so without
+              // this gate a stepper published by the grid would keep showing
+              // while the user is reading settings.
               datePill: destination == TimeBuddyNavDestination.grid
                   ? const _SidebarDatePill()
                   : null,

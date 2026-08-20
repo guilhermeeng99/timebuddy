@@ -15,7 +15,9 @@ import 'package:timebuddy/features/profile/presentation/pages/profile_page.dart'
 import 'package:timebuddy/features/settings/presentation/pages/settings_page.dart';
 import 'package:timebuddy/features/startup/presentation/cubit/startup_cubit.dart';
 import 'package:timebuddy/features/startup/presentation/pages/startup_page.dart';
+import 'package:timebuddy/features/time_converter/presentation/pages/time_converter_page.dart';
 import 'package:timebuddy/features/time_grid/presentation/pages/time_grid_page.dart';
+import 'package:timebuddy/features/world_clock/presentation/pages/world_clock_page.dart';
 
 /// How dark the add-location route dims the page it was opened from.
 ///
@@ -49,6 +51,24 @@ abstract class AppRouter {
       GoRoute(
         path: AppRoutes.grid,
         builder: (context, state) => const TimeGridPage(),
+      ),
+    ],
+  );
+
+  static final StatefulShellBranch _clocksBranch = StatefulShellBranch(
+    routes: <RouteBase>[
+      GoRoute(
+        path: AppRoutes.clocks,
+        builder: (context, state) => const WorldClockPage(),
+      ),
+    ],
+  );
+
+  static final StatefulShellBranch _converterBranch = StatefulShellBranch(
+    routes: <RouteBase>[
+      GoRoute(
+        path: AppRoutes.converter,
+        builder: (context, state) => const TimeConverterPage(),
       ),
     ],
   );
@@ -96,13 +116,21 @@ abstract class AppRouter {
   /// `AppShell` reads the highlighted destination out of the shell's
   /// `currentIndex` and switches branches with `goBranch(destination.index)`,
   /// so the two orders are one fact written down twice; `AppShell` asserts on
-  /// the count, so a fourth destination added to only one of them fails
-  /// loudly in debug instead of quietly selecting the wrong tab.
+  /// the count, so a destination added to only one of them fails loudly in
+  /// debug instead of quietly selecting the wrong tab.
   ///
   /// Each branch keeps its own `Navigator`, which is what makes a trip to
-  /// settings and back leave the grid's horizontal scroll where it was.
+  /// settings and back leave the grid's horizontal scroll where it was — and,
+  /// from M4 on, leave the converter's half-filled form alone while the user
+  /// checks a city on the world clock.
+  ///
+  /// The meeting planner has no branch: it is a mode of `_gridBranch`
+  /// (docs/specs/meeting_planner.md), so entering it keeps the grid's own
+  /// navigator and its scroll position.
   static final List<StatefulShellBranch> _branches = <StatefulShellBranch>[
     _gridBranch,
+    _clocksBranch,
+    _converterBranch,
     _locationsBranch,
     _settingsBranch,
   ];
@@ -124,8 +152,8 @@ abstract class AppRouter {
         path: AppRoutes.onboarding,
         builder: (context, state) => const OnboardingPage(),
       ),
-      // Root level rather than a fourth branch: the account page is not one of
-      // the three nav destinations, and it is the one screen that can end the
+      // Root level rather than a sixth branch: the account page is not one of
+      // the nav destinations, and it is the one screen that can end the
       // session that the shell's chrome and board are built on.
       GoRoute(
         path: AppRoutes.profile,

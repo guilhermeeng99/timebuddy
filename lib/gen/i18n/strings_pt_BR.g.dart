@@ -47,6 +47,9 @@ class TranslationsPtBr with BaseTranslations<AppLocale, Translations> implements
 	@override late final _Translations$bands$pt_BR bands = _Translations$bands$pt_BR._(_root);
 	@override late final _Translations$nav$pt_BR nav = _Translations$nav$pt_BR._(_root);
 	@override late final _Translations$grid$pt_BR grid = _Translations$grid$pt_BR._(_root);
+	@override late final _Translations$worldClock$pt_BR worldClock = _Translations$worldClock$pt_BR._(_root);
+	@override late final _Translations$planner$pt_BR planner = _Translations$planner$pt_BR._(_root);
+	@override late final _Translations$converter$pt_BR converter = _Translations$converter$pt_BR._(_root);
 	@override late final _Translations$locations$pt_BR locations = _Translations$locations$pt_BR._(_root);
 }
 
@@ -134,6 +137,8 @@ class _Translations$auth$pt_BR implements Translations$auth$en {
 	@override String get signInWithGoogle => 'Entrar com o Google';
 	@override String get signInFailed => 'Não conseguimos entrar. Tente de novo.';
 	@override String get signInCancelled => 'Você cancelou a entrada.';
+	@override String get signInStorageBlocked => 'Este navegador está bloqueando o armazenamento necessário para entrar. Libere os cookies de terceiros para este site, ou permita pop-ups, e tente de novo.';
+	@override String get signInPopupBlocked => 'A janela de entrada foi bloqueada. Permita pop-ups para este site e tente entrar de novo.';
 	@override String get signOut => 'Sair da conta';
 	@override String get signOutConfirm => 'Sair da conta?';
 	@override String get signOutConfirmBody => 'Suas cidades continuam na sua conta. A cópia guardada neste aparelho é apagada até você entrar de novo.';
@@ -229,6 +234,8 @@ class _Translations$nav$pt_BR implements Translations$nav$en {
 
 	// Translations
 	@override String get grid => 'Grade';
+	@override String get clocks => 'Relógios';
+	@override String get converter => 'Conversor';
 	@override String get locations => 'Cidades';
 	@override String get settings => 'Configurações';
 	@override String get profile => 'Conta';
@@ -258,6 +265,79 @@ class _Translations$grid$pt_BR implements Translations$grid$en {
 	@override String get rowActionRemove => 'Remover do painel';
 	@override String get rowActionReplaceZone => 'Trocar o fuso horário';
 	@override String get cursorHint => 'Toque ou arraste sobre as horas para ver o mesmo momento em todas as cidades.';
+}
+
+// Path: worldClock
+class _Translations$worldClock$pt_BR implements Translations$worldClock$en {
+	_Translations$worldClock$pt_BR._(this._root);
+
+	final TranslationsPtBr _root; // ignore: unused_field
+
+	// Translations
+	@override String get title => 'Relógio mundial';
+	@override String get sameTime => 'Mesmo horário';
+	@override String get tomorrow => 'Amanhã';
+	@override String get yesterday => 'Ontem';
+	@override String get dstActive => 'Horário de verão em vigor';
+	@override String nextTransition({required Object date}) => 'O relógio daqui muda em ${date}';
+	@override String get emptyTitle => 'Por enquanto, só o seu relógio';
+	@override String get emptyMessage => 'Adicione uma cidade e o relógio dela passa a correr logo abaixo do seu.';
+	@override String get emptyCta => 'Adicionar cidade';
+	@override String get detailZoneId => 'Id do fuso horário';
+	@override String get detailOffsetUtc => 'Diferença para o UTC';
+	@override String get detailOffsetHome => 'Diferença para a sua base';
+	@override String get actionSetHome => 'Definir como base';
+	@override String get actionRemove => 'Remover do painel';
+	@override String get actionOpenInGrid => 'Abrir na grade';
+}
+
+// Path: planner
+class _Translations$planner$pt_BR implements Translations$planner$en {
+	_Translations$planner$pt_BR._(this._root);
+
+	final TranslationsPtBr _root; // ignore: unused_field
+
+	// Translations
+	@override String get modeCompare => 'Comparar';
+	@override String get modePlan => 'Planejar';
+	@override String get selectHint => 'Arraste sobre as horas para escolher uma janela, e o horário local de cada cidade aparece abaixo.';
+	@override String durationLabel({required Object duration}) => 'Dura ${duration}';
+	@override String get verdictGood => 'Funciona bem';
+	@override String get verdictFair => 'Dá, mas no limite';
+	@override String get verdictPoor => 'Horário ruim aqui';
+	@override String get suggestionTitle => 'Uma janela melhor';
+	@override String get suggestionApply => 'Usar esta janela';
+	@override String get noSuggestion => 'Não há janela melhor hoje: em qualquer horário alguém fica de fora.';
+	@override String get copyCompact => 'Resumido';
+	@override String get copyVerbose => 'Detalhado';
+	@override String get copied => 'Copiado para a área de transferência';
+	@override String get crossesDst => 'O relógio muda dentro desta janela, então ela não dura o que as colunas sugerem.';
+	@override String get dayTomorrow => 'Amanhã';
+	@override String get dayYesterday => 'Ontem';
+	@override String get summaryTitle => 'Sua reunião';
+}
+
+// Path: converter
+class _Translations$converter$pt_BR implements Translations$converter$en {
+	_Translations$converter$pt_BR._(this._root);
+
+	final TranslationsPtBr _root; // ignore: unused_field
+
+	// Translations
+	@override String get title => 'Conversor de horários';
+	@override String get sourceLabel => 'Cidade de origem';
+	@override String get dateLabel => 'Data';
+	@override String get timeLabel => 'Hora';
+	@override String get resultTitle => 'Nas outras cidades';
+	@override String shiftedForwardNotice({required Object requested, required Object shown}) => '${requested} não existe nesta data, então estamos mostrando ${shown}.';
+	@override String ambiguousNotice({required Object zone}) => 'O relógio atrasa em ${zone} nesta data, então esse horário acontece duas vezes.';
+	@override String get ambiguousFirst => 'Primeira ocorrência';
+	@override String get ambiguousSecond => 'Segunda ocorrência';
+	@override String get resetToNow => 'Voltar para agora';
+	@override String get copy => 'Copiar';
+	@override String get copied => 'Copiado para a área de transferência';
+	@override String outOfRange({required Object years}) => 'Só convertemos até ${years} anos a partir de hoje. Depois disso, as regras ainda são um palpite.';
+	@override String get needMoreCities => 'Adicione outra cidade para ver este momento em outro lugar.';
 }
 
 // Path: locations
@@ -337,6 +417,8 @@ extension on TranslationsPtBr {
 			'auth.signInWithGoogle' => 'Entrar com o Google',
 			'auth.signInFailed' => 'Não conseguimos entrar. Tente de novo.',
 			'auth.signInCancelled' => 'Você cancelou a entrada.',
+			'auth.signInStorageBlocked' => 'Este navegador está bloqueando o armazenamento necessário para entrar. Libere os cookies de terceiros para este site, ou permita pop-ups, e tente de novo.',
+			'auth.signInPopupBlocked' => 'A janela de entrada foi bloqueada. Permita pop-ups para este site e tente entrar de novo.',
 			'auth.signOut' => 'Sair da conta',
 			'auth.signOutConfirm' => 'Sair da conta?',
 			'auth.signOutConfirmBody' => 'Suas cidades continuam na sua conta. A cópia guardada neste aparelho é apagada até você entrar de novo.',
@@ -396,6 +478,8 @@ extension on TranslationsPtBr {
 			'bands.poor' => 'Fora do expediente',
 			'bands.night' => 'Madrugada',
 			'nav.grid' => 'Grade',
+			'nav.clocks' => 'Relógios',
+			'nav.converter' => 'Conversor',
 			'nav.locations' => 'Cidades',
 			'nav.settings' => 'Configurações',
 			'nav.profile' => 'Conta',
@@ -416,6 +500,52 @@ extension on TranslationsPtBr {
 			'grid.rowActionRemove' => 'Remover do painel',
 			'grid.rowActionReplaceZone' => 'Trocar o fuso horário',
 			'grid.cursorHint' => 'Toque ou arraste sobre as horas para ver o mesmo momento em todas as cidades.',
+			'worldClock.title' => 'Relógio mundial',
+			'worldClock.sameTime' => 'Mesmo horário',
+			'worldClock.tomorrow' => 'Amanhã',
+			'worldClock.yesterday' => 'Ontem',
+			'worldClock.dstActive' => 'Horário de verão em vigor',
+			'worldClock.nextTransition' => ({required Object date}) => 'O relógio daqui muda em ${date}',
+			'worldClock.emptyTitle' => 'Por enquanto, só o seu relógio',
+			'worldClock.emptyMessage' => 'Adicione uma cidade e o relógio dela passa a correr logo abaixo do seu.',
+			'worldClock.emptyCta' => 'Adicionar cidade',
+			'worldClock.detailZoneId' => 'Id do fuso horário',
+			'worldClock.detailOffsetUtc' => 'Diferença para o UTC',
+			'worldClock.detailOffsetHome' => 'Diferença para a sua base',
+			'worldClock.actionSetHome' => 'Definir como base',
+			'worldClock.actionRemove' => 'Remover do painel',
+			'worldClock.actionOpenInGrid' => 'Abrir na grade',
+			'planner.modeCompare' => 'Comparar',
+			'planner.modePlan' => 'Planejar',
+			'planner.selectHint' => 'Arraste sobre as horas para escolher uma janela, e o horário local de cada cidade aparece abaixo.',
+			'planner.durationLabel' => ({required Object duration}) => 'Dura ${duration}',
+			'planner.verdictGood' => 'Funciona bem',
+			'planner.verdictFair' => 'Dá, mas no limite',
+			'planner.verdictPoor' => 'Horário ruim aqui',
+			'planner.suggestionTitle' => 'Uma janela melhor',
+			'planner.suggestionApply' => 'Usar esta janela',
+			'planner.noSuggestion' => 'Não há janela melhor hoje: em qualquer horário alguém fica de fora.',
+			'planner.copyCompact' => 'Resumido',
+			'planner.copyVerbose' => 'Detalhado',
+			'planner.copied' => 'Copiado para a área de transferência',
+			'planner.crossesDst' => 'O relógio muda dentro desta janela, então ela não dura o que as colunas sugerem.',
+			'planner.dayTomorrow' => 'Amanhã',
+			'planner.dayYesterday' => 'Ontem',
+			'planner.summaryTitle' => 'Sua reunião',
+			'converter.title' => 'Conversor de horários',
+			'converter.sourceLabel' => 'Cidade de origem',
+			'converter.dateLabel' => 'Data',
+			'converter.timeLabel' => 'Hora',
+			'converter.resultTitle' => 'Nas outras cidades',
+			'converter.shiftedForwardNotice' => ({required Object requested, required Object shown}) => '${requested} não existe nesta data, então estamos mostrando ${shown}.',
+			'converter.ambiguousNotice' => ({required Object zone}) => 'O relógio atrasa em ${zone} nesta data, então esse horário acontece duas vezes.',
+			'converter.ambiguousFirst' => 'Primeira ocorrência',
+			'converter.ambiguousSecond' => 'Segunda ocorrência',
+			'converter.resetToNow' => 'Voltar para agora',
+			'converter.copy' => 'Copiar',
+			'converter.copied' => 'Copiado para a área de transferência',
+			'converter.outOfRange' => ({required Object years}) => 'Só convertemos até ${years} anos a partir de hoje. Depois disso, as regras ainda são um palpite.',
+			'converter.needMoreCities' => 'Adicione outra cidade para ver este momento em outro lugar.',
 			'locations.title' => 'Minhas cidades',
 			'locations.emptyTitle' => 'Seu painel está vazio',
 			'locations.emptyMessage' => 'Adicione as cidades com que você trabalha e veja os horários delas lado a lado.',

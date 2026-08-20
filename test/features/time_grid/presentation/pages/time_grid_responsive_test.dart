@@ -186,6 +186,22 @@ GoRouter _shellRouter() {
           StatefulShellBranch(
             routes: <RouteBase>[
               GoRoute(
+                path: AppRoutes.clocks,
+                builder: (context, state) => const SizedBox.shrink(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: <RouteBase>[
+              GoRoute(
+                path: AppRoutes.converter,
+                builder: (context, state) => const SizedBox.shrink(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: <RouteBase>[
+              GoRoute(
                 path: AppRoutes.locations,
                 builder: (context, state) => const SizedBox.shrink(),
               ),

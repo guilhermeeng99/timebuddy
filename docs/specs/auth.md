@@ -49,12 +49,12 @@ coupled to a board read. See [sync.md](sync.md).
    here is the evidence, to save the next person from reversing it back.**
 
    The redirect flow parks its intermediate state on the Firebase auth domain
-   — `timebuddy-app-2026.firebaseapp.com`, see `firebase_options.dart` — and
+  : `timebuddy-app-2026.firebaseapp.com`, see `firebase_options.dart`: and
    reads it back after a full-page navigation to `guilhermeeng99.github.io`.
    That read is cross-site, and every browser that partitions third-party
    storage drops it: Safari under ITP, Firefox under Total Cookie Protection,
    Chrome with third-party cookies disabled. `getRedirectResult()` then
-   resolves with a `UserCredential` whose `user` is null — which is the
+   resolves with a `UserCredential` whose `user` is null: which is the
    *identical* value it returns when no redirect was ever started
    (`firebase_auth` 6.5.7, `FirebaseAuth.getRedirectResult`, and
    `firebase_auth_web` 6.2.6 passes it straight through). The user lands back
@@ -87,7 +87,7 @@ coupled to a board read. See [sync.md](sync.md).
 
    | The browser… | Codes | Outcome | What the user gets |
    |---|---|---|---|
-   | closed the popup | `popup-closed-by-user`, `cancelled-popup-request`, `user-cancelled` | `GoogleSignInCancelled` | nothing — back to onboarding in silence (rule 5) |
+   | closed the popup | `popup-closed-by-user`, `cancelled-popup-request`, `user-cancelled` | `GoogleSignInCancelled` | nothing: back to onboarding in silence (rule 5) |
    | would not open the popup | `popup-blocked`, `operation-not-supported-in-this-environment` | `GoogleSignInPopupUnavailable` | a redirect, automatically; nothing to do |
    | would not give Firebase storage | `web-storage-unsupported` | `GoogleSignInStorageBlocked` | `signInStorageBlockedFailure`, and **no** redirect: the round trip would only lose the state again, silently |
 
@@ -101,8 +101,8 @@ coupled to a board read. See [sync.md](sync.md).
    `timebuddy.auth.webRedirect.v1` in `LocalStore`. That key is first-party to
    the app's own origin, which is precisely the storage a partitioning browser
    leaves alone. On the next boot, `getCurrentUser` reads the note *before* the
-   session check — the check is what consumes the redirect, so afterwards the
-   question has no answer left — and then:
+   session check: the check is what consumes the redirect, so afterwards the
+   question has no answer left: and then:
 
    - session found → the note is cleared and nothing else happens;
    - no session, note `pending` → **the partitioned-storage case**. It answers
@@ -124,13 +124,23 @@ coupled to a board read. See [sync.md](sync.md).
    abandons the flow at Google's account chooser and navigates back is
    indistinguishable from one whose state was dropped, and gets the same
    verdict. The cost is that their next blocked popup says "allow pop-ups"
-   rather than redirecting — advice that would have worked either way.
+   rather than redirecting: advice that would have worked either way.
 
-   **Still owed by the presentation layer.** `AuthBloc._onCheckRequested` folds
-   every `Left` into `Unauthenticated`, so the *boot-leg* diagnosis is
-   distinguishable in the code but not yet on the screen; the *sign-in-leg*
-   diagnosis reaches `AuthError` today and draws the generic banner. Finishing
-   it is two i18n keys and a `switch` — see [i18n](#i18n).
+   **What the user is told.** Both verdicts reach the screen as
+   `Unauthenticated(blockedBy: SignInBlock.storage | SignInBlock.popup)`: the
+   state a signed-out user is in anyway, carrying the one extra thing there is
+   to say. `AuthBloc` is the only place in the app that reads the markers: it
+   translates them once into `SignInBlock`, so no widget ever compares a
+   marker string and a third obstacle added later is a compile error rather
+   than a silent fall through to the generic message. `OnboardingPage` draws
+   the matching copy in a notice above the Google button, and opens on the
+   sign-in slide when it mounts carrying one.
+
+   **Drawn, not snackbarred**, and that is the whole difference between a
+   diagnosis that exists and one that arrives. The boot-leg verdict is settled
+   while the splash is still up, so by the time onboarding mounts there is no
+   state *change* left for a listener to fire on: a snackbar raised from there
+   would be shown to nobody, on precisely the failure this rule exists for.
 
 3. **First sign-in provisions everything.** A new user gets, in one flow: the
    Firestore profile document, a board seeded with `homeZoneId` from
@@ -223,7 +233,7 @@ abstract class ProfileRepository {
 **Failure markers.** `AuthFailure` is `final` and `Failure` is sealed, so a
 subtype cannot be declared for these; each marker travels in the
 developer-facing `message`, which is never rendered, and is read through its
-predicate — never by comparing strings at a call site.
+predicate, never by comparing strings at a call site.
 
 | Marker | Predicate | Means |
 |---|---|---|
@@ -235,9 +245,9 @@ The first lives in `auth_repository.dart` beside the contract; the two added by
 rule 2 live in `auth_repository_impl.dart` for now and belong next to it.
 
 **Data source contract.** `AuthRemoteDataSource.signInWithGoogle` answers a
-sealed `GoogleSignInOutcome` — `GoogleSignInSucceeded`,
+sealed `GoogleSignInOutcome`: `GoogleSignInSucceeded`,
 `GoogleSignInCancelled`, `GoogleSignInPopupUnavailable`,
-`GoogleSignInStorageBlocked` — rather than a nullable `UserModel`. A `null`
+`GoogleSignInStorageBlocked`: rather than a nullable `UserModel`. A `null`
 return used to carry all four, and the one that matters is invisible if it
 shares a value with a dismissed dialog. `startGoogleRedirect()` is web-only and
 is reached only from `GoogleSignInPopupUnavailable`, which no other platform
@@ -275,29 +285,61 @@ Singleton, provided app-wide.
 `authStateChanges` subscription).
 
 **States:** `AuthInitial`, `AuthLoading`, `Authenticated(user)`,
-`Unauthenticated`, `AuthError(failure)`.
+`Unauthenticated({blockedBy})`, `AuthError(failure)`.
+
+`blockedBy` is a `SignInBlock?`: `storage` when the browser dropped the
+sign-in's state, `popup` when the pop-up was blocked and the redirect is
+already known unusable here, and `null` for every ordinary signed-out session
+,  a first launch, a cancelled dialog, a sign-out.
 
 ```
-AuthInitial ──CheckRequested──→ Authenticated(user)   [session found]
-                              → Unauthenticated       [no session or failure]
+AuthInitial ──CheckRequested──→ Authenticated(user)    [session found]
+                              → Unauthenticated        [no session, or a
+                                                        failure with no remedy]
+                              → Unauthenticated(blockedBy: storage)
+                                                       [rule 2's boot verdict]
 
-Any ──GoogleSignInRequested──→ AuthLoading → Authenticated  [ok]
+Any ──GoogleSignInRequested──→ AuthLoading → Authenticated   [ok]
                                            → Unauthenticated [cancelled, rule 5]
+                                           → Unauthenticated(blockedBy: …)
+                                                             [rule 2's verdict]
                                            → AuthError       [other failure]
 
 Any ──SignOutRequested──→ Unauthenticated  [success]
                         → AuthError        [failure]
 
 Authenticated ──session revoked remotely──→ Unauthenticated
+
+Unauthenticated(blockedBy: …) ──null from authStateChanges──→ (ignored)
 ```
 
 There is no `AccessDenied` state: rule 11.
 
 `CheckRequested` answering `Unauthenticated` for "failure" as well as for "no
-session" is deliberate — an error screen in front of a button the user could
-simply press is a dead end — but it is also what currently swallows rule 2's
-boot-leg diagnosis. That one failure is the exception worth carrying through;
-see rule 2 and [i18n](#i18n).
+session" is deliberate: an error screen in front of a button the user could
+simply press is a dead end. The one thing it no longer folds away is rule 2's
+verdict, which rides along as `blockedBy`: still signed out, because that is
+the truth of it, and no longer silent.
+
+**Why a field and not a sixth state.** A blocked sign-in leaves the app in
+exactly the situation `Unauthenticated` already names: nobody signed in, the
+onboarding page in front of the button: and the only difference is that there
+is something to say. It also has to *travel*: the boot-leg verdict is produced
+on the splash and read on the onboarding page that replaces it, one router
+redirect and several frames later. A state meaning "signed out" makes that
+trip untouched, while an error state has to be re-read as signed out by
+everything on the way, which `StartupCubit._terminalReading` and `ProfilePage`
+already do for `AuthError`: the same folding that swallowed this diagnosis in
+the first place. `AuthState` is sealed besides, and `ProfilePage` switches over
+it with all five cases spelled out and no wildcard, so a sixth state is a
+compile error in a file that has nothing to do with browser storage.
+
+**A `null` from `authStateChanges` never clears `blockedBy`.** Firebase
+publishes one moments after startup on every signed-out boot, including the one
+a dropped redirect lands on, and it says nothing the state does not already
+say. Honouring it would erase the verdict a few frames before onboarding mounts
+to read it. The next attempt clears it instead: `AuthLoading` is the first
+thing a sign-in emits.
 
 ### ProfileCubit
 
@@ -330,14 +372,31 @@ Loaded ──load(forceRefresh: true)───→ Loading → …
   leaving) → **partitioned third-party storage**, not a cancelled sign-in.
   `getCurrentUser` answers `signInStorageBlockedFailure`, and the note is
   rewritten `unusable` so the next blocked popup does not spend another page
-  load discovering the same thing (rule 2).
+  load discovering the same thing (rule 2). `AuthBloc` carries the verdict on
+  as `Unauthenticated(blockedBy: SignInBlock.storage)`, and the onboarding page
+  the redirect lands on opens on its sign-in slide with `signInStorageBlocked`
+  above the button: which is the difference between this case and the identical
+  screen a user who never signed in gets.
 - **The redirect comes back throwing** (rejected auth event, mismatched nonce)
   with the note `pending` → the same diagnosis. The state was lost either way;
   this browser is only being louder about it.
 - **The popup is blocked and the redirect is already known unusable** →
   `signInPopupBlockedFailure`. Distinct from every other failure precisely
   because it has a remedy the user can carry out: allow pop-ups and press the
-  button again.
+  button again. Reaches the page as
+  `Unauthenticated(blockedBy: SignInBlock.popup)` and draws
+  `signInPopupBlocked`, not the red generic banner: nothing is broken, a
+  browser setting is in the way.
+- **The onboarding page mounts carrying a verdict** → it opens on the sign-in
+  slide rather than on slide 1 of the tour. The advice is about one button,
+  and the user has just been through the tour on the way out.
+- **A verdict is followed by the `null` `authStateChanges` publishes on every
+  signed-out boot** → ignored, so the diagnosis survives to be read (State
+  Machine). Cleared by the next attempt, not by the boot that produced it.
+- **A sign-in is cancelled after a blocked one** → plain `Unauthenticated`,
+  and the notice disappears with it. The browser's old verdict is not what the
+  page should be saying about a window the user just closed on purpose
+  (rule 5).
 - **Firebase refuses the popup for want of storage** (`web-storage-unsupported`)
   → reported immediately as `signInStorageBlockedFailure`, with no redirect
   attempted; the redirect would lose the same storage, silently.
@@ -350,7 +409,7 @@ Loaded ──load(forceRefresh: true)───→ Loading → …
   the sign-in.
 - **User abandons the flow at Google's account chooser and comes back** →
   indistinguishable from the partitioned case and diagnosed the same way. Known
-  and accepted (rule 2): the cost is one piece of advice — "allow pop-ups" —
+  and accepted (rule 2): the cost is one piece of advice: "allow pop-ups" , 
   that would have worked anyway.
 - **Firestore unavailable during sign-in** → minimal profile, app opens (rule 4).
 - **Authenticated but no profile document** → created on the fly (rule 8).
@@ -382,28 +441,26 @@ under it if and only if `request.auth.uid == userId`.
 ## i18n
 
 Copy under `t.auth.*`: `onboardingTitle1..3`, `onboardingBody1..3`,
-`signInWithGoogle`, `signInFailed`, `signOut`, `signOutConfirm`,
-`deleteAccount`, `deleteAccountConfirm`, `deleteAccountWarning`.
+`signInWithGoogle`, `signInFailed`, `signInStorageBlocked`,
+`signInPopupBlocked`, `signOut`, `signOutConfirm`, `deleteAccount`,
+`deleteAccountConfirm`, `deleteAccountWarning`.
 
-**Owed by rule 2, not yet written.** `OnboardingPage._onAuthState` shows one
-string for every `AuthError`, so the two browser failures currently draw the
-generic `signInFailed`, which is exactly the "nothing you can do" message they
-are meant not to be. Finishing rule 2 means:
+Rule 2's two strings must each say what to **do**. Saying only that something
+failed is `signInFailed`, and being told a thing failed with no next move is
+the experience these exist to replace:
 
-- `signInStorageBlocked`: this browser is blocking the storage the sign-in
-  needs — allow cross-site cookies for this site, or allow pop-ups and try
-  again;
-- `signInPopupBlocked`: the sign-in window was blocked — allow pop-ups for this
-  site and press the button again;
-- a `switch` in `_onAuthState` on `isSignInStorageBlocked` /
-  `isSignInPopupBlocked` before the generic fallback;
-- `AuthBloc._onCheckRequested` carrying the boot-leg failure through instead of
-  folding every `Left` into `Unauthenticated`, so the diagnosis is shown on the
-  page the redirect actually lands on rather than on the next tap.
+- `signInStorageBlocked`: this browser is dropping the storage the sign-in
+  needs. There is no in-app remedy: the flow needs storage the browser
+  partitions away: so the advice is another browser, or allowing cross-site
+  cookies for this site;
+- `signInPopupBlocked`: the sign-in window was blocked. Allow pop-ups for this
+  site and press the button again.
 
-Until then the failures are distinguishable in code and reach `AuthError` from
-the sign-in leg, which is a banner rather than silence — the point of the rule
-— but not yet the right words.
+They are picked by a `switch` on `SignInBlock` in `_SignInBlockedNotice`, with
+no default branch, so a third obstacle has to be given words before it
+compiles rather than reaching the user as an empty box. `AuthBloc` is what
+turns the repository's markers into that enum (State Machine); no widget reads
+a marker string.
 
 ---
 
@@ -413,7 +470,10 @@ the sign-in leg, which is a banner rather than silence — the point of the rule
 
 - `AuthBloc`: check with and without a session, sign-in success, cancellation
   mapping to `Unauthenticated` (rule 5), sign-in failure, sign-out success and
-  failure, `AuthUserChanged` from the stream.
+  failure, `AuthUserChanged` from the stream. Rule 2's verdict is pinned on
+  both legs, together with the three things that would quietly lose it again:
+  `blockedBy` belonging to the state's `props`, the boot-time `null` not
+  clearing it, and a later cancellation not leaving stale advice behind.
 - `AuthRepository`: provisioning is idempotent (rule 3), Firestore outage yields
   a minimal profile (rule 4), sign-out clears local data (rule 7), self-heal on a
   missing profile (rule 8), stream error yields null (rule 9).
@@ -442,7 +502,7 @@ and no visible difference from a user who never signed in:
   bug the rule is about;
 - a return that *threw* with the note `pending` is the same diagnosis;
 - a return carrying a session clears the note and writes no verdict;
-- no note and no session is still a plain `Right(null)` — the ordinary
+- no note and no session is still a plain `Right(null)`: the ordinary
   signed-out boot must not become a failure;
 - a second blocked popup once the note reads `unusable` answers
   `signInPopupBlockedFailure` and starts no redirect;
@@ -459,7 +519,7 @@ both sides.
 
 Mocks in `test/harness/mocks.dart`: `MockFirebaseAuth`, `MockGoogleSignIn`,
 `FakeFirebaseFirestore` (via `fake_cloud_firestore`), `MockLocalStore`.
-`FirebaseAuthException` is never constructed in a test — its constructor is
-`@protected` — so browser refusals are staged as
+`FirebaseAuthException` is never constructed in a test: its constructor is
+`@protected`: so browser refusals are staged as
 `FirebaseException(plugin: 'firebase_auth', code: …)`, which is what the data
 source discriminates on anyway.

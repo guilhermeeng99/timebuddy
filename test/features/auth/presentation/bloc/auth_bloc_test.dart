@@ -7,6 +7,11 @@ import 'package:mocktail/mocktail.dart';
 import 'package:timebuddy/core/errors/failures.dart';
 import 'package:timebuddy/core/sync/remote_settings_datasource.dart';
 import 'package:timebuddy/core/sync/sync_coordinator.dart';
+// The two markers rule 2 added still live beside the implementation
+// (docs/specs/auth.md, Failure markers). Named here, so the day they move to
+// the domain this import moves with them and nothing else in the file does.
+import 'package:timebuddy/features/auth/data/repositories/auth_repository_impl.dart'
+    show signInPopupBlockedFailure, signInStorageBlockedFailure;
 import 'package:timebuddy/features/auth/domain/entities/user_entity.dart';
 import 'package:timebuddy/features/auth/domain/repositories/auth_repository.dart';
 import 'package:timebuddy/features/auth/presentation/bloc/auth_bloc.dart';
@@ -36,13 +41,18 @@ void main() {
 
   late _MockAuthRepository repository;
   late StreamController<UserEntity?> sessions;
+  // Whether anything ever listened to [sessions]; see the tear-down.
+  late bool sessionsWereListened;
   late SyncCoordinator coordinator;
   late MockLocalStore store;
   late Completer<Either<Failure, UserEntity>> pendingSignIn;
 
   setUp(() {
     repository = _MockAuthRepository();
-    sessions = StreamController<UserEntity?>();
+    sessionsWereListened = false;
+    sessions = StreamController<UserEntity?>(
+      onListen: () => sessionsWereListened = true,
+    );
     store = MockLocalStore();
     // A real coordinator over a mock remote, not a mock coordinator: what
     // these tests are about is which auth states attach and detach a session,
@@ -58,6 +68,16 @@ void main() {
   });
 
   tearDown(() async {
+    // `close` completes once the done event has been *delivered*, and a
+    // single-subscription controller nobody ever listened to holds that event
+    // for a subscriber who is never coming: awaiting it after a test that
+    // builds no bloc hangs until the suite's 30-second timeout, which is a
+    // failure with nobody's name on it. Draining first gives the done event
+    // somewhere to land. It cannot be done unconditionally: a controller whose
+    // one subscription has already been cancelled refuses a second listener.
+    if (!sessionsWereListened) {
+      unawaited(sessions.stream.drain<void>());
+    }
     await sessions.close();
   });
 
@@ -104,6 +124,22 @@ void main() {
     expect(sessions.hasListener, isFalse);
   });
 
+  test('a diagnosis is part of the state, not a detail beside it', () {
+    // Guards the Equatable props. Left out of them, the plain signed-out state
+    // and the one carrying advice compare equal, `emit` treats the second as a
+    // no-op change, and the diagnosis is dropped without a single test going
+    // red — which is the same silence rule 2 exists to end.
+    expect(const Unauthenticated().blockedBy, isNull);
+    expect(
+      const Unauthenticated(blockedBy: SignInBlock.popup),
+      isNot(const Unauthenticated()),
+    );
+    expect(
+      const Unauthenticated(blockedBy: SignInBlock.popup),
+      isNot(const Unauthenticated(blockedBy: SignInBlock.storage)),
+    );
+  });
+
   group('AuthCheckRequested', () {
     blocTest<AuthBloc, AuthState>(
       'reports the session it found, with no loading state on the way',
@@ -133,7 +169,29 @@ void main() {
       ),
       build: buildBloc,
       act: (bloc) => bloc.add(const AuthCheckRequested()),
+      // No diagnosis either: the state is `Unauthenticated()` exactly, which
+      // is what keeps onboarding quiet about a network that came back.
       expect: () => [const Unauthenticated()],
+    );
+
+    blocTest<AuthBloc, AuthState>(
+      'carries a browser that dropped the sign-in through to the page',
+      // The gap this milestone closes. This is the leg a web redirect comes
+      // back on, and folding its verdict into a bare Unauthenticated put the
+      // user back on onboarding with nothing said at all (auth.md rule 2) —
+      // indistinguishable from someone who had never signed in.
+      setUp: () => sessionCheckAnswers(
+        const Left<Failure, UserEntity?>(signInStorageBlockedFailure),
+      ),
+      build: buildBloc,
+      act: (bloc) => bloc.add(const AuthCheckRequested()),
+      expect: () => [const Unauthenticated(blockedBy: SignInBlock.storage)],
+      verify: (bloc) {
+        // Still signed out, so the router still lands them on onboarding and
+        // the startup cubit still reads a terminal "no session". The
+        // diagnosis rides along; it does not change the destination.
+        expect(bloc.state, isA<Unauthenticated>());
+      },
     );
   });
 
@@ -181,6 +239,60 @@ void main() {
         const AuthLoading(),
         const AuthError(AuthFailure('google said no')),
       ],
+    );
+
+    blocTest<AuthBloc, AuthState>(
+      'a blocked pop-up is signed out with advice, not a red banner',
+      // AuthError would draw the generic "sign-in didn't go through", which
+      // is the "nothing you can do about it" message this failure exists not
+      // to be: allowing pop-ups is a remedy the user can carry out.
+      setUp: () => signInAnswers(
+        const Left<Failure, UserEntity>(signInPopupBlockedFailure),
+      ),
+      build: buildBloc,
+      act: (bloc) => bloc.add(const AuthGoogleSignInRequested()),
+      expect: () => [
+        const AuthLoading(),
+        const Unauthenticated(blockedBy: SignInBlock.popup),
+      ],
+    );
+
+    blocTest<AuthBloc, AuthState>(
+      'a browser that refused the storage says so on the sign-in leg too',
+      // Same verdict as the boot leg, and deliberately the same state: one
+      // situation, one answer, whichever leg discovered it.
+      setUp: () => signInAnswers(
+        const Left<Failure, UserEntity>(signInStorageBlockedFailure),
+      ),
+      build: buildBloc,
+      act: (bloc) => bloc.add(const AuthGoogleSignInRequested()),
+      expect: () => [
+        const AuthLoading(),
+        const Unauthenticated(blockedBy: SignInBlock.storage),
+      ],
+    );
+
+    blocTest<AuthBloc, AuthState>(
+      'a second attempt that succeeds clears the advice it started from',
+      setUp: () => signInAnswers(Right<Failure, UserEntity>(ada)),
+      build: buildBloc,
+      seed: () => const Unauthenticated(blockedBy: SignInBlock.popup),
+      act: (bloc) => bloc.add(const AuthGoogleSignInRequested()),
+      expect: () => [const AuthLoading(), Authenticated(ada)],
+    );
+
+    blocTest<AuthBloc, AuthState>(
+      'a cancellation after a blocked attempt leaves no stale advice',
+      // The user closed the window on purpose this time; the previous
+      // browser verdict is no longer what the page should be saying, and
+      // rule 5 wants silence here.
+      setUp: () => signInAnswers(
+        const Left<Failure, UserEntity>(signInCancelledFailure),
+      ),
+      build: buildBloc,
+      seed: () => const Unauthenticated(blockedBy: SignInBlock.popup),
+      act: (bloc) => bloc.add(const AuthGoogleSignInRequested()),
+      expect: () => [const AuthLoading(), const Unauthenticated()],
     );
   });
 
@@ -250,6 +362,34 @@ void main() {
         await settle();
       },
       expect: () => [const AuthLoading(), Authenticated(ada)],
+    );
+
+    blocTest<AuthBloc, AuthState>(
+      'the null published on a signed-out boot does not erase a diagnosis',
+      // Firebase publishes null moments after startup on every signed-out
+      // boot, including the one a dropped redirect lands on. Taking it at
+      // face value would overwrite the verdict a few frames before the
+      // onboarding page mounts to read it — the same silence, one layer up.
+      build: buildBloc,
+      seed: () => const Unauthenticated(blockedBy: SignInBlock.storage),
+      act: (bloc) async {
+        sessions.add(null);
+        await settle();
+      },
+      expect: () => <AuthState>[],
+    );
+
+    blocTest<AuthBloc, AuthState>(
+      'a session arriving after a blocked attempt still signs the user in',
+      // The guard above must not swallow a real session: it is about the
+      // null, not about the state it is guarding.
+      build: buildBloc,
+      seed: () => const Unauthenticated(blockedBy: SignInBlock.popup),
+      act: (bloc) async {
+        sessions.add(grace);
+        await settle();
+      },
+      expect: () => [Authenticated(grace)],
     );
 
     blocTest<AuthBloc, AuthState>(

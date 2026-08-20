@@ -33,7 +33,7 @@ preferences.
 6. Recover from failure with an in-page retry, not with a router escape.
 7. Hand the reconciled preferences to the singleton `PreferencesCubit`, which
    `TimeBuddyApp` loaded before the router existed. The board needs no
-   equivalent — see Collaborators.
+   equivalent, see Collaborators.
 
 ---
 
@@ -83,7 +83,7 @@ StartupCubit({
    shows a live clock of the device zone the moment the engine is ready. Engine
    failure is fatal to the app and is the one hard error here. The catalog load
    is started in the same breath, and if the engine throws, that future is
-   claimed with `ignore()` rather than dropped — an unlistened rejected future
+   claimed with `ignore()` rather than dropped: an unlistened rejected future
    reaches the zone guard, so an engine failure would otherwise be followed by
    a crash.
 
@@ -100,8 +100,8 @@ StartupCubit({
    `null`**, not to a boolean: `Authenticated` carries the id the sync needs,
    while `Unauthenticated` and `AuthError` both resolve to `null`. The
    subscription is dropped as the completer is settled, and every `complete()`
-   is guarded by `isCompleted` so a duplicate terminal event — a sign-in landing
-   while the session check is still running — does not throw. A stream that
+   is guarded by `isCompleted` so a duplicate terminal event: a sign-in landing
+   while the session check is still running: does not throw. A stream that
    errors is treated as signed out and logged: a splash held forever by a failed
    bloc stream is unrecoverable, and "signed out" costs the user one tap.
 

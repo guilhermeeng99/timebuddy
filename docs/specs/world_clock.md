@@ -162,5 +162,23 @@ Copy under `t.worldClock.*`: `title`, `sameTime`, `tomorrow`, `yesterday`,
   +1 across the date line, `dayDelta` of -1, band assignment, DST flag.
 - `WorldClockCubit`: tick updates `nowInstant` without touching the board,
   board change rebuilds, empty board yields `Ready` with an empty tile list.
-- A regression test that no tile creates its own `Timer` (assert
-  `TickerService` subscriber count equals 1 after building the page).
+- A regression test that no tile creates its own `Timer`.
+
+  **Not a subscriber count.** `ClockText` subscribes to the ticker once per set
+  of digits, by design and for the reason Performance gives: the `StreamBuilder`
+  wraps the digits and nothing else, so a tick repaints one `Text` rather than a
+  row. A page with a hero over N tiles therefore holds N+1 subscriptions plus
+  the cubit's, and an assertion that the count equals 1 would be asserting the
+  opposite of the design: red on a page that is behaving, and quiet about the
+  thing rule 3 actually forbids.
+
+  Pin the **cost** instead: the app runs exactly one `Timer` and `TickerService`
+  owns it. Let the service's timer run rather than the paused one the harness
+  installs, assert that a minute of elapsed time moves every clock on the page
+  with nobody publishing a tick: which only a real timer inside the service can
+  do: and then `pause()` it, which cancels that one timer and nothing else.
+  `flutter_test` fails any test whose body returns with a `Timer` still pending,
+  so a tile that started a `Timer.periodic` of its own is caught there and its
+  creation site is printed. The subscription count is still worth asserting as
+  N+1, because a tile that wrapped itself in a second `StreamBuilder` shows up
+  in nothing else.

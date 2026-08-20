@@ -17,9 +17,9 @@ import 'package:timebuddy/core/extensions/context_extensions.dart';
 /// into its `Stack` unconditionally: both halves of the §7 rule live here, and
 /// a shell that forgets one of them is not a way this can break.
 ///
-/// The active destination is the only one that shows its label. Three labels
-/// on a phone-width pill either truncate or shrink the type below the scale,
-/// and the inactive ones carry no information the icon does not.
+/// The active destination is the only one that shows its label. Five labels on
+/// a phone-width pill either truncate or shrink the type below the scale, and
+/// the inactive ones carry no information the icon does not.
 ///
 /// ```dart
 /// Stack(
@@ -62,16 +62,37 @@ class TimeBuddyBottomBar extends StatelessWidget {
   /// is how a per-page magic number gets minted.
   static const double reservedHeight = edgeGap + barHeight + edgeGap;
 
+  /// Width of a collapsed destination, and the number the five-item fit is
+  /// measured against.
+  ///
+  /// Collapsed items are the row's only fixed cost, so the arithmetic closes
+  /// without a layout pass. On a 375pt window the pill's gutters take
+  /// `16 + 16` outside plus `8 + 8` inside, leaving `327`; the four collapsed
+  /// items take `4 * 44 = 176`; the expanded item therefore gets `151`, of
+  /// which its own chrome (`12` padding + `22` icon + `8` gap + `12` padding)
+  /// is `54`. That leaves **97pt of label**, and the longest label either
+  /// locale ships — pt-BR `Configurações` — measures roughly 94pt at
+  /// `labelLarge`. Five fit.
+  ///
+  /// The row cannot overflow on any real phone: the label is `Flexible` with
+  /// an ellipsis, so the only incompressible width is `176 + 54 = 230`, which
+  /// needs a 278pt window. Below `600` is where the bar renders at all and no
+  /// phone is narrower than 320.
+  ///
+  /// A sixth destination costs another 44 and drops the label to 53pt, under
+  /// every word in the nav. That is the ceiling `TimeBuddyNavDestination`
+  /// documents, and the reason this constant is public.
+  ///
+  /// It is also a tap target rather than the 22pt icon it centres: a collapsed
+  /// item used to be sized by its content, which put the touchable area at
+  /// 38pt on a control the user aims at on every visit.
+  static const double collapsedItemWidth = 44;
+
   // The bar floats over scrolling content, so it needs a real shadow: without
   // one, a row passing underneath reads as part of the bar for the frame it
   // overlaps it.
   static const double _elevation = 8;
   static const Duration _expandDuration = Duration(milliseconds: 180);
-
-  // The expanded item needs room for an icon plus a word; the other two need
-  // room for an icon. Weighted rather than equal thirds so a long label
-  // ("Localizações") still fits on a 320pt phone instead of ellipsing.
-  static const int _selectedFlex = 3;
 
   @override
   Widget build(BuildContext context) {
@@ -110,14 +131,31 @@ class TimeBuddyBottomBar extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   for (final destination in TimeBuddyNavDestination.values)
-                    Flexible(
-                      flex: destination == selected ? _selectedFlex : 1,
-                      child: _BottomBarItem(
-                        destination: destination,
-                        isSelected: destination == selected,
-                        onTap: () => onSelect(destination),
+                    // The expanded item is the only flexible one, and loosely
+                    // so: it takes whatever the collapsed items left and then
+                    // shrinks to its content, which is what keeps the
+                    // expand/collapse animation on a content-sized pill
+                    // instead of a fixed column. Splitting the row by flex
+                    // weights instead cannot hold both ends at once — the
+                    // ratio that gives the label enough room starves the
+                    // collapsed icons on a 320pt phone.
+                    if (destination == selected)
+                      Flexible(
+                        child: _BottomBarItem(
+                          destination: destination,
+                          isSelected: true,
+                          onTap: () => onSelect(destination),
+                        ),
+                      )
+                    else
+                      SizedBox(
+                        width: collapsedItemWidth,
+                        child: _BottomBarItem(
+                          destination: destination,
+                          isSelected: false,
+                          onTap: () => onSelect(destination),
+                        ),
                       ),
-                    ),
                 ],
               ),
             ),
@@ -155,10 +193,14 @@ class _BottomBarItem extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           borderRadius: radius,
-          // `widthFactor` and not a `Center`: the row measures this child to
-          // size the item, and a Center would report the whole slot, turning
-          // the content-sized pill into a fixed column and stranding the
-          // expand animation. Height still fills, which is the point.
+          // `widthFactor` and not a `Center`, and it does both jobs at once:
+          // under the expanded item's loose `Flexible` it reports the pill's
+          // own width, so the row measures content rather than freezing it
+          // into a fixed column and stranding the expand animation; under a
+          // collapsed item's tight `SizedBox` the same factor is clamped away
+          // by the constraint, so the InkWell fills the 44pt tap target and
+          // centres the icon in it. Height fills in both cases, which is what
+          // makes a thumb landing near the pill's top edge hit something.
           child: Align(
             widthFactor: 1,
             // Outside the fill so the ink area grows with the pill as the
@@ -186,7 +228,7 @@ class _BottomBarItem extends StatelessWidget {
                       size: _iconSize,
                       color: foreground,
                       // Only the selected destination renders its label, so
-                      // without this the other two are unnamed buttons to a
+                      // without this the other four are unnamed buttons to a
                       // screen reader.
                       semanticLabel: isSelected ? null : destination.label,
                     ),

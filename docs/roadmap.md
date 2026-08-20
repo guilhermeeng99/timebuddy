@@ -163,11 +163,11 @@ stays declined while one repair path is enough; the fourth still waits on a
   condition, a match on `users/{userId}` and a recursive match on everything
   under it, plus an explicit deny-all block that documents Firestore's own
   default and also refuses a collection-group query over `settings`.
-  `firestore.indexes.json` is empty on purpose — every read is by document id,
+  `firestore.indexes.json` is empty on purpose: every read is by document id,
   so there is nothing to index.
 - 2026-08-20: Google sign-in end to end: `AuthBloc` with its four events, the
   repository and the remote datasource under it, and the platform split
-  [specs/auth.md](specs/auth.md) rule 2 requires — on web a popup first,
+  [specs/auth.md](specs/auth.md) rule 2 requires: on web a popup first,
   because it is the only flow whose result lands in the app origin's own
   storage, with `signInWithRedirect` as the fallback when the browser refuses
   it; on Android the `google_sign_in` plugin. A dismissed dialog is not an
@@ -222,7 +222,7 @@ because each is a promise the specs still make:
   ([specs/timezone_engine.md](specs/timezone_engine.md) rule 12), for the third
   milestone running and still for M1's reason: the `timezone` package does not
   expose the release it embeds, and features may not import it directly. The
-  constant in `settings_page.dart` carries the `TODO` and an honest `—` rather
+  constant in `settings_page.dart` carries the `TODO` and an honest `, ` rather
   than a hardcoded `2026a` that goes stale without anyone noticing. It waits on
   a `TimeZoneEngine` that can report the release it loaded.
 - **The profile page has no in-app entry point.** `/profile` exists as a route
@@ -255,8 +255,8 @@ any page yet.
 - **M4: planning tools.** M3 is done and deployed, so the next milestone is the
   three pages the board and the grid were built to feed: the world clock, the
   meeting planner and the converter. Two of M2's deferred grid details belong
-  here rather than to a polish pass — row actions and reordering from the grid,
-  and the DST explanation sheet behind `DstBadge`'s waiting `onTap` — because
+  here rather than to a polish pass: row actions and reordering from the grid,
+  and the DST explanation sheet behind `DstBadge`'s waiting `onTap`: because
   the planner reopens the grid's interaction surface anyway, and `DayNightDot`
   has been waiting for the world clock since M2.
 

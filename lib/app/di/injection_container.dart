@@ -22,12 +22,17 @@ import 'package:timebuddy/features/locations/data/repositories/board_repository_
 import 'package:timebuddy/features/locations/data/repositories/city_catalog_repository_impl.dart';
 import 'package:timebuddy/features/locations/domain/repositories/board_repository.dart';
 import 'package:timebuddy/features/locations/domain/repositories/city_catalog_repository.dart';
+import 'package:timebuddy/features/meeting_planner/domain/usecases/build_meeting_summary_usecase.dart';
+import 'package:timebuddy/features/meeting_planner/domain/usecases/find_best_slot_usecase.dart';
+import 'package:timebuddy/features/meeting_planner/domain/usecases/format_meeting_text_usecase.dart';
 import 'package:timebuddy/features/preferences/data/datasources/preferences_local_datasource.dart';
 import 'package:timebuddy/features/preferences/data/repositories/preferences_repository_impl.dart';
 import 'package:timebuddy/features/preferences/domain/repositories/preferences_repository.dart';
 import 'package:timebuddy/features/preferences/presentation/cubit/preferences_cubit.dart';
 import 'package:timebuddy/features/startup/presentation/cubit/startup_cubit.dart';
+import 'package:timebuddy/features/time_converter/domain/usecases/convert_time_usecase.dart';
 import 'package:timebuddy/features/time_grid/domain/usecases/build_grid_usecase.dart';
+import 'package:timebuddy/features/world_clock/domain/usecases/build_world_clock_usecase.dart';
 import 'package:uuid/uuid.dart';
 
 /// The app's service locator.
@@ -129,6 +134,32 @@ Future<void> configureDependencies() async {
     // grid cubit from constructing a use case per rebuild.
     ..registerLazySingleton<BuildGridUseCase>(
       () => BuildGridUseCase(engine: sl<TimeZoneEngine>()),
+    )
+    // M4's five use cases, on the same terms as `BuildGridUseCase` above:
+    // every one is a `const`-constructible function object holding no state
+    // between calls, so one instance is the cheapest correct lifetime and a
+    // page rebuild never allocates another.
+    //
+    // Registered here rather than constructed by their cubits so the cubits
+    // stay testable with a fake engine: `WorldClockCubit` takes the use case,
+    // not a `TimeZoneEngine` it would have to build one from.
+    ..registerLazySingleton<BuildWorldClockUseCase>(
+      () => BuildWorldClockUseCase(engine: sl<TimeZoneEngine>()),
+    )
+    ..registerLazySingleton<ConvertTimeUseCase>(
+      () => ConvertTimeUseCase(engine: sl<TimeZoneEngine>()),
+    )
+    ..registerLazySingleton<BuildMeetingSummaryUseCase>(
+      () => BuildMeetingSummaryUseCase(engine: sl<TimeZoneEngine>()),
+    )
+    ..registerLazySingleton<FindBestSlotUseCase>(
+      () => FindBestSlotUseCase(engine: sl<TimeZoneEngine>()),
+    )
+    // The one M4 use case with no collaborator at all: it renders a summary
+    // that has already been resolved, so it never asks the engine anything
+    // (docs/specs/meeting_planner.md rule 9).
+    ..registerLazySingleton<FormatMeetingTextUseCase>(
+      FormatMeetingTextUseCase.new,
     )
     // The three Firebase handles, registered rather than read statically so a
     // data source takes them as arguments and a test can hand it fakes. They

@@ -90,7 +90,7 @@ abstract class RemoteSettingsDataSource {
   would quietly move every offset on the board the first time they travel.
 - **Writes replace; only the profile merges.** The document is the unit of
   reconciliation (rule 6), so a location the user deleted has to disappear from
-  the server copy — a merge write would resurrect it on the next read. The
+  the server copy: a merge write would resurrect it on the next read. The
   profile merges because provisioning must be idempotent ([auth.md](auth.md)
   rule 3): a retry after a partial failure completes the document instead of
   blanking fields another client already wrote.
@@ -103,7 +103,7 @@ abstract class RemoteSettingsDataSource {
   one type. `unavailable` and `deadline-exceeded` become
   `RemoteUnavailableException`, a subtype, and that distinction exists for
   exactly one decision: whether the passive indicator says *offline* (waiting
-  fixes it) or *error* (`permission-denied`, a revoked account — waiting never
+  fixes it) or *error* (`permission-denied`, a revoked account: waiting never
   will).
 
 > **Why not Drift.** There is no query. There is no join. There is no partial
@@ -139,7 +139,7 @@ abstract class RemoteSettingsDataSource {
    successful sync *is* a flush: each flag is rewritten while its document's
    winner is written, so what stays marked is exactly what the server was not
    given. There is deliberately no second pass over the flags at the end of a
-   sync — it could only re-upload a document the ladder had just retired,
+   sync: it could only re-upload a document the ladder had just retired,
    undoing the copy that won.
 
    The flag is an optimisation, not the durability mechanism. If it is lost the
@@ -152,7 +152,7 @@ abstract class RemoteSettingsDataSource {
    passively and in exactly one place: `SyncStatusRow` on the profile page,
    showing synced / syncing / offline / error as an icon and a line of text.
    Nothing modal, nothing that asks the user to act, and `error` renders in the
-   *warning* token rather than the error one — the app is working, its backup
+   *warning* token rather than the error one: the app is working, its backup
    is not, and that is not the same news. The status stream replays its last
    value to a new listener, because the indicator mounts long after the startup
    sync that found the app offline and would otherwise show "synced" over a
@@ -197,8 +197,8 @@ abstract class RemoteSettingsDataSource {
     Two clearings exist and they are not the same call. The auth repository
     wipes the whole store (`LocalStore.clearAll()`) on sign-out;
     `SyncService.clearLocalData()` removes the two documents and the two flags
-    **by name**, so a key belonging to the device rather than to the account —
-    a "has seen the onboarding" marker, say — survives. Nothing calls the named
+    **by name**, so a key belonging to the device rather than to the account , 
+    a "has seen the onboarding" marker, say: survives. Nothing calls the named
     version yet, so the two behave identically today; the moment a device-owned
     key exists, sign-out has to move to it.
 
@@ -331,7 +331,7 @@ either.
 - **User signs out with dirty documents** → the pending write is dropped with
   the flag. Sign-out clears local data unconditionally and attempts no final
   flush, and if the clearing itself fails it is swallowed rather than failing
-  the sign-out — a UI left signed in against a Firebase that signed out is worse
+  the sign-out: a UI left signed in against a Firebase that signed out is worse
   than a stale local board, which the next sign-in reconciles. Documented and
   accepted: the alternative is holding another account's data on the device
   after they left.

@@ -161,7 +161,24 @@ GoRouter _shellRouter({required String initialLocation}) {
             ],
           ),
           // Never visited here: both nav surfaces list the destinations
-          // themselves, so this branch only has to exist.
+          // themselves, so these branches only have to exist, in the order
+          // `AppShell` indexes them by.
+          StatefulShellBranch(
+            routes: <RouteBase>[
+              GoRoute(
+                path: AppRoutes.clocks,
+                builder: (context, state) => const SizedBox.shrink(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: <RouteBase>[
+              GoRoute(
+                path: AppRoutes.converter,
+                builder: (context, state) => const SizedBox.shrink(),
+              ),
+            ],
+          ),
           StatefulShellBranch(
             routes: <RouteBase>[
               GoRoute(
@@ -318,6 +335,55 @@ void main() {
     expect(find.text(t.nav.grid), findsOneWidget);
     expect(find.text(t.nav.locations), findsNothing);
     expect(find.text(t.nav.settings), findsNothing);
+  });
+
+  testWidgets('all five destinations fit the bar on a 375px phone', (
+    tester,
+  ) async {
+    await pumpShell(tester, surface: _mobileSurface);
+
+    // Milestone 4 took the nav from three destinations to five, and the pill
+    // is the surface where that has to be paid for: it is the one nav that
+    // cannot scroll, cannot wrap and cannot drop an item. Measured here rather
+    // than argued from the arithmetic in `collapsedItemWidth`'s contract,
+    // because the arithmetic is what would be wrong.
+    final items = find.descendant(
+      of: find.byType(TimeBuddyBottomBar),
+      matching: find.byType(InkWell),
+    );
+    expect(items, findsNWidgets(TimeBuddyNavDestination.values.length));
+
+    final rects = <Rect>[
+      for (var i = 0; i < TimeBuddyNavDestination.values.length; i++)
+        tester.getRect(items.at(i)),
+    ];
+    final bar = tester.getRect(find.byType(TimeBuddyBottomBar));
+
+    // In order, side by side, and inside the pill's own gutters. A row that
+    // ran out of width would put the last item's right edge past the pill —
+    // and would have failed this test one line earlier, since flutter_test
+    // fails a body that raised a `RenderFlex overflowed` on the way.
+    for (var i = 0; i < rects.length - 1; i++) {
+      expect(rects[i].right, lessThanOrEqualTo(rects[i + 1].left));
+    }
+    expect(rects.first.left, greaterThanOrEqualTo(bar.left));
+    expect(rects.last.right, lessThanOrEqualTo(bar.right));
+
+    // The four the user is not on keep the full tap target rather than
+    // shrinking to the 22pt icon they centre, which is the half of the fit a
+    // sixth destination would break first.
+    expect(
+      rects.skip(1).map((rect) => rect.width),
+      everyElement(TimeBuddyBottomBar.collapsedItemWidth),
+    );
+    // And the active one still had room to be more than an icon: it is the
+    // only destination that names itself here (see the test above), so a
+    // label squeezed to nothing would be five unlabelled icons.
+    expect(
+      rects.first.width,
+      greaterThan(TimeBuddyBottomBar.collapsedItemWidth),
+      reason: 'the active destination is the one that expands to a label',
+    );
   });
 
   testWidgets('at 600px and up the rail replaces the bar', (tester) async {

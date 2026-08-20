@@ -89,7 +89,7 @@ starts locked, which is correct: step 6 uploads the real rules a minute later,
 and starting in test mode opens a window where the database is world-readable.
 
 Pick the region closest to your users (`southamerica-east1` for Brazil). **The
-region is permanent** — changing it later means a new project.
+region is permanent**: changing it later means a new project.
 
 ## 5. Wire the Flutter app
 

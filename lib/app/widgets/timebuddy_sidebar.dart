@@ -8,23 +8,53 @@ import 'package:timebuddy/gen/i18n/strings.g.dart';
 
 /// The app's primary destinations, in the order both nav surfaces show them.
 ///
-/// Declared next to the sidebar rather than in a file of their own: three
-/// constants read by exactly two widgets do not earn a `nav_destinations.dart`
-/// you have to open to learn nothing. `TimeBuddyBottomBar` imports them from
-/// here, which is the point — two hand-maintained lists would eventually
-/// disagree on an icon, a label or the order, and the disagreement would only
-/// be visible to a user who resizes the window.
+/// Declared next to the sidebar rather than in a file of their own: a handful
+/// of constants read by exactly two widgets do not earn a
+/// `nav_destinations.dart` you have to open to learn nothing.
+/// `TimeBuddyBottomBar` imports them from here, which is the point — two
+/// hand-maintained lists would eventually disagree on an icon, a label or the
+/// order, and the disagreement would only be visible to a user who resizes the
+/// window.
+///
+/// **Five is the ceiling.** `TimeBuddyBottomBar` gives every collapsed
+/// destination a fixed icon width and spends the rest on the expanded one; a
+/// sixth entry puts the collapsed items under that width on a 360pt phone and
+/// the pill overflows (design_system §7, and the arithmetic is written out at
+/// `TimeBuddyBottomBar.collapsedItemWidth`). A sixth destination is a
+/// "More" sheet, not a sixth icon.
+///
+/// The meeting planner is deliberately absent: it is a mode of the grid, not a
+/// destination (docs/specs/meeting_planner.md).
 ///
 /// ```dart
 /// for (final destination in TimeBuddyNavDestination.values)
 ///   NavItem(destination: destination, isSelected: destination.matches(path));
 /// ```
 enum TimeBuddyNavDestination {
-  /// The comparison grid. Also the start route (docs/specs/time_grid.md).
+  /// The comparison grid, and the planner mode inside it. Also the start route
+  /// (docs/specs/time_grid.md).
   grid(
     route: AppRoutes.grid,
     icon: Icons.grid_view_outlined,
     selectedIcon: Icons.grid_view_rounded,
+  ),
+
+  /// The live world clock (docs/specs/world_clock.md).
+  clocks(
+    route: AppRoutes.clocks,
+    icon: Icons.access_time_outlined,
+    selectedIcon: Icons.access_time_filled_rounded,
+  ),
+
+  /// The one-instant converter (docs/specs/time_converter.md).
+  ///
+  /// The circled swap rather than the bare `swap_horiz`, which has no filled
+  /// variant: every other destination reads its state from outline-versus-fill
+  /// and one line-only icon would look permanently unselected.
+  converter(
+    route: AppRoutes.converter,
+    icon: Icons.swap_horizontal_circle_outlined,
+    selectedIcon: Icons.swap_horizontal_circle_rounded,
   ),
 
   /// The saved board: add, reorder, remove (docs/specs/locations.md).
@@ -63,6 +93,8 @@ enum TimeBuddyNavDestination {
   /// settings and both nav surfaces have to relabel on the next build.
   String get label => switch (this) {
     TimeBuddyNavDestination.grid => t.nav.grid,
+    TimeBuddyNavDestination.clocks => t.nav.clocks,
+    TimeBuddyNavDestination.converter => t.nav.converter,
     TimeBuddyNavDestination.locations => t.nav.locations,
     TimeBuddyNavDestination.settings => t.nav.settings,
   };
@@ -165,36 +197,60 @@ class TimeBuddySidebar extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const _BrandMark(),
-                const SizedBox(height: AppSpacing.xxl),
-                for (final destination in TimeBuddyNavDestination.values)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: AppSpacing.xs),
-                    child: _SidebarNavItem(
-                      destination: destination,
-                      isSelected: destination.matches(currentRoute),
-                      onTap: () => onSelect(destination),
-                    ),
-                  ),
-                // The stepper drops out on a sub-page for the same reason the
-                // bottom bar does: the add-location form has no reference day,
-                // so a stepper beside it would step a value nothing on screen
-                // is showing (design_system §7).
-                if (stepper != null)
-                  ValueListenableBuilder<int>(
-                    valueListenable: subPageDepth,
-                    builder: (context, depth, pill) => depth > 0
-                        ? const SizedBox.shrink()
-                        : Padding(
-                            padding: const EdgeInsets.only(top: AppSpacing.xl),
-                            child: Align(
-                              alignment: Alignment.centerLeft,
-                              child: pill,
+                // Scrolls rather than a `Spacer`, and measured rather than
+                // assumed: brand (36) + gap (24) + five 58pt rows (290) +
+                // stepper block (~60) is ~410pt of rail, which fits a portrait
+                // tablet and does not fit a landscape phone at 360pt tall —
+                // and the rail renders at any width >= 600, so that viewport
+                // is reachable. A `Spacer` in an over-full Column is a
+                // RenderFlex overflow; a scroll view is a scroll view.
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const _BrandMark(),
+                        const SizedBox(height: AppSpacing.xxl),
+                        for (final destination
+                            in TimeBuddyNavDestination.values)
+                          Padding(
+                            padding: const EdgeInsets.only(
+                              bottom: AppSpacing.xs,
+                            ),
+                            child: _SidebarNavItem(
+                              destination: destination,
+                              isSelected: destination.matches(currentRoute),
+                              onTap: () => onSelect(destination),
                             ),
                           ),
-                    child: stepper,
+                        // The stepper drops out on a sub-page for the same
+                        // reason the bottom bar does: the add-location form
+                        // has no reference day, so a stepper beside it would
+                        // step a value nothing on screen is showing
+                        // (design_system §7).
+                        if (stepper != null)
+                          ValueListenableBuilder<int>(
+                            valueListenable: subPageDepth,
+                            builder: (context, depth, pill) => depth > 0
+                                ? const SizedBox.shrink()
+                                : Padding(
+                                    padding: const EdgeInsets.only(
+                                      top: AppSpacing.xl,
+                                    ),
+                                    child: Align(
+                                      alignment: Alignment.centerLeft,
+                                      child: pill,
+                                    ),
+                                  ),
+                            child: stepper,
+                          ),
+                      ],
+                    ),
                   ),
-                const Spacer(),
+                ),
+                // Outside the scroll view: the account block is pinned to the
+                // bottom edge of the rail, which is where §7 puts it and where
+                // a user reaches for it without reading the nav first.
                 ?account,
               ],
             ),

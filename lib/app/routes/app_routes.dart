@@ -28,10 +28,10 @@ abstract class AppRoutes {
   /// The account page: who is signed in, the sync status, sign out, delete
   /// account (docs/specs/auth.md).
   ///
-  /// A root-level route rather than a fourth shell branch. It is reached from
-  /// the sidebar's profile slot and from settings, it is not one of the three
-  /// things the nav offers, and it is the one screen that can end the session
-  /// under the chrome that would otherwise be drawn around it.
+  /// A root-level route rather than a sixth shell branch. It is reached from
+  /// the sidebar's profile slot and from settings, it is not one of the
+  /// destinations the nav offers, and it is the one screen that can end the
+  /// session under the chrome that would otherwise be drawn around it.
   static const String profile = '/profile';
 
   /// The comparison grid: where a signed-in launch lands
@@ -42,7 +42,31 @@ abstract class AppRoutes {
   /// landing screen in front of it is a tap that buys nothing. [startup] is
   /// not such a screen — it is work the user would otherwise wait through on
   /// a half-drawn grid.
+  ///
+  /// **The meeting planner has no route of its own on purpose.** It is a mode
+  /// of this page (docs/specs/meeting_planner.md): same rows, same columns,
+  /// same engine, with the cursor turned into a range. A `/planner` URL would
+  /// promise a second screen and then render the first one.
   static const String grid = '/';
+
+  /// The world clock: one live tile per saved city
+  /// (docs/specs/world_clock.md).
+  ///
+  /// A destination of its own rather than a tab inside [grid], because it
+  /// answers a different question — "what time is it there *now*" against the
+  /// grid's "what does this hour look like everywhere" — and because a shell
+  /// branch is what lets each keep its own scroll position.
+  ///
+  /// Plural, and `/clocks` rather than `/world-clock`: it is the URL of a list
+  /// of clocks, and the shorter spelling is the one a user retypes correctly.
+  static const String clocks = '/clocks';
+
+  /// The one-instant converter (docs/specs/time_converter.md).
+  ///
+  /// A primary destination, not a sub-page of the grid: it is reached cold
+  /// ("what is 14:00 Tokyo here"), so putting it behind another screen would
+  /// charge a tap for the app's second most common question.
+  static const String converter = '/converter';
 
   /// The saved board: add, reorder, remove (docs/specs/locations.md).
   static const String locations = '/locations';
@@ -69,7 +93,7 @@ abstract class AppRoutes {
   /// Preferences (docs/specs/preferences.md).
   ///
   /// A primary destination from M2 on, not a pushed sub-page: it is one of
-  /// the three things the nav offers, so it owns a shell branch and keeps its
-  /// own scroll position across a trip to the grid and back.
+  /// the things the nav offers, so it owns a shell branch and keeps its own
+  /// scroll position across a trip to the grid and back.
   static const String settings = '/settings';
 }
