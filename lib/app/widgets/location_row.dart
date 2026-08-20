@@ -151,7 +151,13 @@ class _StatusLine extends StatelessWidget {
     // silently paints the chip across the grid's first hour column. Between
     // ellipsizing the abbreviation down to `CE...` and dropping it, dropping
     // reads better, and the chip already says which row this is.
-    final zoneAbbreviation = dense && isHome ? null : abbreviation;
+    // Dropped on every dense row that has something more useful to show.
+    // On the home row that is the Home chip; on any other it is the relative
+    // offset, which the code below calls the one number this column exists
+    // for. Measured on the deployed build at 390px: keeping both ellipsized
+    // `+8h30` down to `+...`, which is the badge being present in name only.
+    final crowded = isHome || isUnresolved || relative != null;
+    final zoneAbbreviation = dense && crowded ? null : abbreviation;
     return Row(
       children: [
         if (zoneAbbreviation != null) ...[
