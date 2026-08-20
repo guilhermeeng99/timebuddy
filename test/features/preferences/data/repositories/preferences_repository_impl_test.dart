@@ -7,6 +7,8 @@ import 'package:mocktail/mocktail.dart';
 import 'package:timebuddy/core/errors/exceptions.dart';
 import 'package:timebuddy/core/errors/failures.dart';
 import 'package:timebuddy/core/storage/local_store.dart';
+import 'package:timebuddy/core/sync/remote_settings_datasource.dart';
+import 'package:timebuddy/core/sync/sync_coordinator.dart';
 import 'package:timebuddy/core/time/time_formats.dart';
 import 'package:timebuddy/core/time/working_hours.dart';
 import 'package:timebuddy/features/preferences/data/datasources/preferences_local_datasource.dart';
@@ -31,14 +33,23 @@ void main() {
   // honest about the JSON that actually reaches the disk.
   late MockLocalStore store;
   late FakeClock clock;
+  late _MockRemoteSettings remote;
   late PreferencesRepositoryImpl repository;
 
   setUp(() {
     store = MockLocalStore();
     clock = FakeClock(launchInstant);
+    remote = _MockRemoteSettings();
+    // Signed out on purpose: these tests are about the LOCAL half of
+    // the write. A coordinator with no session pushes nothing, so the
+    // assertions below stay about the store and nothing else.
     repository = PreferencesRepositoryImpl(
       localDataSource: PreferencesLocalDataSourceImpl(store),
       clock: clock,
+      syncCoordinator: SyncCoordinator(
+        remoteDataSource: remote,
+        localStore: store,
+      ),
     );
     when(() => store.writeRaw(any(), any())).thenAnswer((_) async {});
   });
@@ -229,3 +240,8 @@ void main() {
     });
   });
 }
+
+/// Local-only tests still have to hand the repository a coordinator,
+/// and a coordinator needs a remote. It is never reached: no session is
+/// ever started on it.
+class _MockRemoteSettings extends Mock implements RemoteSettingsDataSource {}

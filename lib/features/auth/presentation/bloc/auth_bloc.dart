@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:bloc/bloc.dart';
+import 'package:timebuddy/core/sync/sync_coordinator.dart';
 import 'package:timebuddy/features/auth/domain/entities/user_entity.dart';
 import 'package:timebuddy/features/auth/domain/repositories/auth_repository.dart';
 import 'package:timebuddy/features/auth/presentation/bloc/auth_event.dart';
@@ -33,9 +34,12 @@ export 'package:timebuddy/features/auth/presentation/bloc/auth_state.dart';
 /// );
 /// ```
 class AuthBloc extends Bloc<AuthEvent, AuthState> {
-  AuthBloc({required AuthRepository repository})
-    : _repository = repository,
-      super(const AuthInitial()) {
+  AuthBloc({
+    required AuthRepository repository,
+    required SyncCoordinator syncCoordinator,
+  }) : _repository = repository,
+       _syncCoordinator = syncCoordinator,
+       super(const AuthInitial()) {
     on<AuthCheckRequested>(_onCheckRequested);
     on<AuthGoogleSignInRequested>(_onGoogleSignInRequested);
     on<AuthSignOutRequested>(_onSignOutRequested);
@@ -49,7 +53,36 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     );
   }
 
+  /// Attaches and detaches the account the background pushes write to.
+  ///
+  /// Here rather than in a listener somewhere in the widget tree, because this
+  /// is the one place that sees every terminal auth state, including the one a
+  /// warm start produces before any widget has mounted. A listener would have
+  /// to seed itself from the current state as well, and forgetting that is a
+  /// silently signed-out coordinator: edits keep working, they just stop
+  /// reaching the server (docs/specs/sync.md rules 2 and 3).
+  ///
+  /// Two states deliberately do NOT end the session:
+  ///
+  /// * `AuthError`, because a failed sign-out means the user is still signed
+  ///   in (auth.md Edge Cases). Detaching there would strand their pending
+  ///   writes while the account is very much alive.
+  /// * `AuthLoading`, because Firebase publishes a null user while the Google
+  ///   dialog is open, and treating that as a sign-out would drop the session
+  ///   in the middle of signing in.
+  @override
+  void onChange(Change<AuthState> change) {
+    super.onChange(change);
+    final next = change.nextState;
+    if (next is Authenticated) {
+      _syncCoordinator.startSession(userId: next.user.id);
+    } else if (next is Unauthenticated) {
+      _syncCoordinator.endSession();
+    }
+  }
+
   final AuthRepository _repository;
+  final SyncCoordinator _syncCoordinator;
 
   late final StreamSubscription<UserEntity?> _sessionSubscription;
 

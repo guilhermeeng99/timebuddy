@@ -116,6 +116,7 @@ class LocationRow extends StatelessWidget {
             relativeToHome: relativeToHome,
             isHome: isHome,
             isUnresolved: isUnresolved,
+            dense: dense,
           ),
         ],
       ),
@@ -130,26 +131,41 @@ class _StatusLine extends StatelessWidget {
     required this.relativeToHome,
     required this.isHome,
     required this.isUnresolved,
+    required this.dense,
   });
 
   final String? abbreviation;
   final Duration? relativeToHome;
+  final bool dense;
   final bool isHome;
   final bool isUnresolved;
 
   @override
   Widget build(BuildContext context) {
-    final zoneAbbreviation = abbreviation;
     final relative = relativeToHome;
+    // Dropped on the dense home row, and only there. The 96px mobile column
+    // leaves about 80px inside its padding, the Home chip eats roughly 46 of
+    // them, and a zone abbreviation is routinely four characters (CEST, AEDT)
+    // or five for a numeric zone (Asia/Kathmandu renders `+0545`). Showing
+    // both meant a RenderFlex overflow: in a test it shouts, in release it
+    // silently paints the chip across the grid's first hour column. Between
+    // ellipsizing the abbreviation down to `CE...` and dropping it, dropping
+    // reads better, and the chip already says which row this is.
+    final zoneAbbreviation = dense && isHome ? null : abbreviation;
     return Row(
       children: [
         if (zoneAbbreviation != null) ...[
-          Text(
-            zoneAbbreviation,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: context.textTheme.labelSmall?.copyWith(
-              color: context.appColors.onBackgroundLight,
+          // Flexible even now that the home row drops it: a large text scale
+          // factor overflows this line unconditionally otherwise, and the
+          // ellipsis is only reachable if the Text is allowed to shrink.
+          Flexible(
+            child: Text(
+              zoneAbbreviation,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: context.textTheme.labelSmall?.copyWith(
+                color: context.appColors.onBackgroundLight,
+              ),
             ),
           ),
           const SizedBox(width: AppSpacing.sm),
@@ -159,9 +175,10 @@ class _StatusLine extends StatelessWidget {
         else if (isHome)
           const _HomeChip()
         else if (relative != null)
-          // Always the dense badge: this column is 132px at its widest, and
-          // the full pair would ellipsize away the relative offset, which is
-          // the one number the column exists to show.
+          // Always the dense badge: this column is 132px at its widest and
+          // 96px on mobile, and the full pair would ellipsize away the
+          // relative offset, which is the one number the column exists to
+          // show.
           Flexible(
             child: OffsetBadge(relativeToHome: relative, dense: true),
           ),

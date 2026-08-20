@@ -5,17 +5,24 @@ it is in every city you care about, and find an hour that works for all of them.
 
 **Live build: <https://guilhermeeng99.github.io/timebuddy/>**
 
-> Status: milestones 1 and 2 are implemented. M1 shipped the theme layer, the
+> Status: milestones 1, 2 and 3 are implemented. M1 shipped the theme layer, the
 > timezone engine, the core time utilities, local storage, preferences and the
 > settings page. M2 shipped the 500-city catalog and its search, the saved board
 > (add, remove with undo, reorder, set home, replace a zone), the comparison
-> grid and the shell chrome that carries them. Sync, sign-in and the planning
-> tools described below are still documentation. See
-> [docs/roadmap.md](docs/roadmap.md).
+> grid and the shell chrome that carries them. M3 shipped the account: Google
+> sign-in, the Firestore documents behind it and the revision-based sync that
+> keeps them in step. The planning tools described below are still
+> documentation. See [docs/roadmap.md](docs/roadmap.md).
 >
-> The live build is therefore the app offline and signed out: add the cities you
-> care about and read one instant across all of them. Everything it stores stays
-> on the device, because there is no account yet.
+> **Sign-in is required**, so what a visitor meets is a splash while tzdata
+> loads, then a three-slide tour whose last slide holds a single *Sign in with
+> Google* button — there is no guest mode and no email/password. Once the
+> Google popup (or the redirect the browser falls back to) comes back, the app
+> opens on the grid, and the board and preferences that account already had
+> follow it there. Anyone with a Google account can sign in; there is no
+> allowlist. Google sign-in currently works on the web build only:
+> the Android app has no signing fingerprint registered on the Firebase project
+> yet, which the roadmap records as unfinished rather than buried.
 
 ## What it does
 
@@ -30,6 +37,13 @@ Shipped:
   measure everything else from, and undo a removal you did not mean.
 - **Theming**: light and dark, 10 selectable palettes each, shared with the
   Financo project.
+- **Your account**: sign in with Google and the same board and preferences show
+  up on the phone and in the browser. Two documents per user in Firestore,
+  reconciled by revision number. A write that cannot reach the server is never
+  an error the user has to read: it is remembered and retried later, and the
+  profile page carries a passive synced / syncing / offline indicator that says
+  so. That page lives at `/profile` and nothing links to it yet — see the
+  roadmap's list of what M3 left open.
 
 Specified, not built yet:
 
@@ -40,8 +54,6 @@ Specified, not built yet:
   slot when someone is stuck at 03:00.
 - **Time converter** (M4): "15:00 on 12 March in Lisbon" resolved everywhere,
   including dates far enough out that today's DST rules do not apply.
-- **Sync** (M3): sign in with Google and the same board and preferences follow
-  you between the phone and the browser.
 
 ## Architecture
 
@@ -51,8 +63,9 @@ with feature-first organization:
 ```
 lib/
 ├── app/          # App shell: DI, routing, theme, widgets, city asset
-├── core/         # Time engine, storage, errors, extensions, utils
-├── features/     # locations, time_grid, preferences, settings
+├── core/         # Time engine, storage, sync, errors, extensions, utils
+├── features/     # auth, locations, time_grid, preferences, profile,
+│                 #   settings, startup
 │                 #   (each: data / domain / presentation)
 └── gen/          # Generated code (slang i18n)
 
@@ -69,9 +82,13 @@ Each `features/<x>/` module follows:
 - `data/`: models, datasources, repository implementations
 - `presentation/`: cubits/blocs, pages, widgets
 
-`settings/` is the one exception: presentation only, a screen over the
-preferences feature, because giving it a domain of its own would put two owners
-on one document.
+Three modules are presentation only, and deliberately so. `settings/` is a
+screen over the preferences feature, because giving it a domain of its own would
+put two owners on one document; `profile/` is a screen over `auth` and the sync
+status; `startup/` is a cubit that composes four collaborators it does not own.
+Sync itself lives in `core/sync/` rather than in a feature: it is the one place
+that reconciles *both* documents against one account, and a copy of the conflict
+rules per feature would be two owners of one rule.
 
 ### The one architectural rule worth stating up front
 
@@ -83,18 +100,18 @@ widgets is how apps end up an hour wrong twice a year.
 
 | Concern | Tool |
 |---|---|
-| State management | `flutter_bloc` (Cubits mostly; the auth Bloc arrives with M3) |
+| State management | `flutter_bloc` (Cubits mostly; `AuthBloc` is the one Bloc) |
 | DI | `get_it` |
 | Routing | `go_router` (hash URLs on web; `StatefulShellRoute`, one branch per destination) |
 | Timezones | `timezone` (IANA tzdata) + `flutter_timezone` |
 | Local storage | `shared_preferences` (two JSON documents, no database) |
-| Remote sync | Firebase Firestore, revision-based last-write-wins. Arrives with M3; nothing Firebase is in `pubspec.yaml` yet |
-| Auth | Firebase Auth + `google_sign_in` (Google only). Arrives with M3 |
+| Remote sync | `cloud_firestore` — two documents per user, revision-based last-write-wins, no listeners and no timers |
+| Auth | `firebase_auth` + `google_sign_in` (Google only; popup with a redirect fallback on web, the plugin on Android) |
 | Error model | `dartz` `Either<Failure, T>` |
 | i18n | `slang` (type-safe, generated), pt-BR and en |
 | Fonts | `google_fonts` (Poppins + Inter) |
 | Lints | `very_good_analysis` (strict) |
-| Testing | `flutter_test`, `bloc_test`, `mocktail` (`fake_cloud_firestore` joins them with M3) |
+| Testing | `flutter_test`, `bloc_test`, `mocktail`, plus `fake_cloud_firestore` and `firebase_auth_mocks` at the auth boundary |
 
 ### Why there is no local database
 
@@ -126,16 +143,17 @@ Start here:
 | [preferences.md](docs/specs/preferences.md) | Settings, working hours, theme |
 | [startup.md](docs/specs/startup.md) | Boot sequence and the splash gate |
 
-Backend setup (run once, by the project owner):
+Backend setup (run once, per Firebase project):
 [docs/firebase_setup.md](docs/firebase_setup.md). It covers creating the
 project, enabling Google as the only sign-in provider, creating Firestore and
 deploying the security rules, plus the authorised-domain step that Google
-sign-in fails on in production without saying so.
+sign-in fails on in production without saying so, and the Android signing
+fingerprint that it fails on with an error naming neither.
 
 ## Running locally
 
 Prerequisites: Flutter 3.47 or newer, Dart >= 3.13 (the SDK constraint in
-`pubspec.yaml`). Nothing else: there is no backend to configure yet.
+`pubspec.yaml`).
 
 ```bash
 # 1. Install deps and generate code
@@ -147,10 +165,20 @@ flutter run -d chrome   # web
 flutter run             # connected Android device
 ```
 
-There is deliberately no `flutterfire configure` step. The app has no Firebase
-dependency and no `lib/firebase_options.dart`, because everything it persists
-today lives on the device. That step joins this list with milestone 3, together
-with sign-in and sync ([docs/specs/sync.md](docs/specs/sync.md)).
+That is the whole setup for the project's own Firebase project: both
+`lib/firebase_options.dart` and `android/app/google-services.json` are
+committed, and they are safe to commit — a Firebase API key identifies a project
+and authorises nothing, which is why `firestore.rules` is what actually protects
+the data.
+
+A fork needs its own project, because sign-in is checked against the Firebase
+project's authorised domains and the data lives under its Firestore instance:
+follow [docs/firebase_setup.md](docs/firebase_setup.md), then
+`flutterfire configure --project=<your-project-id> --platforms=android,web` to
+rewrite both files. Two things that bite in a fresh project and are documented
+there rather than left to be diagnosed: the deployment origin has to be an
+authorised domain, and Android sign-in needs the debug (and later release) SHA-1
+registered or it fails with `ApiException: 10`.
 
 ## Quality bar
 
@@ -159,5 +187,7 @@ flutter analyze   # must be zero errors, warnings and info issues
 flutter test      # must be green
 ```
 
-Both run before every commit. See the post-change checklist in
+Both run before every commit, and again in CI: the Pages workflow
+(`.github/workflows/deploy-pages.yml`) analyses and tests before it builds, so a
+red `main` never reaches the published site. See the post-change checklist in
 [CLAUDE.md](CLAUDE.md).

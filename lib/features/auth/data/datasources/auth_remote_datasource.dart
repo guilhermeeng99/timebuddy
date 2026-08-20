@@ -6,6 +6,51 @@ import 'package:timebuddy/core/platform/app_platform.dart';
 import 'package:timebuddy/core/time/clock.dart';
 import 'package:timebuddy/features/auth/data/models/user_model.dart';
 
+/// What one attempt at the platform's Google flow produced, short of an
+/// outright error.
+///
+/// This used to be a nullable [UserModel], where `null` stood for "nothing
+/// happened". Three different nothings hid behind it once the browser stopped
+/// redirecting unconditionally (docs/specs/auth.md rule 2), and the one that
+/// matters — the browser refusing to keep the state the flow needs — is
+/// invisible if it shares a value with a dismissed dialog. A sealed family
+/// makes the compiler ask the repository about each of them.
+sealed class GoogleSignInOutcome {
+  const GoogleSignInOutcome();
+}
+
+/// The flow completed. [session] is the credentials-only profile it produced.
+final class GoogleSignInSucceeded extends GoogleSignInOutcome {
+  const GoogleSignInSucceeded(this.session);
+
+  final UserModel session;
+}
+
+/// The user walked away: the Android dialog was dismissed, or the browser
+/// popup was closed (rule 5). Not an error, and never a banner.
+final class GoogleSignInCancelled extends GoogleSignInOutcome {
+  const GoogleSignInCancelled();
+}
+
+/// The browser refused to open the popup at all.
+///
+/// Web only, and recoverable: a full-page redirect is not a popup, so the
+/// repository can fall back to one. The user did nothing wrong and, in the
+/// common case, has nothing to do about it either.
+final class GoogleSignInPopupUnavailable extends GoogleSignInOutcome {
+  const GoogleSignInPopupUnavailable();
+}
+
+/// The browser refused Firebase the storage the flow needs to finish.
+///
+/// Web only. This is the *loud* form of the failure rule 2 is about: the same
+/// browser policy that silently drops a redirect's state on the way back can
+/// also reject the popup up front, and when it does there is no point
+/// redirecting — the round trip would only lose the state again, in silence.
+final class GoogleSignInStorageBlocked extends GoogleSignInOutcome {
+  const GoogleSignInStorageBlocked();
+}
+
 /// Firebase's half of authentication: the Google flow, the live session, and
 /// the `users/{userId}` profile document.
 ///
@@ -13,15 +58,27 @@ import 'package:timebuddy/features/auth/data/models/user_model.dart';
 /// models; turning that into `Either<Failure, T>` is the repository's job
 /// (see `exceptions.dart`).
 ///
-/// The one nullable return worth naming is [signInWithGoogle]'s: `null` means
-/// *nothing happened* — no session, no error — which is what a dismissed
-/// dialog and a page that is navigating away have in common.
+/// Which browser flow runs is *not* decided here beyond the first attempt:
+/// this class reports what the browser did and the repository owns the policy,
+/// because deciding whether a redirect is still worth trying needs a memory
+/// that outlives the page, and only the repository has one.
 abstract class AuthRemoteDataSource {
-  /// Runs the platform's Google flow and returns the resulting session as a
-  /// credentials-only profile, or `null` when the user did not complete it.
+  /// Runs the platform's Google flow without leaving the page: the popup in a
+  /// browser, the `google_sign_in` plugin on Android (rule 2).
   ///
-  /// Throws [AuthException] when the flow genuinely failed.
-  Future<UserModel?> signInWithGoogle();
+  /// Throws [AuthException] when the flow genuinely failed. Everything the
+  /// caller is expected to react to comes back as a [GoogleSignInOutcome].
+  Future<GoogleSignInOutcome> signInWithGoogle();
+
+  /// Web only: hands the whole page to Google's redirect flow.
+  ///
+  /// Returns while the browser is still unloading the page, so a caller gets
+  /// no session out of it; the result arrives on the next boot, through
+  /// [currentAuthUser]. Called only after [signInWithGoogle] reported
+  /// [GoogleSignInPopupUnavailable], which no non-web platform can produce.
+  ///
+  /// Throws [AuthException] when the browser rejected the navigation itself.
+  Future<void> startGoogleRedirect();
 
   /// The current session as a credentials-only profile, or `null` when signed
   /// out. On web this is also where a pending redirect is consumed.
@@ -57,6 +114,35 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   /// Firestore Rules).
   static const String _usersCollection = 'users';
 
+  /// Codes that mean the user closed the popup rather than finishing in it.
+  ///
+  /// `cancelled-popup-request` is a second sign-in superseding the first,
+  /// which a double tap produces routinely; `user-cancelled` is the consent
+  /// screen being declined. All three are decisions, not errors (rule 5).
+  static const Set<String> _popupDismissalCodes = {
+    'popup-closed-by-user',
+    'cancelled-popup-request',
+    'user-cancelled',
+  };
+
+  /// Codes that mean the popup never opened.
+  ///
+  /// `operation-not-supported-in-this-environment` is what a WebView or a
+  /// non-http origin answers, which is the same dead end as a popup blocker
+  /// from the caller's side: the popup is not available, try the other flow.
+  static const Set<String> _popupUnavailableCodes = {
+    'popup-blocked',
+    'operation-not-supported-in-this-environment',
+  };
+
+  /// The code Firebase raises when the browser denies it session storage.
+  ///
+  /// Matched on the code rather than on `FirebaseAuthException`, whose
+  /// constructor is `@protected` and so cannot be built by a test. The code is
+  /// the stable contract anyway: `firebase_auth_web` strips the `auth/` prefix
+  /// off the JS SDK's error and hands the rest through untouched.
+  static const String _storageUnsupportedCode = 'web-storage-unsupported';
+
   final FirebaseAuth _firebaseAuth;
   final FirebaseFirestore _firestore;
   final GoogleSignIn _googleSignIn;
@@ -68,11 +154,24 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   Future<void>? _googleSignInReady;
 
   @override
-  Future<UserModel?> signInWithGoogle() {
-    // One method, two flows (rule 2). The browser cannot use a popup without
-    // tripping COOP in several browsers, and Android has no redirect to come
-    // back from, so neither flow can serve both.
-    return _platform.isWeb ? _startWebRedirect() : _authenticateWithPlugin();
+  Future<GoogleSignInOutcome> signInWithGoogle() {
+    // One method, two flows (rule 2). The browser opens a popup because that
+    // is the only web flow whose result lands in the app origin's own
+    // storage; Android has no popup and drives the plugin instead.
+    return _platform.isWeb
+        ? _authenticateWithPopup()
+        : _authenticateWithPlugin();
+  }
+
+  @override
+  Future<void> startGoogleRedirect() async {
+    try {
+      await _firebaseAuth.signInWithRedirect(GoogleAuthProvider());
+    } on FirebaseException catch (error) {
+      throw AuthException(_describe(error));
+    }
+    // Nothing follows in a real browser: the call above unloads the page, and
+    // the session is picked up by [currentAuthUser] on the way back.
   }
 
   @override
@@ -132,22 +231,48 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     );
   }
 
-  /// Web: hand the page to Google and let it come back (rule 2).
-  Future<UserModel?> _startWebRedirect() async {
+  /// Web: sign in inside a popup, so the session is written first-party.
+  ///
+  /// The popup hands the credential back to this page and the session is
+  /// stored on the app's own origin. Nothing has to survive a cross-site
+  /// navigation, which is the whole reason this is tried first (rule 2).
+  Future<GoogleSignInOutcome> _authenticateWithPopup() async {
     try {
-      await _firebaseAuth.signInWithRedirect(GoogleAuthProvider());
+      final session = await _firebaseAuth.signInWithPopup(GoogleAuthProvider());
+      final user = session.user;
+      if (user == null) {
+        throw const AuthException('Firebase returned no user.');
+      }
+      return GoogleSignInSucceeded(_profileFromSession(user));
     } on FirebaseException catch (error) {
-      throw AuthException(_describe(error));
+      return _readPopupRefusal(error);
     }
-    // Unreachable in a real browser: the call above navigates away, and the
-    // session is picked up by [currentAuthUser] on the way back. A browser
-    // that blocked the navigation lands here, and "nothing happened" is
-    // exactly the cancelled outcome (rule 5), not an error worth a banner.
-    return null;
+  }
+
+  /// Why the popup did not produce a session, in the caller's vocabulary.
+  ///
+  /// Three refusals, three different answers, and the difference is the whole
+  /// point: a closed popup must be silent, a blocked one must be retried
+  /// another way, and a browser withholding storage must be *said out loud*,
+  /// because no amount of retrying will change it.
+  GoogleSignInOutcome _readPopupRefusal(FirebaseException error) {
+    if (_popupDismissalCodes.contains(error.code)) {
+      return const GoogleSignInCancelled();
+    }
+    if (error.code == _storageUnsupportedCode) {
+      return const GoogleSignInStorageBlocked();
+    }
+    if (_popupUnavailableCodes.contains(error.code)) {
+      return const GoogleSignInPopupUnavailable();
+    }
+    // Everything else — `unauthorized-domain`, `network-request-failed`,
+    // `account-exists-with-different-credential` — is a real failure, and one
+    // the user cannot fix by tapping the button again in a different browser.
+    throw AuthException(_describe(error));
   }
 
   /// Android: the plugin authenticates, Firebase adopts the credential.
-  Future<UserModel?> _authenticateWithPlugin() async {
+  Future<GoogleSignInOutcome> _authenticateWithPlugin() async {
     try {
       await _ensureGoogleSignInReady();
       final account = await _googleSignIn.authenticate();
@@ -167,9 +292,11 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       if (user == null) {
         throw const AuthException('Firebase returned no user.');
       }
-      return _profileFromSession(user);
+      return GoogleSignInSucceeded(_profileFromSession(user));
     } on GoogleSignInException catch (error) {
-      if (_isDialogDismissal(error.code)) return null;
+      if (_isDialogDismissal(error.code)) {
+        return const GoogleSignInCancelled();
+      }
       throw AuthException('Google sign-in failed (${error.code.name}).');
     } on FirebaseException catch (error) {
       throw AuthException(_describe(error));
@@ -199,9 +326,15 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     // once `getRedirectResult` has resolved, so reading `currentUser` first
     // races the SDK and bounces a user who just signed in straight back to
     // onboarding — auth.md rule 8's "classic web-redirect race". This is also
-    // the only place the redirect opened by [_startWebRedirect] is consumed.
-    // The call is web-only because the platform interface leaves it
-    // unimplemented everywhere else.
+    // the only place the redirect opened by [startGoogleRedirect] is
+    // consumed. It runs on every web boot, not only after a redirect: a page
+    // that skipped it would read `currentUser` before the SDK had finished
+    // restoring one. The call is web-only because the platform interface
+    // leaves it unimplemented everywhere else.
+    //
+    // A null user here is *not* proof that nothing happened. It is also what
+    // a browser that dropped the redirect's state answers, and the repository
+    // is the only layer that can tell those apart (rule 2).
     try {
       final redirected = await _firebaseAuth.getRedirectResult();
       return redirected.user ?? _firebaseAuth.currentUser;
@@ -215,8 +348,8 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   /// The plugin requires `initialize()` to have completed before any other
   /// call and documents a second call as undefined behaviour, so the future is
   /// memoised instead of the call being repeated. Web never reaches this:
-  /// there, Firebase's redirect flow owns the GSI lifecycle and the plugin is
-  /// left uninitialised on purpose (rule 6).
+  /// there, Firebase owns the GSI lifecycle and the plugin is left
+  /// uninitialised on purpose (rule 6).
   Future<void> _ensureGoogleSignInReady() async {
     final pending = _googleSignInReady ??= _googleSignIn.initialize();
     try {

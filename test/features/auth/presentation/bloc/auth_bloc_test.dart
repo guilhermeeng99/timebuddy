@@ -5,11 +5,14 @@ import 'package:dartz/dartz.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:timebuddy/core/errors/failures.dart';
+import 'package:timebuddy/core/sync/remote_settings_datasource.dart';
+import 'package:timebuddy/core/sync/sync_coordinator.dart';
 import 'package:timebuddy/features/auth/domain/entities/user_entity.dart';
 import 'package:timebuddy/features/auth/domain/repositories/auth_repository.dart';
 import 'package:timebuddy/features/auth/presentation/bloc/auth_bloc.dart';
 
 import '../../../../harness/factories/user_factory.dart';
+import '../../../../harness/mocks.dart';
 
 /// The repository boundary for these tests.
 ///
@@ -33,11 +36,22 @@ void main() {
 
   late _MockAuthRepository repository;
   late StreamController<UserEntity?> sessions;
+  late SyncCoordinator coordinator;
+  late MockLocalStore store;
   late Completer<Either<Failure, UserEntity>> pendingSignIn;
 
   setUp(() {
     repository = _MockAuthRepository();
     sessions = StreamController<UserEntity?>();
+    store = MockLocalStore();
+    // A real coordinator over a mock remote, not a mock coordinator: what
+    // these tests are about is which auth states attach and detach a session,
+    // and `hasSession` answers that directly. A mock would only prove the
+    // bloc called a method.
+    coordinator = SyncCoordinator(
+      remoteDataSource: _MockRemoteSettings(),
+      localStore: store,
+    );
     // Stubbed before any bloc exists: the constructor subscribes immediately,
     // so a bloc built against an unstubbed getter never listens at all.
     when(() => repository.authStateChanges).thenAnswer((_) => sessions.stream);
@@ -47,7 +61,10 @@ void main() {
     await sessions.close();
   });
 
-  AuthBloc buildBloc() => AuthBloc(repository: repository);
+  AuthBloc buildBloc() => AuthBloc(
+    repository: repository,
+    syncCoordinator: coordinator,
+  );
 
   void sessionCheckAnswers(Either<Failure, UserEntity?> result) {
     when(repository.getCurrentUser).thenAnswer((_) async => result);
@@ -246,4 +263,71 @@ void main() {
       expect: () => [Authenticated(grace)],
     );
   });
+
+  group('the sync session follows the auth state', () {
+    blocTest<AuthBloc, AuthState>(
+      'attaches the account when a session resolves',
+      setUp: () {
+        when(repository.getCurrentUser).thenAnswer(
+          (_) async => Right<Failure, UserEntity?>(aUser()),
+        );
+      },
+      build: buildBloc,
+      act: (bloc) => bloc.add(const AuthCheckRequested()),
+      verify: (_) {
+        expect(coordinator.hasSession, isTrue);
+      },
+    );
+
+    blocTest<AuthBloc, AuthState>(
+      'detaches it on a real sign-out',
+      setUp: () {
+        when(repository.getCurrentUser).thenAnswer(
+          (_) async => Right<Failure, UserEntity?>(aUser()),
+        );
+        when(repository.signOut).thenAnswer(
+          (_) async => const Right<Failure, void>(null),
+        );
+      },
+      build: buildBloc,
+      act: (bloc) async {
+        bloc.add(const AuthCheckRequested());
+        await pumpEventQueue();
+        bloc.add(const AuthSignOutRequested());
+      },
+      verify: (_) {
+        expect(coordinator.hasSession, isFalse);
+      },
+    );
+
+    blocTest<AuthBloc, AuthState>(
+      'keeps the account attached when the sign-out FAILS',
+      // The trap: a refused sign-out means the user is still signed in
+      // (auth.md Edge Cases). Detaching here would strand the pending writes
+      // of an account that is very much alive.
+      setUp: () {
+        when(repository.getCurrentUser).thenAnswer(
+          (_) async => Right<Failure, UserEntity?>(aUser()),
+        );
+        when(repository.signOut).thenAnswer(
+          (_) async => const Left<Failure, void>(ServerFailure()),
+        );
+      },
+      build: buildBloc,
+      act: (bloc) async {
+        bloc.add(const AuthCheckRequested());
+        await pumpEventQueue();
+        bloc.add(const AuthSignOutRequested());
+      },
+      verify: (_) {
+        expect(coordinator.hasSession, isTrue);
+      },
+    );
+  });
 }
+
+
+/// The coordinator needs a remote to construct. These tests never let it
+/// reach one: they assert which auth states attach a session, not what a
+/// push does with it.
+class _MockRemoteSettings extends Mock implements RemoteSettingsDataSource {}

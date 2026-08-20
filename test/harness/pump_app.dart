@@ -13,6 +13,9 @@
 /// `TickerService` starts a `Timer` in its constructor, which `flutter_test`
 /// fails the test for if it is still pending when the body returns.
 ///
+/// The third global it pins is the platform, through [_deviceZoneChannel]:
+/// see the comment on it for why a real page mounted here hangs without that.
+///
 /// ```dart
 /// final app = await pumpApp(tester, const SettingsPage());
 /// await tester.tap(find.text(t.settings.themeLight));
@@ -24,6 +27,7 @@ library;
 
 import 'package:dartz/dartz.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
@@ -36,6 +40,7 @@ import 'package:timebuddy/core/errors/failures.dart';
 import 'package:timebuddy/core/time/clock.dart';
 import 'package:timebuddy/core/time/ticker_service.dart';
 import 'package:timebuddy/core/time/timezone_engine.dart';
+import 'package:timebuddy/core/time/zone_lookup.dart';
 import 'package:timebuddy/features/preferences/domain/entities/preferences_entity.dart';
 import 'package:timebuddy/features/preferences/presentation/cubit/preferences_cubit.dart';
 import 'package:timebuddy/gen/i18n/strings.g.dart';
@@ -58,6 +63,23 @@ typedef PumpedApp = ({
   TimeZoneEngine engine,
 });
 
+/// `flutter_timezone`'s channel, the one platform call the app makes.
+///
+/// `TzTimeZoneEngine.deviceZone` invokes it, and under `flutter_test` nothing
+/// ever answers: a real platform message is replied to on the host event loop,
+/// which a `testWidgets` body driving fake time never reaches. The call does
+/// not throw and does not time out — its future simply never completes, so
+/// `BoardCubit.load` never leaves `BoardLoading`, every page waiting on the
+/// board holds a `LoadingShimmer`, and that shimmer's repeating animation
+/// keeps a frame scheduled forever. The visible symptom is `pumpAndSettle`
+/// timing out in a test that never mentioned the platform at all.
+const MethodChannel _deviceZoneChannel = MethodChannel('flutter_timezone');
+
+/// Answers [_deviceZoneChannel] with [handler]; `null` unregisters it again.
+void _stubDeviceZone(Future<Object?> Function(MethodCall call)? handler) =>
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(_deviceZoneChannel, handler);
+
 /// The instant every pumped page reads as "now" unless a test pins its own.
 ///
 /// Mid-June, mid-month and off the hour on purpose: it sits far from any DST
@@ -74,6 +96,13 @@ final DateTime harnessNowUtc = utcDate(2024, 6, 15, 12, 30);
 /// pass a stub only for answers real tzdata cannot be made to give, such as
 /// which zone the device reports. [surfaceSize] widens the default 800x600
 /// viewport for a page whose lazy list is taller than it.
+///
+/// **[surfaceSize] resizes the render surface and nothing else.** `MediaQuery`
+/// is derived from the view, which `setSurfaceSize` does not touch, so a page
+/// asked for a 400x720 "phone" still reads 800x600 and still answers
+/// `ResponsiveLayout.isMobile` with `false`. A test about a breakpoint has to
+/// set `tester.view.physicalSize` and `devicePixelRatio` itself, and reset the
+/// view in a tear-down.
 Future<PumpedApp> pumpApp(
   WidgetTester tester,
   Widget child, {
@@ -155,6 +184,16 @@ Future<PumpedApp> _install(
   // network and the app bundles no copy, so this turns a doomed HTTP round
   // trip into an immediate fallback to the default font.
   GoogleFonts.config.allowRuntimeFetching = false;
+
+  // Answered rather than left hanging, for the reason [_deviceZoneChannel]
+  // spells out. `UTC` and not a real zone: the device zone is only a *fallback*
+  // for a first-run board, so a page test that has an opinion about the home
+  // zone states it in the board it passes, and one that has none should not
+  // silently inherit a city from the harness. A test that is about what the
+  // platform reports registers its own handler, the way
+  // `timezone_engine_test.dart` does.
+  _stubDeviceZone((_) async => utcZoneId);
+  addTearDown(() => _stubDeviceZone(null));
 
   if (surfaceSize != null) {
     await tester.binding.setSurfaceSize(surfaceSize);

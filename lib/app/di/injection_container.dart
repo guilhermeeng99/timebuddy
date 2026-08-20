@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timebuddy/core/platform/app_platform.dart';
 import 'package:timebuddy/core/storage/local_store.dart';
 import 'package:timebuddy/core/sync/remote_settings_datasource.dart';
+import 'package:timebuddy/core/sync/sync_coordinator.dart';
 import 'package:timebuddy/core/sync/sync_service.dart';
 import 'package:timebuddy/core/sync/sync_service_impl.dart';
 import 'package:timebuddy/core/time/clock.dart';
@@ -82,10 +83,21 @@ Future<void> configureDependencies() async {
     ..registerLazySingleton<PreferencesLocalDataSource>(
       () => PreferencesLocalDataSourceImpl(sl<LocalStore>()),
     )
+    // Lazy SINGLETON, never a factory: the signed-in account is this object's
+    // state, and a factory would hand every repository its own permanently
+    // signed-out copy, so ordinary edits would stop pushing and nothing would
+    // fail loudly enough to notice.
+    ..registerLazySingleton<SyncCoordinator>(
+      () => SyncCoordinator(
+        remoteDataSource: sl<RemoteSettingsDataSource>(),
+        localStore: sl<LocalStore>(),
+      ),
+    )
     ..registerLazySingleton<PreferencesRepository>(
       () => PreferencesRepositoryImpl(
         localDataSource: sl<PreferencesLocalDataSource>(),
         clock: sl<Clock>(),
+        syncCoordinator: sl<SyncCoordinator>(),
       ),
     )
     // Singleton on purpose: a preference change is immediate and global
@@ -104,6 +116,7 @@ Future<void> configureDependencies() async {
       () => BoardRepositoryImpl(
         localDataSource: sl<BoardLocalDataSource>(),
         clock: sl<Clock>(),
+        syncCoordinator: sl<SyncCoordinator>(),
       ),
     )
     // Singleton because the parsed catalog is the cache: roughly 400 entries
@@ -152,7 +165,10 @@ Future<void> configureDependencies() async {
     // It subscribes to `authStateChanges` in its constructor, so resolving it
     // is what starts listening.
     ..registerLazySingleton<AuthBloc>(
-      () => AuthBloc(repository: sl<AuthRepository>()),
+      () => AuthBloc(
+        repository: sl<AuthRepository>(),
+        syncCoordinator: sl<SyncCoordinator>(),
+      ),
     )
     ..registerLazySingleton<RemoteSettingsDataSource>(
       () => FirestoreRemoteSettingsDataSource(sl<FirebaseFirestore>()),

@@ -1,6 +1,6 @@
 # Roadmap
 
-Last reviewed: 2026-08-19.
+Last reviewed: 2026-08-20.
 
 Three states: **Done**, **In progress**, **Planned**. Planned items are ordered
 by priority and each links to the spec that defines it. An item is only Done when
@@ -151,41 +151,121 @@ with M4, when the planner reopens the grid's interaction surface; the third
 stays declined while one repair path is enough; the fourth still waits on a
 `TimeZoneEngine` that can report the release it loaded.
 
+### M3: Account and sync
+
+- 2026-08-20: Firebase project `timebuddy-app-2026` provisioned: Google as the
+  only sign-in provider, Firestore created in `southamerica-east1`, and
+  `flutterfire configure` run for Android and web, so the generated
+  `lib/firebase_options.dart` and `android/app/google-services.json` are in the
+  repository.
+  → [firebase_setup.md](firebase_setup.md)
+- 2026-08-20: `firestore.rules` written and deployed: one `isOwner(userId)`
+  condition, a match on `users/{userId}` and a recursive match on everything
+  under it, plus an explicit deny-all block that documents Firestore's own
+  default and also refuses a collection-group query over `settings`.
+  `firestore.indexes.json` is empty on purpose — every read is by document id,
+  so there is nothing to index.
+- 2026-08-20: Google sign-in end to end: `AuthBloc` with its four events, the
+  repository and the remote datasource under it, and the platform split
+  [specs/auth.md](specs/auth.md) rule 2 requires — on web a popup first,
+  because it is the only flow whose result lands in the app origin's own
+  storage, with `signInWithRedirect` as the fallback when the browser refuses
+  it; on Android the `google_sign_in` plugin. A dismissed dialog is not an
+  error (rule 5), a Firestore outage during sign-in still lets the user in on
+  their local board (rule 4), and sign-out wipes the local documents (rule 7).
+- 2026-08-20: Onboarding: three slides, the last of them holding the Google
+  button, and a skip that goes *to* that slide rather than past it. There is
+  deliberately no `SignInPage`: the app is Google-only, so a screen whose whole
+  content is one button would be a second stop on the way to the same tap.
+  → [specs/auth.md](specs/auth.md)
+- 2026-08-20: `SyncService` / `SyncServiceImpl` over `RemoteSettingsDataSource`:
+  the conflict ladder (revision, then `updatedAt`, then the remote as a stable
+  arbitrary), a missing or unreadable remote `revision` scored `-1` so first
+  sign-in provisioning is a case of reconciliation rather than a code path of
+  its own, the two dirty flags, and a `SyncStatus` stream that replays its last
+  value so an indicator mounting after a failed startup sync does not show
+  "idle" over an offline session. → [specs/sync.md](specs/sync.md)
+- 2026-08-20: The passive sync indicator (`SyncStatusRow`) on the profile page,
+  and the `AppLifecycleState.resumed` hook in `app_widget` that flushes whatever
+  a failed remote write left behind. A failed remote write is never a banner
+  ([specs/sync.md](specs/sync.md) rule 4), and the profile page is the only
+  place it is mentioned at all.
+- 2026-08-20: `StartupCubit` and the `/startup` splash: tzdata and the city
+  catalog first and unconditionally, auth second, the first sync third inside a
+  5 second box, and a terminal state the page turns into `/` or `/onboarding`.
+  The router redirect holds every other route until startup has answered, and
+  bounces a signed-in user who lands on `/onboarding` back through it.
+  `AppShell` still owns `BoardCubit` and is only built after the router leaves
+  `/startup`, so its load reads the document sync already reconciled;
+  `PreferencesCubit`, a singleton loaded before the router exists, is handed the
+  reconciled copy through `adoptFromSync`.
+  → [specs/startup.md](specs/startup.md)
+- 2026-08-20: 559 tests passing, `flutter analyze` clean, and the signed-in
+  build deployed to <https://guilhermeeng99.github.io/timebuddy/>.
+
+Four M3 items did not ship. None of them is quietly folded into the list above,
+because each is a promise the specs still make:
+
+- **Android Google sign-in cannot work yet: no SHA-1 is registered on the
+  project.** `android/app/google-services.json` carries exactly one OAuth
+  client and it is `client_type: 3`, the web one; there is no `client_type: 1`
+  entry and no `certificate_hash` anywhere in the file, which is what Firebase
+  writes once a signing fingerprint exists. A real Android build therefore
+  fails the Google flow with `ApiException: 10 (DEVELOPER_ERROR)`, an error
+  that says nothing about fingerprints. Web sign-in does not check an app
+  signature, which is exactly why the deployed build works and this stayed
+  invisible. The fix is console-side and takes a minute:
+  `cd android && ./gradlew signingReport`, add the debug SHA-1 (and the release
+  keystore's before publishing) under Project settings → Your apps → Android,
+  then re-download the file ([firebase_setup.md](firebase_setup.md) step 5).
+- **The tzdata release in Settings → About is still a dash**
+  ([specs/timezone_engine.md](specs/timezone_engine.md) rule 12), for the third
+  milestone running and still for M1's reason: the `timezone` package does not
+  expose the release it embeds, and features may not import it directly. The
+  constant in `settings_page.dart` carries the `TODO` and an honest `—` rather
+  than a hardcoded `2026a` that goes stale without anyone noticing. It waits on
+  a `TimeZoneEngine` that can report the release it loaded.
+- **The profile page has no in-app entry point.** `/profile` exists as a route
+  and renders correctly, but nothing navigates to it: `TimeBuddySidebar` takes
+  a `profile` slot and `AppShell` passes nothing into it, and the settings page
+  still carries an M2-era comment saying its Account group is absent "until
+  M3". So the identity block, the sign-out button and the passive sync
+  indicator are reachable only by typing the URL. One line in the shell and one
+  row in settings close it.
+- **Account deletion is a confirmation dialog with nothing behind it.**
+  `ProfilePage` takes an optional `deleteAccount` callback and the route builds
+  the page without one, so a user who works through the deliberately harder
+  confirmation ends at `t.auth.deleteAccountFailed`. `ProfileRepository`
+  ([specs/auth.md](specs/auth.md), Repository Contract) has no implementation in
+  the tree, and inventing one under the page would be guessing at an API;
+  failing honestly beats hiding a row the spec promises.
+
+One more thing worth naming rather than rediscovering.
+[specs/sync.md](specs/sync.md) rules 2 and 3 describe a push after every
+*ordinary* local write, and rule 9 lists three trigger points for a full sync.
+What is verified in the tree at this entry is the startup sync and the
+`flushDirty` on resume; the write-through path that carries rules 2 and 3 lands
+with this milestone's integration, and there is no pull-to-refresh control on
+any page yet.
+
 ---
 
 ## In progress
 
-- **M3: account and sync.** M2 is done, so the next milestone is Firebase,
-  Google sign-in and the revision-based reconciliation of the two documents the
-  app already writes locally. Both shapes exist and are exercised today, which
-  is the point: sync has real data to argue about instead of a schema. The
-  `StartupCubit` and the splash route land with it, and they take over the board
-  load `AppShell` performs today.
+- **M4: planning tools.** M3 is done and deployed, so the next milestone is the
+  three pages the board and the grid were built to feed: the world clock, the
+  meeting planner and the converter. Two of M2's deferred grid details belong
+  here rather than to a polish pass — row actions and reordering from the grid,
+  and the DST explanation sheet behind `DstBadge`'s waiting `onTap` — because
+  the planner reopens the grid's interaction surface anyway, and `DayNightDot`
+  has been waiting for the world clock since M2.
 
 ---
 
 ## Planned
 
-Numbering continues from M2's items 1 to 5, which are now under Done, so an
-item number still points at the piece of work it always did.
-
-### M3: Account and sync (target: 2026-09-23)
-
-The same board on the phone and in the browser. This is the milestone that
-justifies having a login at all.
-
-6. Firebase project, `flutterfire configure`, Firestore rules restricting
-   `users/{userId}` to its owner.
-7. Google sign-in on both platforms, onboarding page, profile page.
-   → [specs/auth.md](specs/auth.md)
-8. `SyncService` with revision-based reconciliation, dirty flags and the passive
-   status indicator, covering the board and the preferences document alike.
-   → [specs/sync.md](specs/sync.md)
-9. `StartupCubit` and the splash route. → [specs/startup.md](specs/startup.md)
-
-The preferences document, the settings page and the working-hours preview were
-this milestone's item 16. They shipped in M1 (see Done), so all that is left of
-them here is their syncing, which item 8 covers.
+Numbering continues from M2's and M3's items 1 to 9, which are now under Done,
+so an item number still points at the piece of work it always did.
 
 ### M4: Planning tools (target: 2026-10-07)
 
@@ -199,7 +279,9 @@ them here is their syncing, which item 8 covers.
 13. PWA manifest, install prompt and offline shell, plus deep-link routes
     verified against the published site. The hosting itself is already done
     (see Done), so what remains here is the app-level polish.
-14. Android release build, adaptive icon, Play Store listing assets.
+14. Android release build, adaptive icon, Play Store listing assets. The release
+    keystore's SHA-1 has to reach the Firebase console with it, or the signed
+    build's Google sign-in fails the way the debug one does today (see M3).
 15. Empty, loading and error states audited on every page.
 16. Light and dark checked against all 20 palettes.
 17. Accessibility pass: contrast on every hour band, screen-reader labels for the
@@ -212,6 +294,20 @@ them here is their syncing, which item 8 covers.
 
 Recorded here so they are not re-litigated in every review.
 
+- **Firestore lives in `southamerica-east1`, and that is permanent.** A
+  Firestore database's location is fixed at creation: changing region means a
+  new project and a migration of every document, so this is the one Firebase
+  choice that cannot be revisited cheaply
+  ([firebase_setup.md](firebase_setup.md) step 4 says so at the point of no
+  return). It was picked deliberately and not by default: the owner is the
+  app's primary user and is in Brazil, and the whole remote payload is two
+  documents per account, read whole exactly once per launch and written after a
+  change the user already sees applied locally.
+  Region therefore buys latency on two reads and nothing else: a user in Tokyo
+  pays a few hundred extra milliseconds once, on a screen that is already
+  showing their local board, because local is the read path
+  ([specs/sync.md](specs/sync.md) rule 1). Recorded here so "shouldn't this be
+  `us-central1` or multi-region?" is not re-asked in every review.
 - **Guest mode (no account).** Considered and declined for v1
   ([specs/auth.md](specs/auth.md) rule 1): it needs a local-to-cloud migration
   path with its own conflict rules. Revisit if sign-in friction shows up as the
