@@ -14,12 +14,19 @@ never invalidates the app's CanvasKit cache.
 
 ## Design tokens are not the site's own
 
-`src/styles.css` copies its palette from `lib/app/theme/app_colors.dart` —
-`AppColors.defaultLight` for the light set, `AppColors.defaultDark` for dark —
-and its type families are the two the app loads through `google_fonts`. A
+`src/styles.css` copies its palette from `lib/app/theme/app_colors.dart`:
+`AppColors.defaultLight`, the app's Indigo Cloud, and its type families are the
+two the app loads through `google_fonts`. A
 landing page that picks its own indigo is a second brand, and the two drift the
 first time either is retuned. If a palette value changes in the app, change it
 here too.
+
+**The page is light only**, following the Financo site rather than the app. The
+app ships both brightnesses because it is a tool someone keeps open all day; a
+landing page is read once, and one committed surface is a page that looks the
+same in every screenshot and link preview. Nothing reads `prefers-color-scheme`
+and no utility class in `index.html` is theme-aware, so restoring a dark set is
+a matter of redefining the tokens in one place.
 
 ## The hero grid is real
 
