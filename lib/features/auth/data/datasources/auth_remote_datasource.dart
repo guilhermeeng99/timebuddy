@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:timebuddy/core/errors/exceptions.dart';
 import 'package:timebuddy/core/platform/app_platform.dart';
+import 'package:timebuddy/core/sync/sync_keys.dart';
 import 'package:timebuddy/core/time/clock.dart';
 import 'package:timebuddy/features/auth/data/models/user_model.dart';
 
@@ -114,7 +115,6 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
 
   /// The one collection this app reads by id and never queries (CLAUDE.md,
   /// Firestore Rules).
-  static const String _usersCollection = 'users';
 
   /// Codes that mean the user closed the popup rather than finishing in it.
   ///
@@ -192,7 +192,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     // about an empty board.
     try {
       final reference = _firestore
-          .collection(_usersCollection)
+          .collection(SyncKeys.usersCollection)
           .doc(authUser.id);
       final snapshot = await reference.get();
 

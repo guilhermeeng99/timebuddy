@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:get_it/get_it.dart';
+import 'package:timebuddy/app/di/injection_container.dart';
 import 'package:timebuddy/app/theme/app_spacing.dart';
 import 'package:timebuddy/core/extensions/context_extensions.dart';
 import 'package:timebuddy/core/time/timezone_engine.dart';
@@ -12,8 +12,14 @@ import 'package:timebuddy/core/utils/time_formatter.dart';
 /// from, so header and rows can never drift apart — a `ScrollController`
 /// attached to several viewports gives each its own position and syncs
 /// nothing, which is the bug this design removes rather than papers over
-/// (time_grid.md, Performance; Interaction: dragging the header scrolls the
-/// track, dragging the cells moves the cursor).
+/// (time_grid.md, Performance). A drag over the cells feeds this same
+/// controller through `ScrollPosition.drag`, so both surfaces pan one
+/// position rather than two.
+///
+/// It is also **the only place a pointer sets the cursor** (time_grid.md rule
+/// 8): tapping a column moves the shared cursor onto that hour. The cells
+/// below are a read surface, because the gesture that used to place the
+/// cursor there is the gesture the track needs for panning.
 ///
 /// The labels come from [referenceZoneId] rather than from the home row's
 /// cells, because home is a zone and not required to be a board row
@@ -26,6 +32,7 @@ import 'package:timebuddy/core/utils/time_formatter.dart';
 ///   referenceZoneId: cubit.referenceZoneId,
 ///   columnWidth: layout.hourColumnWidth,
 ///   controller: hourScroll,
+///   onColumnTap: cubit.setCursor,
 ///   cursorInstant: model.cursorInstant,
 /// );
 /// ```
@@ -35,6 +42,7 @@ class GridHeaderStrip extends StatelessWidget {
     required this.referenceZoneId,
     required this.columnWidth,
     required this.controller,
+    required this.onColumnTap,
     this.cursorInstant,
     this.localeTag,
     this.engine,
@@ -59,6 +67,13 @@ class GridHeaderStrip extends StatelessWidget {
   /// The grid's single horizontal controller.
   final ScrollController controller;
 
+  /// Called with the tapped column's UTC instant.
+  ///
+  /// The grid's one pointer path to the cursor. It lives on the ruler rather
+  /// than on the cells so the cells are free to pan the track, which is what
+  /// a horizontal drag across a timeline is expected to do.
+  final ValueChanged<DateTime> onColumnTap;
+
   /// The slot the cursor sits on, highlighted here as well as in the rows.
   final DateTime? cursorInstant;
 
@@ -70,7 +85,7 @@ class GridHeaderStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final resolvedEngine = engine ?? GetIt.I<TimeZoneEngine>();
+    final resolvedEngine = engine ?? sl<TimeZoneEngine>();
     final tag = localeTag ?? Localizations.localeOf(context).toLanguageTag();
 
     return DecoratedBox(
@@ -120,10 +135,11 @@ class GridHeaderStrip extends StatelessWidget {
           );
     final startsNewDate = previous != null && !_sameDate(localTime, previous);
 
-    return _HeaderColumn(
+    return GridHeaderColumn(
       localTime: localTime,
       dateLabel: startsNewDate ? formatDayMonth(localTime, localeTag) : null,
       isCursor: cursorInstant == slot,
+      onTap: () => onColumnTap(slot),
     );
   }
 
@@ -131,11 +147,18 @@ class GridHeaderStrip extends StatelessWidget {
       a.year == b.year && a.month == b.month && a.day == b.day;
 }
 
-class _HeaderColumn extends StatelessWidget {
-  const _HeaderColumn({
+/// One column of the ruler: the reference zone's hour, and the tap target
+/// that moves the shared cursor onto it.
+///
+/// Public so a test can address a column the way it addresses an `HourCell`,
+/// instead of hunting for a hit rectangle inside a scrolling viewport.
+class GridHeaderColumn extends StatelessWidget {
+  const GridHeaderColumn({
     required this.localTime,
     required this.dateLabel,
     required this.isCursor,
+    required this.onTap,
+    super.key,
   });
 
   /// Wall-clock time of this column in the reference zone.
@@ -146,61 +169,69 @@ class _HeaderColumn extends StatelessWidget {
 
   final bool isCursor;
 
+  /// Moves the shared cursor onto this column.
+  final VoidCallback onTap;
+
   static const double _dateFontSize = 10;
 
   /// The ruler's hour. Below the cells' 15pt on purpose — see [build].
   static const double _hourFontSize = 13;
-  static const double _cursorFillAlpha = 0.12;
 
-  /// `14`, or `14:30` after a 30-minute shift in the reference zone. Same
-  /// contract as `HourCell`: the minutes are shown because hiding them would
-  /// claim an alignment the column does not have (rule 5).
-  String get _hourLabel {
-    final hour = localTime.hour.toString().padLeft(2, '0');
-    if (localTime.minute == 0) return hour;
-    return '$hour:${localTime.minute.toString().padLeft(2, '0')}';
-  }
+  /// `14`, or `14:30` after a 30-minute shift in the reference zone.
+  ///
+  /// The same function `HourCell` renders with, rather than the same *shape*
+  /// of code: the ruler and the cells under it have to agree on every label,
+  /// and two hand-rolled copies of one format is how they stop agreeing.
+  String get _hourLabel => formatGridHour(localTime);
 
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
     final label = dateLabel;
 
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: isCursor
-            ? colors.primary.withValues(alpha: _cursorFillAlpha)
-            : null,
-        borderRadius: BorderRadius.circular(AppRadius.sm),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          if (label != null)
+    return GestureDetector(
+      // Opaque, so the whole column answers rather than only the two lines of
+      // text: a column is already at Material's minimum tap target and none
+      // of it should be dead. The `Scrollable` above still claims any pointer
+      // that moves, so the ruler goes on being draggable.
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: isCursor
+              ? colors.primary.withValues(alpha: AppAlpha.tint)
+              : null,
+          borderRadius: BorderRadius.circular(AppRadius.sm),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            if (label != null)
+              Text(
+                label,
+                maxLines: 1,
+                softWrap: false,
+                overflow: TextOverflow.clip,
+                style: context.textTheme.labelSmall?.copyWith(
+                  fontSize: _dateFontSize,
+                  fontWeight: FontWeight.w600,
+                  color: colors.primary,
+                ),
+              ),
             Text(
-              label,
+              _hourLabel,
               maxLines: 1,
-              softWrap: false,
-              overflow: TextOverflow.clip,
+              // 13pt against the cells' 15pt: the ruler names the column, the
+              // cell carries the answer, and a ruler at the same weight as
+              // the data competes with it.
               style: context.textTheme.labelSmall?.copyWith(
-                fontSize: _dateFontSize,
-                fontWeight: FontWeight.w600,
-                color: colors.primary,
+                fontSize: _hourFontSize,
+                fontWeight: isCursor ? FontWeight.w600 : FontWeight.w500,
+                color: isCursor ? colors.primary : colors.onBackgroundLight,
               ),
             ),
-          Text(
-            _hourLabel,
-            maxLines: 1,
-            // 13pt against the cells' 15pt: the ruler names the column, the
-            // cell carries the answer, and a ruler at the same weight as the
-            // data competes with it.
-            style: context.textTheme.labelSmall?.copyWith(
-              fontSize: _hourFontSize,
-              fontWeight: isCursor ? FontWeight.w600 : FontWeight.w500,
-              color: isCursor ? colors.primary : colors.onBackgroundLight,
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

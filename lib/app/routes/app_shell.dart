@@ -254,12 +254,15 @@ class DatePillSlot implements ValueListenable<Widget?> {
 
 /// Puts a page's date stepper where the breakpoint says it belongs.
 ///
-/// Below `600px` it renders [pill] in place; at and above it the sidebar owns
-/// the stepper (design_system §7), so this publishes [pill] into
-/// [shellDatePill] and takes no space on the page. One widget rather than an
-/// `if (isMobile)` at the call site, for the same reason `TimeBuddyBottomBar`
-/// hides itself: a page that gets half the rule right shows two steppers, and
-/// only on a tablet.
+/// The breakpoint is `ResponsiveLayout.sidebarIsExpanded` — **900px, not 600**.
+/// The rail owns the stepper only while it is wide enough to hold one; below
+/// that, including on a tablet where the rail is collapsed to 80pt, this
+/// renders [pill] in place. At and above it, [pill] is published into
+/// [shellDatePill] and takes no space on the page (design_system §7).
+///
+/// One widget rather than an `if` at the call site, for the same reason
+/// `TimeBuddyBottomBar` hides itself: a page that gets half the rule right
+/// shows two steppers, and only at one width.
 ///
 /// ```dart
 /// ShellDatePill(

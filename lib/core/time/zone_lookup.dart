@@ -16,12 +16,19 @@ const String utcZoneId = 'UTC';
 /// at all and a fallback was applied.
 ///
 /// ```dart
-/// final ref = zoneOrHome(saved.zoneId, board.homeZoneId);
-/// if (ref.wasAliased) {
-///   // Rewrite the stored row so the next launch resolves on the first try.
-///   await repository.updateZoneId(saved.id, ref.id);
+/// final ref = zoneOrNull(saved.zoneId);
+/// if (ref == null) {
+///   // locations.md rule 11: keep the row, flag it, never substitute a zone.
+///   return row.copyWith(isUnresolved: true);
 /// }
 /// ```
+///
+/// **[requestedId] and [wasAliased] have no consumer yet.** They exist so a
+/// caller could rewrite a stale stored row instead of re-resolving it on every
+/// launch; nothing does that today. They are cheap and the information is
+/// otherwise unrecoverable at the call site, so they stay — but the rewrite is
+/// a promise this codebase has not kept, and saying so here is cheaper than
+/// letting the next reader hunt for the caller.
 class ZoneRef extends Equatable {
   const ZoneRef({required this.id, required this.requestedId});
 
@@ -42,9 +49,13 @@ class ZoneRef extends Equatable {
 /// Resolves [zoneId] to a canonical [ZoneRef], or `null` when the tzdata knows
 /// neither the id nor any alias of it.
 ///
-/// The raw id wins over the alias map, so a canonical id never pays for the
-/// lookup and a future tzdata release that re-adds a name takes precedence
-/// over our hardcoded mapping.
+/// **The alias map wins over the raw id**, which is the opposite of what this
+/// comment used to claim. It has to: with the `latest_all` dataset both
+/// `Europe/Oslo` and its target `Europe/Berlin` resolve, so accepting the raw
+/// id first would hand back whichever spelling the caller happened to hold,
+/// and two board rows in one real zone would slip past the duplicate check
+/// (docs/specs/locations.md rule 2). The reasoning is spelled out at the
+/// branch itself.
 ///
 /// ```dart
 /// zoneOrNull('Asia/Calcutta')!.id;  // 'Asia/Kolkata'
@@ -71,30 +82,6 @@ ZoneRef? zoneOrNull(String zoneId) {
   }
 
   return null;
-}
-
-/// Resolves [zoneId], falling back to [homeZoneId] and then to [utcZoneId].
-///
-/// Never throws and never returns `null`, which is the whole point: a single
-/// stale row in a synced board must not be able to blank the screen. The
-/// fallback stays visible through [ZoneRef.wasAliased] so the caller can decide
-/// whether to warn, rewrite or ignore it.
-///
-/// ```dart
-/// final ref = zoneOrHome('Pacific/Atlantis', 'America/Sao_Paulo');
-/// ref.id;          // 'America/Sao_Paulo'
-/// ref.wasAliased;  // true
-/// ```
-ZoneRef zoneOrHome(String zoneId, String homeZoneId) {
-  final direct = zoneOrNull(zoneId);
-  if (direct != null) return direct;
-
-  final home = zoneOrNull(homeZoneId);
-  if (home != null) return ZoneRef(id: home.id, requestedId: zoneId);
-
-  // The home zone is corrupt too. UTC always resolves, so this branch cannot
-  // fail and callers never need a try/catch around a saved board.
-  return ZoneRef(id: utcZoneId, requestedId: zoneId);
 }
 
 /// The tz [tz.Location] behind [zoneId], or `null` when it does not resolve.

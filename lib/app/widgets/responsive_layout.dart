@@ -79,13 +79,4 @@ abstract class ResponsiveLayout {
   static bool sidebarIsExpanded(BuildContext context) =>
       MediaQuery.sizeOf(context).width >= desktopBreakpoint;
 
-  /// Tablet-sized: `600 <= width < 900`.
-  static bool isTablet(BuildContext context) {
-    final width = MediaQuery.sizeOf(context).width;
-    return width >= mobileBreakpoint && width < desktopBreakpoint;
-  }
-
-  /// Desktop-sized: `width >= 900`.
-  static bool isDesktop(BuildContext context) =>
-      MediaQuery.sizeOf(context).width >= desktopBreakpoint;
 }

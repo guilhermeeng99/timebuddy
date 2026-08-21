@@ -18,8 +18,15 @@ import 'package:timebuddy/gen/i18n/strings.g.dart';
 /// 20-row board with a 30-slot window builds roughly the eight columns on
 /// screen per visible row instead of six hundred (time_grid.md, Performance).
 ///
-/// Dragging horizontally over the rows therefore moves the cursor rather than
-/// scrolling the track, which is what the Interaction table asks for.
+/// Not scrolling itself does not make it unpannable: the page's own
+/// horizontal drag over these rows drives the header's `ScrollPosition`
+/// directly, so a finger dragged across the hours moves the track with its
+/// physics — fling included — while the rows go on painting at the offset
+/// that position publishes.
+///
+/// The cells carry **no tap handler**, and that is the point of the trade:
+/// the cursor is set from the ruler above (time_grid.md rule 8), which leaves
+/// every pixel of the track free for the pan.
 ///
 /// ```dart
 /// GridRowView(
@@ -27,7 +34,6 @@ import 'package:timebuddy/gen/i18n/strings.g.dart';
 ///   columnWidth: layout.hourColumnWidth,
 ///   cursorInstant: model.cursorInstant,
 ///   horizontalOffset: hourOffset,
-///   onCellTap: context.read<TimeGridCubit>().setCursor,
 /// );
 /// ```
 class GridRowView extends StatelessWidget {
@@ -35,7 +41,6 @@ class GridRowView extends StatelessWidget {
     required this.row,
     required this.columnWidth,
     required this.horizontalOffset,
-    required this.onCellTap,
     this.cursorInstant,
     super.key,
   });
@@ -52,9 +57,6 @@ class GridRowView extends StatelessWidget {
 
   /// Scroll offset of the shared hour track, in pixels.
   final ValueListenable<double> horizontalOffset;
-
-  /// Called with the tapped cell's UTC instant.
-  final ValueChanged<DateTime> onCellTap;
 
   /// The slot every row highlights, or `null` when there is no cursor.
   final DateTime? cursorInstant;
@@ -75,7 +77,6 @@ class GridRowView extends StatelessWidget {
           offset: offset,
           viewportWidth: constraints.maxWidth,
           cursorInstant: cursorInstant,
-          onCellTap: onCellTap,
         ),
       ),
     );
@@ -90,7 +91,6 @@ class _CellWindow extends StatelessWidget {
     required this.offset,
     required this.viewportWidth,
     required this.cursorInstant,
-    required this.onCellTap,
   });
 
   final List<GridCell> cells;
@@ -98,7 +98,6 @@ class _CellWindow extends StatelessWidget {
   final double offset;
   final double viewportWidth;
   final DateTime? cursorInstant;
-  final ValueChanged<DateTime> onCellTap;
 
   @override
   Widget build(BuildContext context) {
@@ -128,7 +127,6 @@ class _CellWindow extends StatelessWidget {
               child: _GridCellView(
                 cell: cells[index],
                 isCursor: cursorInstant == cells[index].instant,
-                onTap: () => onCellTap(cells[index].instant),
               ),
             ),
         ],
@@ -140,15 +138,10 @@ class _CellWindow extends StatelessWidget {
 /// One cell: the hour surface plus the two per-row marks that sit on top of
 /// it, the day boundary and the DST change.
 class _GridCellView extends StatelessWidget {
-  const _GridCellView({
-    required this.cell,
-    required this.isCursor,
-    required this.onTap,
-  });
+  const _GridCellView({required this.cell, required this.isCursor});
 
   final GridCell cell;
   final bool isCursor;
-  final VoidCallback onTap;
 
   static const double _dayRuleWidth = 1;
   static const double _dayRuleAlpha = 0.4;
@@ -171,7 +164,6 @@ class _GridCellView extends StatelessWidget {
           // because Lord Howe grows its `:30` halfway through a row (rule 5).
           minute: cell.localTime.minute,
           isCursor: isCursor,
-          onTap: onTap,
         ),
         if (cell.isDayStart)
           Positioned(

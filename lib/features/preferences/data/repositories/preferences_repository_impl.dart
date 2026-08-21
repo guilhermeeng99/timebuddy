@@ -2,10 +2,10 @@ import 'dart:async';
 
 import 'package:dartz/dartz.dart';
 import 'package:flutter/widgets.dart';
-import 'package:timebuddy/core/errors/exceptions.dart';
 import 'package:timebuddy/core/errors/failures.dart';
 import 'package:timebuddy/core/sync/sync_coordinator.dart';
 import 'package:timebuddy/core/time/clock.dart';
+import 'package:timebuddy/core/utils/storage_guard.dart';
 import 'package:timebuddy/features/preferences/data/datasources/preferences_local_datasource.dart';
 import 'package:timebuddy/features/preferences/data/models/preferences_model.dart';
 import 'package:timebuddy/features/preferences/domain/entities/preferences_entity.dart';
@@ -39,10 +39,10 @@ class PreferencesRepositoryImpl implements PreferencesRepository {
   @override
   Future<Either<Failure, PreferencesEntity>> load({
     required Locale deviceLocale,
-  }) async {
-    try {
+  }) {
+    return guardStorage(() async {
       final stored = await _localDataSource.read();
-      if (stored != null) return Right(stored);
+      if (stored != null) return stored;
 
       final seeded = PreferencesEntity.defaults(
         now: _clock.nowUtc(),
@@ -52,32 +52,25 @@ class PreferencesRepositoryImpl implements PreferencesRepository {
       // launch: leaving them unwritten would re-derive them from whatever
       // locale the device reports next time (preferences.md rule 2).
       await _localDataSource.write(PreferencesModel.fromEntity(seeded));
-      return Right(seeded);
-    } on CacheException catch (error) {
-      return Left(StorageFailure(error.message));
-    } on StorageException catch (error) {
-      return Left(StorageFailure(error.message));
-    }
+      return seeded;
+    });
   }
 
   @override
   Future<Either<Failure, PreferencesEntity>> save(
     PreferencesEntity preferences,
-  ) async {
-    try {
+  ) {
+    return guardStorage(() async {
       await _localDataSource.write(PreferencesModel.fromEntity(preferences));
-    } on CacheException catch (error) {
-      return Left(StorageFailure(error.message));
-    } on StorageException catch (error) {
-      return Left(StorageFailure(error.message));
-    }
 
-    // Rule 2, and not awaited: a theme switch is applied in the frame the user
-    // taps it, and awaiting Firestore here would hold the new palette behind
-    // the network. The coordinator turns a failed push into a dirty flag, so
-    // durability is retried without the user ever hearing about it (rules 3
-    // and 4).
-    unawaited(_syncCoordinator.pushPreferences(preferences));
-    return Right(preferences);
+      // Rule 2, and not awaited: a theme switch is applied in the frame the
+      // user taps it, and awaiting Firestore here would hold the new palette
+      // behind the network. The coordinator turns a failed push into a dirty
+      // flag, so durability is retried without the user ever hearing about it
+      // (rules 3 and 4). Started only after the local write returned, so a
+      // refused write still fails before anything is pushed.
+      unawaited(_syncCoordinator.pushPreferences(preferences));
+      return preferences;
+    });
   }
 }

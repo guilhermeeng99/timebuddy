@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timebuddy/core/errors/exceptions.dart';
 
@@ -27,6 +29,51 @@ abstract class LocalStore {
   /// Wipes every key. Called on sign-out and account deletion (sync.md
   /// rule 10), so a pending write never leaks into the next session.
   Future<void> clearAll();
+}
+
+/// Reading a whole JSON document through [LocalStore.readRaw].
+///
+/// Both documents this app persists are read the same way — one string, one
+/// `jsonDecode`, one "is it even an object" test — so the body lives once.
+/// An extension rather than a member of [LocalStore] because that interface is
+/// implemented by more than the real store: the mocks and the in-memory fakes
+/// the widget tests build would each have to reimplement a method that has
+/// exactly one correct body. Extensions are dispatched statically, so a fake
+/// that stubs `readRaw` gets this decoder for free.
+extension LocalStoreJson on LocalStore {
+  /// Returns the object stored under [key], or `null` when the key was never
+  /// written.
+  ///
+  /// Throws [CacheException] carrying [malformedMessage] when the stored
+  /// string is not a JSON object: a document that is not even an object cannot
+  /// be salvaged field by field, so it is reported rather than silently
+  /// replaced, and the repository decides whether to seed a fresh one or
+  /// surface the failure. The message belongs to the caller because it names
+  /// the document, which is the one part of the answer this method cannot
+  /// know.
+  ///
+  /// ```dart
+  /// final json = await store.readJsonObject(
+  ///   StorageKeys.board,
+  ///   malformedMessage: 'The stored board is not a readable JSON object.',
+  /// );
+  /// ```
+  Future<Map<String, dynamic>?> readJsonObject(
+    String key, {
+    required String malformedMessage,
+  }) async {
+    final raw = await readRaw(key);
+    if (raw == null) return null;
+
+    try {
+      final decoded = jsonDecode(raw) as Object?;
+      if (decoded is Map<String, dynamic>) return decoded;
+    } on FormatException catch (_) {
+      // Falls through to the exception below: the message is the same either
+      // way, and the caller cannot act on the difference.
+    }
+    throw CacheException(malformedMessage);
+  }
 }
 
 /// [LocalStore] backed by `shared_preferences` (`localStorage` on web).

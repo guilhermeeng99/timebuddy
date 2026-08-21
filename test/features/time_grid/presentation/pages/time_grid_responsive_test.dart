@@ -582,10 +582,17 @@ void main() {
     // moderate width change even with no rescale at all, so a test that
     // asserted the leftmost hour from the opening position would pass against
     // a reverted implementation. Half a column in, it cannot.
+    //
+    // The slop is added back rather than ignored. The ruler's columns became
+    // tap targets when the cursor moved onto them (rule 8), so the strip's
+    // drag recognizer now shares an arena with a tap: it waits out the touch
+    // slop and, being `DragStartBehavior.start`, throws that first 20px away.
+    // Without the term this drag is worth 3.1 columns and the fraction it
+    // lands on is no longer the one the assertion below is about.
     final widthBefore = columnWidth(tester);
     await tester.drag(
       find.byType(GridHeaderStrip),
-      Offset(-3.5 * widthBefore, 0),
+      Offset(-(3.5 * widthBefore + kDragSlopDefault), 0),
     );
     await tester.pumpAndSettle();
 

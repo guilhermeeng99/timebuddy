@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:get_it/get_it.dart';
+import 'package:timebuddy/app/di/injection_container.dart';
 import 'package:timebuddy/app/theme/app_typography.dart';
 import 'package:timebuddy/core/extensions/context_extensions.dart';
 import 'package:timebuddy/core/time/clock.dart';
 import 'package:timebuddy/core/time/ticker_service.dart';
-import 'package:timebuddy/core/time/time_formats.dart';
 import 'package:timebuddy/core/time/timezone_engine.dart';
 import 'package:timebuddy/core/utils/time_formatter.dart';
 import 'package:timebuddy/features/preferences/presentation/cubit/preferences_cubit.dart';
+import 'package:timebuddy/features/preferences/presentation/cubit/preferences_state_defaults.dart';
 
 /// Live wall-clock digits for one zone.
 ///
@@ -23,7 +23,7 @@ import 'package:timebuddy/features/preferences/presentation/cubit/preferences_cu
 /// function of `(zone, instant)` and changes under the widget on a DST
 /// boundary while it is on screen.
 ///
-/// The dependencies are constructor parameters with a `GetIt` fallback so a
+/// The dependencies are constructor parameters with an `sl` fallback so a
 /// widget test can drive the digits from a fake ticker and a pinned clock
 /// without standing up the service locator.
 ///
@@ -73,10 +73,13 @@ class ClockText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final resolvedTicker = ticker ?? GetIt.I<TickerService>();
-    final resolvedEngine = engine ?? GetIt.I<TimeZoneEngine>();
-    final resolvedClock = clock ?? GetIt.I<Clock>();
-    final hourFormat = _hourFormatOf(context);
+    final resolvedTicker = ticker ?? sl<TickerService>();
+    final resolvedEngine = engine ?? sl<TimeZoneEngine>();
+    final resolvedClock = clock ?? sl<Clock>();
+    // Watched rather than read: a 12h/24h switch in settings must
+    // repaint every clock on screen, and it lands between ticks.
+    final hourFormat =
+        context.watch<PreferencesCubit>().state.hourFormatOrDefault;
     final style = AppTypography.clock(
       color: color ?? context.appColors.onBackground,
       fontSize: fontSize,
@@ -102,14 +105,4 @@ class ClockText extends StatelessWidget {
       },
     );
   }
-
-  /// Watched rather than read: a 12h/24h switch in settings must repaint every
-  /// clock on screen, and it lands between ticks.
-  ClockFormat _hourFormatOf(BuildContext context) =>
-      switch (context.watch<PreferencesCubit>().state) {
-        PreferencesReady(:final preferences) => preferences.hourFormat,
-        // Preferences resolve during startup, before any board renders; the
-        // fallback only covers the frame where a test mounts a clock first.
-        PreferencesLoading() => ClockFormat.h24,
-      };
 }

@@ -4,12 +4,12 @@ import 'package:timebuddy/app/theme/app_spacing.dart';
 import 'package:timebuddy/app/widgets/app_icon.dart';
 import 'package:timebuddy/app/widgets/clock_text.dart';
 import 'package:timebuddy/app/widgets/dst_badge.dart';
+import 'package:timebuddy/app/widgets/local_date_line.dart';
 import 'package:timebuddy/app/widgets/timebuddy_picker_row.dart';
 import 'package:timebuddy/app/widgets/timebuddy_picker_sheet.dart';
 import 'package:timebuddy/core/extensions/context_extensions.dart';
 import 'package:timebuddy/core/utils/time_formatter.dart';
 import 'package:timebuddy/features/world_clock/domain/entities/world_clock_view_model.dart';
-import 'package:timebuddy/features/world_clock/presentation/widgets/world_clock_tile_view.dart';
 import 'package:timebuddy/gen/i18n/strings.g.dart';
 
 /// Digit size in the sheet's header block. Between the tile's and the hero's:
@@ -136,7 +136,7 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dayWord = worldClockDayWord(tile.dayDelta);
+    final dayWord = relativeDayWord(tile.dayDelta);
     final localeTag = LocaleSettings.currentLocale.languageTag;
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -309,7 +309,7 @@ class _Actions extends StatelessWidget {
       children: [
         TimeBuddyPickerRow(
           leading: const AppIcon(FontAwesomeIcons.house),
-          title: t.worldClock.actionSetHome,
+          title: t.locations.setAsHome,
           // Already home reads as the selected option, which is what the check
           // mark means everywhere else in the app. Tapping it closes the sheet
           // without reporting an action.

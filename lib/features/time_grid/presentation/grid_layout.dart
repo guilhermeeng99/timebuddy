@@ -148,21 +148,6 @@ class GridLayout {
   /// Left edge of column [index] in track coordinates, before scrolling.
   double columnLeft(int index) => index * hourColumnWidth;
 
-  /// Index of the column [trackDx] pixels into the scrolled track, or `null`
-  /// when the pointer is left of the track or past the last slot.
-  ///
-  /// [scrollOffset] is the track's current horizontal offset.
-  int? columnAt({
-    required double trackDx,
-    required double scrollOffset,
-    required int slotCount,
-  }) {
-    if (trackDx < 0 || hourColumnWidth <= 0) return null;
-    final index = ((scrollOffset + trackDx) / hourColumnWidth).floor();
-    if (index < 0 || index >= slotCount) return null;
-    return index;
-  }
-
   /// The same scroll position expressed in fractional columns.
   ///
   /// **This is the unit a scroll offset has to survive a resize in.** A

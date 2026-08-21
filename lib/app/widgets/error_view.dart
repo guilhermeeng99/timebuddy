@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:timebuddy/app/theme/app_spacing.dart';
-import 'package:timebuddy/app/widgets/app_icon.dart';
+import 'package:timebuddy/app/widgets/icon_disc.dart';
 import 'package:timebuddy/core/errors/failures.dart';
 import 'package:timebuddy/core/extensions/context_extensions.dart';
 import 'package:timebuddy/gen/i18n/strings.g.dart';
@@ -35,9 +35,6 @@ class ErrorView extends StatelessWidget {
   /// raises is transient or fixable by the user.
   final VoidCallback onRetry;
 
-  static const double _discSize = 72;
-  static const double _iconSize = 32;
-  static const double _discAlpha = 0.12;
   static const double _maxCopyWidth = 320;
 
   FaIconData get _icon => switch (failure) {
@@ -61,15 +58,7 @@ class ErrorView extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                width: _discSize,
-                height: _discSize,
-                decoration: BoxDecoration(
-                  color: colors.error.withValues(alpha: _discAlpha),
-                  shape: BoxShape.circle,
-                ),
-                child: AppIcon(_icon, size: _iconSize, color: colors.error),
-              ),
+              IconDisc(icon: _icon, color: colors.error),
               const SizedBox(height: AppSpacing.lg),
               Text(
                 t.common.errorTitle,

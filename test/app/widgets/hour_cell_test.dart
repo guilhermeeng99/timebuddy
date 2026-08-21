@@ -221,37 +221,26 @@ void main() {
   });
 
   group('interaction and geometry', () {
-    testWidgets('reports taps, and stays inert without a handler', (
+    testWidgets('is a read surface, with no tap target of its own', (
       tester,
     ) async {
-      var taps = 0;
-      await tester.pumpWidget(
-        _host(
-          HourCell(
-            hour: 9,
-            band: HourBand.good,
-            onTap: () {
-              taps++;
-            },
-          ),
-        ),
-      );
-
-      await tester.tap(find.byType(HourCell));
-      expect(taps, 1);
-
       await tester.pumpWidget(
         _host(const HourCell(hour: 9, band: HourBand.good)),
       );
-      final inkWell = tester.widget<InkWell>(
+
+      // The cursor is set from the ruler (docs/specs/time_grid.md rule 8), so
+      // the cell answers no gesture at all — which is what leaves every pixel
+      // of the track free for the pan in rule 16. Asserted as the absence of
+      // an `InkWell` rather than as a null callback: a splash that leads
+      // nowhere is the defect, and a disabled `InkWell` still renders one on
+      // some platforms.
+      expect(
         find.descendant(
           of: find.byType(HourCell),
           matching: find.byType(InkWell),
         ),
+        findsNothing,
       );
-      // A null callback also removes the ink response, so a non-interactive
-      // cell does not splash on touch.
-      expect(inkWell.onTap, isNull);
     });
 
     testWidgets('fills exactly one grid column', (tester) async {

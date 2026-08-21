@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -8,17 +9,15 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:go_router/go_router.dart';
 import 'package:timebuddy/app/di/injection_container.dart';
 import 'package:timebuddy/app/routes/app_routes.dart';
-import 'package:timebuddy/app/routes/app_shell.dart';
 import 'package:timebuddy/app/theme/app_spacing.dart';
 import 'package:timebuddy/app/widgets/app_icon.dart';
 import 'package:timebuddy/app/widgets/error_view.dart';
 import 'package:timebuddy/app/widgets/fab_safe_area.dart';
-import 'package:timebuddy/app/widgets/feature_empty_state.dart';
+import 'package:timebuddy/app/widgets/home_zone_banner.dart';
 import 'package:timebuddy/app/widgets/lifted_fab.dart';
 import 'package:timebuddy/app/widgets/loading_shimmer.dart';
 import 'package:timebuddy/app/widgets/location_row.dart';
 import 'package:timebuddy/app/widgets/responsive_layout.dart';
-import 'package:timebuddy/app/widgets/timebuddy_date_pill.dart';
 import 'package:timebuddy/app/widgets/timebuddy_large_app_bar.dart';
 import 'package:timebuddy/core/extensions/context_extensions.dart';
 import 'package:timebuddy/core/time/clock.dart';
@@ -30,8 +29,11 @@ import 'package:timebuddy/features/time_grid/domain/entities/grid_view_model.dar
 import 'package:timebuddy/features/time_grid/domain/usecases/build_grid_usecase.dart';
 import 'package:timebuddy/features/time_grid/presentation/cubit/time_grid_cubit.dart';
 import 'package:timebuddy/features/time_grid/presentation/grid_layout.dart';
+import 'package:timebuddy/features/time_grid/presentation/widgets/grid_date_bar.dart';
+import 'package:timebuddy/features/time_grid/presentation/widgets/grid_empty_board.dart';
 import 'package:timebuddy/features/time_grid/presentation/widgets/grid_header_strip.dart';
 import 'package:timebuddy/features/time_grid/presentation/widgets/grid_now_marker.dart';
+import 'package:timebuddy/features/time_grid/presentation/widgets/grid_row_label_handle.dart';
 import 'package:timebuddy/features/time_grid/presentation/widgets/grid_row_view.dart';
 import 'package:timebuddy/gen/i18n/strings.g.dart';
 
@@ -111,8 +113,20 @@ class _TimeGridViewState extends State<_TimeGridView> {
   /// controller would reset the user's scroll on every rebuild.
   ScrollController? _hourScroll;
 
+  /// The pan in flight over the cells, or `null` between drags.
+  ///
+  /// A [Drag] handed out by the track's own `ScrollPosition` rather than a
+  /// `jumpTo` loop of our own: it is the same object a `Scrollable` would
+  /// hold, so the cells inherit the platform's physics — the fling after the
+  /// finger lifts, the clamp at both ends, the overscroll indicator — instead
+  /// of a linear scrub that stops dead on release.
+  Drag? _trackDrag;
+
   @override
   void dispose() {
+    // The position outlives nothing here, but a `Drag` left open would keep a
+    // dragging activity on a controller about to be torn down.
+    _trackDrag?.cancel();
     _hourScroll?.dispose();
     _hourOffset.dispose();
     _keyboardFocus.dispose();
@@ -142,7 +156,7 @@ class _TimeGridViewState extends State<_TimeGridView> {
     ),
     // An empty board is a valid state, not an error (locations rule 6), and it
     // renders the invitation rather than a header strip over nothing.
-    TimeGridEmpty() => const _EmptyBoard(),
+    TimeGridEmpty() => const GridEmptyBoard(),
     TimeGridError(:final failure) => ErrorView(
       failure: failure,
       onRetry: context.read<BoardCubit>().load,
@@ -158,11 +172,19 @@ class _TimeGridViewState extends State<_TimeGridView> {
       onKeyEvent: (_, event) => _onKeyEvent(context, event, model),
       child: Column(
         children: [
-          if (model.homeZoneUnresolved) const _HomeZoneBanner(),
+          if (model.homeZoneUnresolved)
+            const HomeZoneBanner(
+              padding: EdgeInsets.fromLTRB(
+                AppSpacing.lg,
+                AppSpacing.sm,
+                AppSpacing.lg,
+                0,
+              ),
+            ),
           // Rendered unconditionally: `ShellDatePill` is what decides whether
           // the stepper stays here or goes to the sidebar, so the page cannot
           // get half of design_system §7 right and show two of them.
-          _DateBar(referenceDate: model.referenceDate),
+          GridDateBar(referenceDate: model.referenceDate),
           Expanded(child: _grid(context, model, dense: dense)),
         ],
       ),
@@ -207,6 +229,7 @@ class _TimeGridViewState extends State<_TimeGridView> {
                             .referenceZoneId,
                         columnWidth: layout.hourColumnWidth,
                         controller: controller,
+                        onColumnTap: context.read<TimeGridCubit>().setCursor,
                         cursorInstant: model.cursorInstant,
                       ),
                     ),
@@ -246,19 +269,19 @@ class _TimeGridViewState extends State<_TimeGridView> {
     required bool dense,
   }) {
     return GestureDetector(
-      // Interaction: a horizontal drag over the cells moves the cursor in
-      // compare mode and grows the meeting range in plan mode. It cannot
-      // fight the track's scrolling, because the only thing that scrolls
-      // horizontally is the header strip.
-      onHorizontalDragStart: (details) =>
-          _dragStart(context, details.localPosition.dx, model),
-      onHorizontalDragUpdate: (details) =>
-          _dragUpdate(context, details.localPosition.dx, model),
+      // Interaction: a horizontal drag over the cells pans the hour track.
+      // The rows are not `Scrollable`s and cannot become them without giving
+      // each its own position, so the drag is forwarded to the one position
+      // that exists — the header's (docs/specs/time_grid.md rule 16).
+      onHorizontalDragStart: _trackDragStart,
+      onHorizontalDragUpdate: (details) => _trackDrag?.update(details),
+      onHorizontalDragEnd: _trackDragEnd,
+      onHorizontalDragCancel: _trackDragCancel,
       // Reorderable since the board lost the page that used to own its order
       // (docs/specs/time_grid.md, Interaction). The lift lives on the pinned
-      // label column, which is the one part of a row that owns no gesture:
-      // `_slotAt` already answers null left of `labelWidth`, so the cursor
-      // drag above and the row drag below never enter the same arena.
+      // label column, which is the one part of a row that owns no horizontal
+      // gesture: the pan below refuses a drag that starts left of
+      // `labelColumnWidth`, so the two never enter the same arena.
       child: ReorderableListView.builder(
         // The label column is the handle. The default one is an overlay
         // pinned to the trailing edge, which here would land on top of the
@@ -321,7 +344,7 @@ class _TimeGridViewState extends State<_TimeGridView> {
             // Both of the row's own gestures, and the only two it has: drag to
             // move it, tap to open its actions. The hours to the right keep the
             // cursor drag they always had.
-            child: _RowLabelHandle(
+            child: GridRowLabelHandle(
               index: index,
               onTap: () => unawaited(
                 openLocationRowActions(
@@ -349,7 +372,6 @@ class _TimeGridViewState extends State<_TimeGridView> {
               columnWidth: layout.hourColumnWidth,
               horizontalOffset: _hourOffset,
               cursorInstant: cursorInstant,
-              onCellTap: context.read<TimeGridCubit>().setCursor,
             ),
           ),
         ],
@@ -438,45 +460,32 @@ class _TimeGridViewState extends State<_TimeGridView> {
     return layout.offsetOfColumn(columns - halfViewport, model.slots.length);
   }
 
-  /// The column instant under [localDx], or `null` when the pointer is over
-  /// the pinned label column or past the last hour of the window.
-  DateTime? _slotAt(double localDx, GridViewModel model) {
-    final layout = _layout;
-    if (layout == null) return null;
-    final index = layout.columnAt(
-      trackDx: localDx - layout.labelColumnWidth,
-      scrollOffset: _hourOffset.value,
-      slotCount: model.slots.length,
-    );
-    return index == null ? null : model.slots[index];
-  }
-
-  /// A drag beginning: the cursor jumps to that hour.
+  /// A pan beginning over the cells: the track's position takes the drag.
   ///
-  /// Still separate from [_dragUpdate] although both now do the same thing:
-  /// `GestureDetector` wants the two callbacks, and collapsing them into one
-  /// shared closure would hide which phase a future change belongs to.
-  void _dragStart(
-    BuildContext context,
-    double localDx,
-    GridViewModel model,
-  ) {
-    final slot = _slotAt(localDx, model);
-    if (slot == null) return;
-    context.read<TimeGridCubit>().setCursor(slot);
+  /// Refused left of the pinned column, which owns the row lift. Everything
+  /// else about the gesture — direction, slop, who wins the arena against the
+  /// vertical list — is the recognizer's job, not this method's.
+  void _trackDragStart(DragStartDetails details) {
+    final layout = _layout;
+    final controller = _hourScroll;
+    if (layout == null || controller == null || !controller.hasClients) return;
+    if (details.localPosition.dx < layout.labelColumnWidth) return;
+    _trackDrag = controller.position.drag(details, _forgetTrackDrag);
   }
 
-  /// The same drag continuing: the cursor follows the finger, or the range
-  /// grows to it.
-  void _dragUpdate(
-    BuildContext context,
-    double localDx,
-    GridViewModel model,
-  ) {
-    final slot = _slotAt(localDx, model);
-    if (slot == null) return;
-    context.read<TimeGridCubit>().setCursor(slot);
-  }
+  /// The finger lifted: the position keeps going under its own physics.
+  void _trackDragEnd(DragEndDetails details) => _trackDrag?.end(details);
+
+  /// The arena took the gesture back before it ended.
+  void _trackDragCancel() => _trackDrag?.cancel();
+
+  /// The position finished with the drag and is about to dispose it.
+  ///
+  /// Drops the reference and **does nothing else**: this runs from inside
+  /// `ScrollDragController.dispose`, so ending it again here would re-enter
+  /// the disposal it was called from and recurse until the stack gave out.
+  /// `end` and `cancel` above are what finish a drag; this only forgets it.
+  void _forgetTrackDrag() => _trackDrag = null;
 
   KeyEventResult _onKeyEvent(
     BuildContext context,
@@ -580,177 +589,5 @@ class _TimeGridViewState extends State<_TimeGridView> {
       if (!instant.isBefore(slot) && instant.isBefore(slotEnd)) return index;
     }
     return -1;
-  }
-}
-
-/// The pinned label column, wearing the row's two gestures.
-///
-/// **Which lift gesture depends on the pointer, and that is not a detail.**
-/// `ReorderableListView`'s own default handles make the same split: a mouse
-/// drags immediately, because a long-press before a drag on a desktop reads as
-/// the app being slow; a finger has to press and hold, because an immediate
-/// lift would steal every vertical scroll of the grid the moment it started
-/// over a label.
-///
-/// The tap underneath survives either one: neither drag recognizer claims a
-/// pointer that never moved.
-class _RowLabelHandle extends StatelessWidget {
-  const _RowLabelHandle({
-    required this.index,
-    required this.onTap,
-    required this.child,
-  });
-
-  final int index;
-  final VoidCallback onTap;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    // `opaque`, so the whole column answers the tap rather than only the
-    // pixels `LocationRow` happens to paint on.
-    //
-    // `TooltipVisibility(visible: false)` is what makes the lift reachable
-    // everywhere on the column. `LocationRow`'s unresolved-zone mark carries a
-    // `Tooltip`, whose own `LongPressGestureRecognizer` sits deeper than this
-    // widget's and would therefore win the long press on exactly those 14
-    // pixels — a dead spot for the drag that moves around as rows resolve and
-    // stop resolving. Nothing is lost: the glyph keeps its `semanticLabel`,
-    // and the repair the tooltip only described is now a tap away in the
-    // actions sheet.
-    final tappable = TooltipVisibility(
-      visible: false,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: onTap,
-        child: child,
-      ),
-    );
-    return switch (Theme.of(context).platform) {
-      TargetPlatform.linux ||
-      TargetPlatform.macOS ||
-      TargetPlatform.windows => ReorderableDragStartListener(
-        index: index,
-        child: tappable,
-      ),
-      TargetPlatform.android ||
-      TargetPlatform.fuchsia ||
-      TargetPlatform.iOS => ReorderableDelayedDragStartListener(
-        index: index,
-        child: tappable,
-      ),
-    };
-  }
-}
-
-class _EmptyBoard extends StatelessWidget {
-  const _EmptyBoard();
-
-  @override
-  Widget build(BuildContext context) {
-    return FeatureEmptyState(
-      icon: FontAwesomeIcons.earthAmericas,
-      title: t.grid.emptyTitle,
-      message: t.grid.emptyMessage,
-      ctaLabel: t.grid.emptyCta,
-      onCta: () => context.push(AppRoutes.addLocation),
-    );
-  }
-}
-
-/// Says out loud that the columns are lined up to UTC rather than to the
-/// user's own zone (time_grid.md, home-zone edge case).
-///
-/// Not a snackbar: the condition lasts until the user picks a home city, and a
-/// warning they can lose by scrolling is not a warning. Tapping it goes to the
-/// board, because that is where the home zone is set.
-class _HomeZoneBanner extends StatelessWidget {
-  const _HomeZoneBanner();
-
-  static const double _tintAlpha = 0.12;
-  static const double _iconSize = 20;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.appColors;
-    final radius = BorderRadius.circular(AppRadius.md);
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.lg,
-        AppSpacing.sm,
-        AppSpacing.lg,
-        0,
-      ),
-      child: Material(
-        color: colors.warning.withValues(alpha: _tintAlpha),
-        borderRadius: radius,
-        // Not tappable any more, and that is the change rather than an
-        // oversight. It used to navigate to the Cities page, which was the
-        // only screen that could set a home city; that page is gone and the
-        // repair is now one tap on a row of the list this banner sits above.
-        // A link that only re-displayed the screen you are already on would
-        // be a control that does nothing.
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.md),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              AppIcon(
-                FontAwesomeIcons.triangleExclamation,
-                size: _iconSize,
-                color: colors.warning,
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Text(
-                  t.grid.homeZoneBrokenBanner,
-                  style: context.textTheme.bodySmall?.copyWith(
-                    color: colors.onBackground,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// The reference-day stepper, placed by the breakpoint.
-///
-/// `ShellDatePill` renders it here below `600px` and publishes it into the
-/// sidebar above that (design_system §7). It still takes a row of layout on
-/// mobile only, which is why the padding lives inside the pill branch.
-class _DateBar extends StatelessWidget {
-  const _DateBar({required this.referenceDate});
-
-  final DateTime referenceDate;
-
-  @override
-  Widget build(BuildContext context) {
-    final cubit = context.read<TimeGridCubit>();
-    return ShellDatePill(
-      pill: Padding(
-        padding: const EdgeInsets.fromLTRB(
-          AppSpacing.lg,
-          AppSpacing.sm,
-          AppSpacing.lg,
-          AppSpacing.sm,
-        ),
-        child: Align(
-          alignment: AlignmentDirectional.centerStart,
-          child: TimeBuddyDatePill(
-            value: referenceDate,
-            // "Today" is a question about the home zone, never about the
-            // device (rule 11): a user whose home is Tokyo is already on
-            // tomorrow.
-            today: cubit.todayInHomeZone,
-            todayLabel: t.grid.today,
-            onChanged: cubit.setReferenceDate,
-          ),
-        ),
-      ),
-    );
   }
 }

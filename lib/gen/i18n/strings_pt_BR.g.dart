@@ -39,7 +39,6 @@ class TranslationsPtBr with BaseTranslations<AppLocale, Translations> implements
 	// Translations
 	@override late final _Translations$app$pt_BR app = _Translations$app$pt_BR._(_root);
 	@override late final _Translations$common$pt_BR common = _Translations$common$pt_BR._(_root);
-	@override late final _Translations$home$pt_BR home = _Translations$home$pt_BR._(_root);
 	@override late final _Translations$startup$pt_BR startup = _Translations$startup$pt_BR._(_root);
 	@override late final _Translations$auth$pt_BR auth = _Translations$auth$pt_BR._(_root);
 	@override late final _Translations$profile$pt_BR profile = _Translations$profile$pt_BR._(_root);
@@ -60,7 +59,6 @@ class _Translations$app$pt_BR implements Translations$app$en {
 
 	// Translations
 	@override String get name => 'TimeBuddy';
-	@override String get tagline => 'Todos os fusos, lado a lado';
 }
 
 // Path: common
@@ -83,21 +81,6 @@ class _Translations$common$pt_BR implements Translations$common$en {
 	@override String get done => 'Pronto';
 	@override String get search => 'Buscar';
 	@override String get clear => 'Limpar';
-}
-
-// Path: home
-class _Translations$home$pt_BR implements Translations$home$en {
-	_Translations$home$pt_BR._(this._root);
-
-	final TranslationsPtBr _root; // ignore: unused_field
-
-	// Translations
-	@override String get title => 'TimeBuddy';
-	@override String get deviceClockLabel => 'Seu dispositivo';
-	@override String get settingsAction => 'Configurações';
-	@override String get milestoneNotice => 'A grade de comparação chega na próxima etapa. Por enquanto, este é o relógio do seu dispositivo.';
-	@override String get deviceZoneUnknownTitle => 'Fuso horário não detectado';
-	@override String get deviceZoneUnknownBody => 'Seu dispositivo não informou nenhum, então este relógio está mostrando UTC.';
 }
 
 // Path: startup
@@ -135,7 +118,6 @@ class _Translations$auth$pt_BR implements Translations$auth$en {
 	@override String get onboardingSkipHint => 'Pule a apresentação e vá direto para a entrada.';
 	@override String get signInWithGoogle => 'Entrar com o Google';
 	@override String get signInFailed => 'Não conseguimos entrar. Tente de novo.';
-	@override String get signInCancelled => 'Você cancelou a entrada.';
 	@override String get signInStorageBlocked => 'Este navegador está bloqueando o armazenamento necessário para entrar. Libere os cookies de terceiros para este site, ou permita pop-ups, e tente de novo.';
 	@override String get signInPopupBlocked => 'A janela de entrada foi bloqueada. Permita pop-ups para este site e tente entrar de novo.';
 	@override String get signOut => 'Sair da conta';
@@ -197,7 +179,6 @@ class _Translations$settings$pt_BR implements Translations$settings$en {
 	@override String get hourFormat12 => '12h';
 	@override String get hourFormat24 => '24h';
 	@override String get showSeconds => 'Mostrar segundos';
-	@override String get showSecondsHint => 'Os relógios passam a atualizar a cada segundo, e não a cada minuto.';
 	@override String get weekStartsOn => 'A semana começa em';
 	@override String get weekStartsMonday => 'Segunda-feira';
 	@override String get weekStartsSunday => 'Domingo';
@@ -206,8 +187,8 @@ class _Translations$settings$pt_BR implements Translations$settings$en {
 	@override String workingHoursSummary({required Object start, required Object end}) => '${start} às ${end}';
 	@override String get workingHoursPreview => 'Prévia do dia';
 	@override String workingHoursInvalid({required Object min, required Object max}) => 'A janela deve ter entre ${min} e ${max} horas';
-	@override String get languageSystem => 'Idioma do sistema';
-	@override String get languagePortuguese => 'Português (Brasil)';
+	@override String get languageSystem => 'Sistema';
+	@override String get languagePortuguese => 'Português';
 	@override String get languageEnglish => 'English';
 	@override String get notSignedIn => 'Você ainda não entrou';
 	@override String get signOut => 'Sair da conta';
@@ -241,7 +222,6 @@ class _Translations$nav$pt_BR implements Translations$nav$en {
 	@override String get grid => 'Grade';
 	@override String get clocks => 'Relógios';
 	@override String get converter => 'Conversor';
-	@override String get locations => 'Cidades';
 	@override String get settings => 'Configurações';
 	@override String get profile => 'Conta';
 }
@@ -266,10 +246,7 @@ class _Translations$grid$pt_BR implements Translations$grid$en {
 	@override String get dstExplainBody => 'Este fuso muda o relógio neste dia, então o dia tem 23 ou 25 horas. Uma hora é pulada ou repetida, e todas as horas seguintes se deslocam.';
 	@override String get unresolvedRow => 'Fuso horário indisponível';
 	@override String get homeZoneBrokenBanner => 'Não conseguimos identificar o fuso da sua cidade base, então a grade está alinhada pelo UTC. Escolha sua cidade base para corrigir.';
-	@override String get rowActionSetHome => 'Definir como base';
-	@override String get rowActionRemove => 'Remover do painel';
-	@override String get rowActionReplaceZone => 'Trocar o fuso horário';
-	@override String get cursorHint => 'Toque ou arraste sobre as horas para ver o mesmo momento em todas as cidades.';
+	@override String get cursorHint => 'Toque em uma hora na régua para ver aquele momento em todas as cidades.';
 }
 
 // Path: worldClock
@@ -291,7 +268,6 @@ class _Translations$worldClock$pt_BR implements Translations$worldClock$en {
 	@override String get detailZoneId => 'Id do fuso horário';
 	@override String get detailOffsetUtc => 'Diferença para o UTC';
 	@override String get detailOffsetHome => 'Diferença para a sua base';
-	@override String get actionSetHome => 'Definir como base';
 	@override String get actionRemove => 'Remover do painel';
 	@override String get actionOpenInGrid => 'Abrir na grade';
 }
@@ -326,10 +302,6 @@ class _Translations$locations$pt_BR implements Translations$locations$en {
 	final TranslationsPtBr _root; // ignore: unused_field
 
 	// Translations
-	@override String get title => 'Minhas cidades';
-	@override String get emptyTitle => 'Seu painel está vazio';
-	@override String get emptyMessage => 'Adicione as cidades com que você trabalha e veja os horários delas lado a lado.';
-	@override String get emptyCta => 'Adicionar cidade';
 	@override String get addTitle => 'Adicionar cidade';
 	@override String get searchHint => 'Busque por cidade, país ou fuso horário';
 	@override String get searchNoResults => 'Nenhuma cidade encontrada. Tente pelo país ou por um id de fuso, como America/Sao_Paulo.';
@@ -343,7 +315,6 @@ class _Translations$locations$pt_BR implements Translations$locations$en {
 	@override String get pickHomeMessage => 'Não detectamos seu fuso horário, então todas as diferenças estão sendo medidas a partir do UTC. Escolha sua cidade base para corrigir.';
 	@override String get setAsHome => 'Definir como base';
 	@override String get homeLabel => 'Base';
-	@override String get reorderHint => 'Toque e segure uma cidade para arrastá-la até a posição.';
 	@override String countLabel({required Object count, required Object max}) => '${count} de ${max} cidades';
 }
 
@@ -356,7 +327,6 @@ extension on TranslationsPtBr {
 	dynamic _flatMapFunction(String path) {
 		return switch (path) {
 			'app.name' => 'TimeBuddy',
-			'app.tagline' => 'Todos os fusos, lado a lado',
 			'common.retry' => 'Tentar de novo',
 			'common.cancel' => 'Cancelar',
 			'common.save' => 'Salvar',
@@ -370,12 +340,6 @@ extension on TranslationsPtBr {
 			'common.done' => 'Pronto',
 			'common.search' => 'Buscar',
 			'common.clear' => 'Limpar',
-			'home.title' => 'TimeBuddy',
-			'home.deviceClockLabel' => 'Seu dispositivo',
-			'home.settingsAction' => 'Configurações',
-			'home.milestoneNotice' => 'A grade de comparação chega na próxima etapa. Por enquanto, este é o relógio do seu dispositivo.',
-			'home.deviceZoneUnknownTitle' => 'Fuso horário não detectado',
-			'home.deviceZoneUnknownBody' => 'Seu dispositivo não informou nenhum, então este relógio está mostrando UTC.',
 			'startup.tagline' => 'Todos os fusos, lado a lado',
 			'startup.stepLoadingData' => 'Carregando os fusos horários',
 			'startup.stepCheckingAuth' => 'Conferindo sua conta',
@@ -395,7 +359,6 @@ extension on TranslationsPtBr {
 			'auth.onboardingSkipHint' => 'Pule a apresentação e vá direto para a entrada.',
 			'auth.signInWithGoogle' => 'Entrar com o Google',
 			'auth.signInFailed' => 'Não conseguimos entrar. Tente de novo.',
-			'auth.signInCancelled' => 'Você cancelou a entrada.',
 			'auth.signInStorageBlocked' => 'Este navegador está bloqueando o armazenamento necessário para entrar. Libere os cookies de terceiros para este site, ou permita pop-ups, e tente de novo.',
 			'auth.signInPopupBlocked' => 'A janela de entrada foi bloqueada. Permita pop-ups para este site e tente entrar de novo.',
 			'auth.signOut' => 'Sair da conta',
@@ -439,7 +402,6 @@ extension on TranslationsPtBr {
 			'settings.hourFormat12' => '12h',
 			'settings.hourFormat24' => '24h',
 			'settings.showSeconds' => 'Mostrar segundos',
-			'settings.showSecondsHint' => 'Os relógios passam a atualizar a cada segundo, e não a cada minuto.',
 			'settings.weekStartsOn' => 'A semana começa em',
 			'settings.weekStartsMonday' => 'Segunda-feira',
 			'settings.weekStartsSunday' => 'Domingo',
@@ -448,8 +410,8 @@ extension on TranslationsPtBr {
 			'settings.workingHoursSummary' => ({required Object start, required Object end}) => '${start} às ${end}',
 			'settings.workingHoursPreview' => 'Prévia do dia',
 			'settings.workingHoursInvalid' => ({required Object min, required Object max}) => 'A janela deve ter entre ${min} e ${max} horas',
-			'settings.languageSystem' => 'Idioma do sistema',
-			'settings.languagePortuguese' => 'Português (Brasil)',
+			'settings.languageSystem' => 'Sistema',
+			'settings.languagePortuguese' => 'Português',
 			'settings.languageEnglish' => 'English',
 			'settings.notSignedIn' => 'Você ainda não entrou',
 			'settings.signOut' => 'Sair da conta',
@@ -465,7 +427,6 @@ extension on TranslationsPtBr {
 			'nav.grid' => 'Grade',
 			'nav.clocks' => 'Relógios',
 			'nav.converter' => 'Conversor',
-			'nav.locations' => 'Cidades',
 			'nav.settings' => 'Configurações',
 			'nav.profile' => 'Conta',
 			'grid.title' => 'Grade de horários',
@@ -481,10 +442,7 @@ extension on TranslationsPtBr {
 			'grid.dstExplainBody' => 'Este fuso muda o relógio neste dia, então o dia tem 23 ou 25 horas. Uma hora é pulada ou repetida, e todas as horas seguintes se deslocam.',
 			'grid.unresolvedRow' => 'Fuso horário indisponível',
 			'grid.homeZoneBrokenBanner' => 'Não conseguimos identificar o fuso da sua cidade base, então a grade está alinhada pelo UTC. Escolha sua cidade base para corrigir.',
-			'grid.rowActionSetHome' => 'Definir como base',
-			'grid.rowActionRemove' => 'Remover do painel',
-			'grid.rowActionReplaceZone' => 'Trocar o fuso horário',
-			'grid.cursorHint' => 'Toque ou arraste sobre as horas para ver o mesmo momento em todas as cidades.',
+			'grid.cursorHint' => 'Toque em uma hora na régua para ver aquele momento em todas as cidades.',
 			'worldClock.title' => 'Relógio mundial',
 			'worldClock.sameTime' => 'Mesmo horário',
 			'worldClock.tomorrow' => 'Amanhã',
@@ -497,7 +455,6 @@ extension on TranslationsPtBr {
 			'worldClock.detailZoneId' => 'Id do fuso horário',
 			'worldClock.detailOffsetUtc' => 'Diferença para o UTC',
 			'worldClock.detailOffsetHome' => 'Diferença para a sua base',
-			'worldClock.actionSetHome' => 'Definir como base',
 			'worldClock.actionRemove' => 'Remover do painel',
 			'worldClock.actionOpenInGrid' => 'Abrir na grade',
 			'converter.title' => 'Conversor de horários',
@@ -514,10 +471,6 @@ extension on TranslationsPtBr {
 			'converter.copied' => 'Copiado para a área de transferência',
 			'converter.outOfRange' => ({required Object years}) => 'Só convertemos até ${years} anos a partir de hoje. Depois disso, as regras ainda são um palpite.',
 			'converter.needMoreCities' => 'Adicione outra cidade para ver este momento em outro lugar.',
-			'locations.title' => 'Minhas cidades',
-			'locations.emptyTitle' => 'Seu painel está vazio',
-			'locations.emptyMessage' => 'Adicione as cidades com que você trabalha e veja os horários delas lado a lado.',
-			'locations.emptyCta' => 'Adicionar cidade',
 			'locations.addTitle' => 'Adicionar cidade',
 			'locations.searchHint' => 'Busque por cidade, país ou fuso horário',
 			'locations.searchNoResults' => 'Nenhuma cidade encontrada. Tente pelo país ou por um id de fuso, como America/Sao_Paulo.',
@@ -531,7 +484,6 @@ extension on TranslationsPtBr {
 			'locations.pickHomeMessage' => 'Não detectamos seu fuso horário, então todas as diferenças estão sendo medidas a partir do UTC. Escolha sua cidade base para corrigir.',
 			'locations.setAsHome' => 'Definir como base',
 			'locations.homeLabel' => 'Base',
-			'locations.reorderHint' => 'Toque e segure uma cidade para arrastá-la até a posição.',
 			'locations.countLabel' => ({required Object count, required Object max}) => '${count} de ${max} cidades',
 			_ => null,
 		};

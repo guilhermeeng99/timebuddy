@@ -13,6 +13,7 @@ import 'package:timebuddy/app/widgets/day_night_dot.dart';
 import 'package:timebuddy/app/widgets/dst_badge.dart';
 import 'package:timebuddy/app/widgets/error_view.dart';
 import 'package:timebuddy/app/widgets/fab_safe_area.dart';
+import 'package:timebuddy/app/widgets/home_zone_banner.dart';
 import 'package:timebuddy/app/widgets/lifted_fab.dart';
 import 'package:timebuddy/app/widgets/loading_shimmer.dart';
 import 'package:timebuddy/app/widgets/offset_badge.dart';
@@ -25,6 +26,7 @@ import 'package:timebuddy/core/utils/time_formatter.dart';
 import 'package:timebuddy/features/locations/presentation/board_actions.dart';
 import 'package:timebuddy/features/locations/presentation/cubit/board_cubit.dart';
 import 'package:timebuddy/features/preferences/presentation/cubit/preferences_cubit.dart';
+import 'package:timebuddy/features/preferences/presentation/cubit/preferences_state_defaults.dart';
 import 'package:timebuddy/features/world_clock/domain/entities/world_clock_view_model.dart';
 import 'package:timebuddy/features/world_clock/domain/usecases/build_world_clock_usecase.dart';
 import 'package:timebuddy/features/world_clock/presentation/cubit/world_clock_cubit.dart';
@@ -112,7 +114,8 @@ class _WorldClockViewState extends State<_WorldClockView>
   Widget build(BuildContext context) {
     // Watched rather than read: turning seconds on in settings must repaint
     // every clock on screen, and it lands between ticks.
-    final showSeconds = _showSecondsOf(context);
+    final showSeconds =
+        context.watch<PreferencesCubit>().state.showSecondsOrDefault;
     return Scaffold(
       appBar: TimeBuddyLargeAppBar(title: t.worldClock.title, showBack: false),
       floatingActionButton: LiftedFab(
@@ -266,13 +269,6 @@ class _WorldClockViewState extends State<_WorldClockView>
         context.go(AppRoutes.grid);
     }
   }
-
-  bool _showSecondsOf(BuildContext context) =>
-      switch (context.watch<PreferencesCubit>().state) {
-        PreferencesReady(:final preferences) => preferences.showSeconds,
-        // Preferences resolve during startup, before any page mounts.
-        PreferencesLoading() => false,
-      };
 }
 
 /// Everything above the list: the UTC warning when there is one, the hero, and
@@ -296,7 +292,10 @@ class _Header extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (model.homeZoneUnresolved) const _HomeZoneBanner(),
+        if (model.homeZoneUnresolved)
+          const HomeZoneBanner(
+            padding: EdgeInsets.only(bottom: AppSpacing.md),
+          ),
         _HomeHero(
           tile: model.home,
           showSeconds: showSeconds,
@@ -448,60 +447,6 @@ class _EmptyBoardInvitation extends StatelessWidget {
             child: Text(t.worldClock.emptyCta),
           ),
         ],
-      ),
-    );
-  }
-}
-
-/// Says out loud that every clock on the page is measured from UTC rather than
-/// from the user's own zone (world_clock.md, home-zone edge case).
-///
-/// Not a snackbar: the condition lasts until the user picks a home city, and a
-/// warning they can lose by scrolling is not a warning. Tapping it goes to the
-/// board, because that is where the home zone is set.
-class _HomeZoneBanner extends StatelessWidget {
-  const _HomeZoneBanner();
-
-  static const double _tintAlpha = 0.12;
-  static const double _iconSize = 20;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.appColors;
-    final radius = BorderRadius.circular(AppRadius.md);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.md),
-      child: Material(
-        color: colors.warning.withValues(alpha: _tintAlpha),
-        borderRadius: radius,
-        // Not tappable any more, and that is the change rather than an
-        // oversight. It used to navigate to the Cities page, which was the
-        // only screen that could set a home city; that page is gone and the
-        // repair is now one tap on a row of the list this banner sits above.
-        // A link that only re-displayed the screen you are already on would
-        // be a control that does nothing.
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.md),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              AppIcon(
-                FontAwesomeIcons.triangleExclamation,
-                size: _iconSize,
-                color: colors.warning,
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Text(
-                  t.grid.homeZoneBrokenBanner,
-                  style: context.textTheme.bodySmall?.copyWith(
-                    color: colors.onBackground,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }

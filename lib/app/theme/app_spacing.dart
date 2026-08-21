@@ -44,6 +44,35 @@ abstract class AppRadius {
   static const double xl = 20;
 }
 
+/// The weight a semantic color is washed onto a surface at.
+///
+/// Here rather than in `app_colors.dart` for the same reason [AppRadius] is
+/// here: that file owns the *colors*, one `AppColorsData` per palette, and
+/// this is a number the twenty palettes all share. It also spares a page from
+/// importing `AppColors` — the class CLAUDE.md forbids naming at a call site —
+/// just to reach a constant.
+///
+/// A tint is a token laid *over* the page rather than painted on it: a warning
+/// banner, the disc behind a glyph, a count pill, the grid ruler's cursor
+/// column. Every one of those wants the same weight, and each was carrying a
+/// private `0.12` under a name of its own — `_tintAlpha`, `_discAlpha`,
+/// `_bannerTintAlpha`, `_brandDiscAlpha`, `_cursorFillAlpha` — which is twelve
+/// places to retune and eleven chances to miss one.
+///
+/// **Not every low alpha in the app belongs here.** `HourCell` fills its bands
+/// at `0.16` deliberately, because at `0.12` four bands were four shades of
+/// the same murk on a dark palette; the 8% behind a world-clock tile answers a
+/// different question again (how far to mute a whole row). Fold a number in
+/// only when it means "this token, over the page surface".
+///
+/// ```dart
+/// color: colors.warning.withValues(alpha: AppAlpha.tint);
+/// ```
+abstract class AppAlpha {
+  /// A semantic color as a wash over the page surface.
+  static const double tint = 0.12;
+}
+
 /// Fixed geometry of the time grid.
 ///
 /// Kept apart from [AppSpacing] because these are layout math, not rhythm:

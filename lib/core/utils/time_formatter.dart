@@ -91,3 +91,32 @@ String formatClock(
 /// must be loaded, which `flutter_localizations` does for the app's locales.
 String formatDayMonth(DateTime localTime, String localeTag) =>
     DateFormat('EEE d', localeTag).format(localTime);
+
+/// The grid's hour label: `14`, or `14:30` in a zone whose offset is not a
+/// whole number of hours.
+///
+/// **Always 24-hour, and that is the one sanctioned exception to rendering a
+/// time through [formatClock].** The grid is a ruler of twenty-odd contiguous
+/// columns read left to right; in 12-hour form it would print `03` twice in
+/// one row with no way to tell them apart, because a 48–60pt column has no
+/// room for an am/pm marker (docs/specs/time_grid.md rule 16). A ruler that
+/// cannot say which `03` it means is worse than one in a format the user did
+/// not pick.
+///
+/// The minutes are rendered whenever they are non-zero rather than being
+/// dropped to save width: hiding them would claim an alignment with the
+/// reference column that Kolkata, Kathmandu and Chatham do not have
+/// (docs/specs/time_grid.md rule 5).
+///
+/// [localTime] must already be wall-clock time in the zone being displayed;
+/// see the warning at the top of this library.
+///
+/// ```dart
+/// final wall = engine.wallTimeAt(zoneId: 'Asia/Kolkata', instant: slot);
+/// formatGridHour(wall);   // '19:30'
+/// ```
+String formatGridHour(DateTime localTime) {
+  final hour = localTime.hour.toString().padLeft(2, '0');
+  if (localTime.minute == 0) return hour;
+  return '$hour:${localTime.minute.toString().padLeft(2, '0')}';
+}

@@ -273,8 +273,8 @@ void main() {
     final homeHourBefore = leftmostHour(tester, _saoPaulo);
     final tokyoHourBefore = leftmostHour(tester, _tokyo);
 
-    // Dragging the header is the only thing that scrolls the track; dragging
-    // the cells moves the cursor instead (time_grid.md, Interaction).
+    // Dragged by the ruler here; the test below drags the cells instead and
+    // has to reach the same position, because there is only one.
     await tester.drag(hourTrack(), Offset(-4 * columnWidth, 0));
     await tester.pumpAndSettle();
 
@@ -308,9 +308,12 @@ void main() {
     await pumpGrid(tester, boardState: _loaded(threeZoneBoard));
     expect(_allCursorCells(), findsNothing);
 
-    // A cell well inside the rendered window, so its centre is nowhere near
+    // The ruler is the grid's one pointer path to the cursor (rule 8). A
+    // column well inside the rendered window, so its centre is nowhere near
     // the clip edges and the tap cannot land on a neighbour.
-    await tester.tap(_cellsOf(_saoPaulo).at(3));
+    final column = find.byType(GridHeaderColumn).at(3);
+    final columnLeft = tester.getRect(column).left;
+    await tester.tap(column);
     await tester.pumpAndSettle();
 
     // One cell per row and not one more: a cursor kept per row would light
@@ -319,6 +322,9 @@ void main() {
     expect(_allCursorCells(), findsNWidgets(3));
 
     final homeLeft = tester.getRect(_cursorCellOf(_saoPaulo)).left;
+    // Under the column that was tapped, and not merely somewhere consistent:
+    // a cursor off by one would satisfy every other assertion here.
+    expect(homeLeft, moreOrLessEquals(columnLeft, epsilon: 0.5));
     expect(tester.getRect(_cursorCellOf(_kolkata)).left, homeLeft);
     expect(tester.getRect(_cursorCellOf(_tokyo)).left, homeLeft);
 
@@ -332,6 +338,56 @@ void main() {
     expect(kolkata.minute, 30);
     expect(tokyo.hour, (home.hour + _tokyoHoursFromHome) % 24);
     expect(tokyo.minute, 0);
+  });
+
+  testWidgets('a drag over the cells scrolls the track (rule 16)', (
+    tester,
+  ) async {
+    await pumpGrid(tester, boardState: _loaded(threeZoneBoard));
+
+    final columnWidth = resolvedColumnWidth(tester);
+    final offsetBefore = trackOffset(tester);
+    final homeHourBefore = leftmostHour(tester, _saoPaulo);
+    final tokyoHourBefore = leftmostHour(tester, _tokyo);
+
+    // The gesture the cursor used to own. It reaches the header's
+    // `ScrollPosition` even though no row is a `Scrollable`, which is the
+    // whole of rule 16.
+    await tester.drag(_cellsOf(_saoPaulo).at(2), Offset(-4 * columnWidth, 0));
+    await tester.pumpAndSettle();
+
+    final offsetAfter = trackOffset(tester);
+    expect(
+      offsetAfter,
+      greaterThan(offsetBefore),
+      reason: 'the drag has to move the track for this to mean anything',
+    );
+
+    // Every row followed by the same number of columns, exactly as they do
+    // when the ruler is the surface being dragged.
+    final columns =
+        (offsetAfter / columnWidth).floor() -
+        (offsetBefore / columnWidth).floor();
+    expect(columns, greaterThan(0));
+    expect(leftmostHour(tester, _saoPaulo), (homeHourBefore + columns) % 24);
+    expect(leftmostHour(tester, _tokyo), (tokyoHourBefore + columns) % 24);
+
+    // And it stayed a pan: a drag that lit a column would be the old
+    // behaviour surviving underneath the new one.
+    expect(_allCursorCells(), findsNothing);
+  });
+
+  testWidgets('a tap on a cell is not a way to set the cursor', (
+    tester,
+  ) async {
+    await pumpGrid(tester, boardState: _loaded(threeZoneBoard));
+
+    await tester.tap(_cellsOf(_saoPaulo).at(3));
+    await tester.pumpAndSettle();
+
+    // Deliberate, not an oversight: the cells are a read surface so the pan
+    // can have every pixel of the track (rule 8).
+    expect(_allCursorCells(), findsNothing);
   });
 
   testWidgets('a half-hour zone renders its minutes and home does not', (
@@ -534,7 +590,7 @@ void main() {
       }
     });
 
-    testWidgets('a drag over the hours moves the cursor, not the row', (
+    testWidgets('a drag over the hours pans the track, not the row', (
       tester,
     ) async {
       final boardCubit = await pumpGrid(

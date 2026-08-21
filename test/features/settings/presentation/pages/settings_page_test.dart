@@ -91,9 +91,15 @@ void main() {
     expect(find.byType(TimeBuddyPillToggle<ThemeMode>), findsOneWidget);
     expect(find.byType(TimeBuddyPillToggle<ClockFormat>), findsOneWidget);
     expect(find.byType(TimeBuddyPillToggle<WeekStart>), findsOneWidget);
+    // Language is a fourth pill now, not three checked rows. `String?`
+    // because "follow the device" is the null tag, a value like any other
+    // (preferences.md rule 3).
+    expect(find.byType(TimeBuddyPillToggle<String?>), findsOneWidget);
     // A bare `Switch` in a row's trailing slot, not a `SwitchListTile`: the
-    // row already owns the icon disc, the title and the hint, so the tile's
-    // own layout would be a second one nested inside it.
+    // row already owns the icon disc and the title, so the tile's own layout
+    // would be a second one nested inside it. It carries no hint line —
+    // what the switch does to the ticker rate is preferences.md rule 10's to
+    // record, not the row's.
     expect(find.byType(Switch), findsOneWidget);
     expect(find.byType(DropdownButton<int>), findsNWidgets(2));
     expect(find.byType(WorkingHoursPreview), findsOneWidget);
@@ -105,9 +111,21 @@ void main() {
     // gone with them.
     expect(find.text(t.settings.licenses), findsNothing);
     expect(find.text(t.settings.appVersion), findsOneWidget);
-    expect(find.text(t.settings.languageSystem), findsOneWidget);
-    expect(find.text(t.settings.languagePortuguese), findsOneWidget);
-    expect(find.text(t.settings.languageEnglish), findsOneWidget);
+    // Scoped to the language pill: `languageSystem` and `themeSystem` are
+    // both "System" in English, and an unscoped finder would count the theme
+    // toggle's segment as this one.
+    final languagePill = find.byType(TimeBuddyPillToggle<String?>);
+    for (final label in <String>[
+      t.settings.languageSystem,
+      t.settings.languagePortuguese,
+      t.settings.languageEnglish,
+    ]) {
+      expect(
+        find.descendant(of: languagePill, matching: find.text(label)),
+        findsOneWidget,
+        reason: label,
+      );
+    }
   });
 
   testWidgets('leads with an identity card, which reads as an offer while '
@@ -154,6 +172,35 @@ void main() {
       find.byType(TimeBuddyPillToggle<ThemeMode>),
     );
     expect(toggle.selected, ThemeMode.light);
+  });
+
+  testWidgets('the language pill writes through to PreferencesCubit', (
+    tester,
+  ) async {
+    final app = await pumpSettings(tester);
+
+    // Scoped for the same reason the presence check is: two pills on this
+    // page can carry the word "System".
+    await tester.tap(
+      find.descendant(
+        of: find.byType(TimeBuddyPillToggle<String?>),
+        matching: find.text(t.settings.languageEnglish),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final state = app.cubit.state as PreferencesReady;
+    expect(state.preferences.localeTag, 'en');
+    expect(state.preferences.revision, seeded.revision + 1);
+
+    final captured = verify(() => app.repository.save(captureAny())).captured;
+    expect(captured, hasLength(1));
+    expect((captured.single as PreferencesEntity).localeTag, 'en');
+
+    final pill = tester.widget<TimeBuddyPillToggle<String?>>(
+      find.byType(TimeBuddyPillToggle<String?>),
+    );
+    expect(pill.selected, 'en');
   });
 
   testWidgets('switching to 12h relabels what the page shows', (tester) async {

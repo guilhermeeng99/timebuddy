@@ -8,6 +8,7 @@ import 'package:timebuddy/app/di/injection_container.dart';
 import 'package:timebuddy/app/routes/app_routes.dart';
 import 'package:timebuddy/app/theme/app_spacing.dart';
 import 'package:timebuddy/app/widgets/app_icon.dart';
+import 'package:timebuddy/app/widgets/icon_disc.dart';
 import 'package:timebuddy/app/widgets/responsive_layout.dart';
 import 'package:timebuddy/core/extensions/context_extensions.dart';
 import 'package:timebuddy/core/session/guest_session.dart';
@@ -259,7 +260,9 @@ class _Slide {
 ///
 /// The same shape as `FeatureEmptyState`, deliberately: this is the first
 /// screen of the app, and it should already look like the screens behind it
-/// (docs/specs/design_system.md §6).
+/// (docs/specs/design_system.md §6). It is now literally the same widget —
+/// [IconDisc] — rather than a copy that matched by hand, but at a larger
+/// diameter, because a slide holds nothing else and the mark carries it.
 class _OnboardingSlide extends StatelessWidget {
   const _OnboardingSlide({required this.slide});
 
@@ -267,7 +270,6 @@ class _OnboardingSlide extends StatelessWidget {
 
   static const double _discSize = 96;
   static const double _iconSize = 44;
-  static const double _discAlpha = 0.12;
 
   @override
   Widget build(BuildContext context) {
@@ -280,20 +282,13 @@ class _OnboardingSlide extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              width: _discSize,
-              height: _discSize,
-              decoration: BoxDecoration(
-                // The brand accent at low alpha, the same invitation an empty
-                // state makes. Error red on a first screen says it is broken.
-                color: colors.primary.withValues(alpha: _discAlpha),
-                shape: BoxShape.circle,
-              ),
-              child: AppIcon(
-                slide.icon,
-                size: _iconSize,
-                color: colors.primary,
-              ),
+            // The brand accent, the same invitation an empty state makes.
+            // Error red on a first screen says it is broken.
+            IconDisc(
+              icon: slide.icon,
+              color: colors.primary,
+              diameter: _discSize,
+              iconSize: _iconSize,
             ),
             const SizedBox(height: AppSpacing.xxl),
             Text(
@@ -446,7 +441,6 @@ class _SignInBlockedNotice extends StatelessWidget {
 
   final SignInBlock block;
 
-  static const double _tintAlpha = 0.12;
   static const double _iconSize = 20;
 
   @override
@@ -461,7 +455,7 @@ class _SignInBlockedNotice extends StatelessWidget {
       container: true,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: colors.warning.withValues(alpha: _tintAlpha),
+          color: colors.warning.withValues(alpha: AppAlpha.tint),
           borderRadius: BorderRadius.circular(AppRadius.md),
         ),
         child: Padding(

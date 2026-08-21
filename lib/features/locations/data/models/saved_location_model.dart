@@ -1,3 +1,4 @@
+import 'package:timebuddy/core/utils/json_parse.dart';
 import 'package:timebuddy/features/locations/domain/entities/saved_location_entity.dart';
 
 /// Serialization for [SavedLocationEntity].
@@ -46,31 +47,19 @@ class SavedLocationModel extends SavedLocationEntity {
   static SavedLocationModel? tryFromJson(Object? raw) {
     if (raw is! Map<Object?, Object?>) return null;
 
-    final id = _asFilledString(raw['id']);
-    final zoneId = _asFilledString(raw['zoneId']);
-    final sortIndex = _asInt(raw['sortIndex']);
+    final id = filledStringOrNull(raw['id']);
+    final zoneId = filledStringOrNull(raw['zoneId']);
+    final sortIndex = intOrNull(raw['sortIndex']);
     if (id == null || zoneId == null || sortIndex == null) return null;
 
     return SavedLocationModel(
       id: id,
       zoneId: zoneId,
-      label: _asFilledString(raw['label']) ?? zoneId,
-      countryCode: _asFilledString(raw['countryCode']) ?? '',
+      label: filledStringOrNull(raw['label']) ?? zoneId,
+      countryCode: filledStringOrNull(raw['countryCode']) ?? '',
       sortIndex: sortIndex,
       addedAt: timestampFromJson(raw['addedAt']),
     );
-  }
-
-  static String? _asFilledString(Object? raw) {
-    if (raw is! String) return null;
-    final trimmed = raw.trim();
-    return trimmed.isEmpty ? null : trimmed;
-  }
-
-  static int? _asInt(Object? raw) {
-    if (raw is int) return raw;
-    if (raw is num) return raw.toInt();
-    return null;
   }
 
   Map<String, dynamic> toJson() {
@@ -83,26 +72,4 @@ class SavedLocationModel extends SavedLocationEntity {
       'addedAt': addedAt.toUtc().toIso8601String(),
     };
   }
-}
-
-/// Decodes both halves of the dual timestamp encoding (docs/specs/sync.md):
-/// an ISO-8601 string from `shared_preferences`, a millisecond epoch int from
-/// a Firestore `Timestamp` that has already been unwrapped.
-///
-/// Shared by `BoardModel.updatedAt` and `SavedLocationEntity.addedAt` rather
-/// than copied into each: they are two fields of one document, and a parser
-/// that drifted would make a board's own timestamps disagree.
-///
-/// An unreadable value falls back to the epoch, never to "now": a timestamp
-/// nobody can read must lose every tie it enters (sync.md rule 5) instead of
-/// winning them by looking freshly written.
-DateTime timestampFromJson(Object? raw) {
-  if (raw is int) {
-    return DateTime.fromMillisecondsSinceEpoch(raw, isUtc: true);
-  }
-  if (raw is String) {
-    final parsed = DateTime.tryParse(raw);
-    if (parsed != null) return parsed.toUtc();
-  }
-  return DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
 }

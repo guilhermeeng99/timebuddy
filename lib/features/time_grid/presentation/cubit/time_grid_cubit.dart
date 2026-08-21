@@ -3,11 +3,11 @@ import 'dart:async';
 import 'package:bloc/bloc.dart';
 import 'package:timebuddy/core/time/clock.dart';
 import 'package:timebuddy/core/time/timezone_engine.dart';
-import 'package:timebuddy/core/time/working_hours.dart';
 import 'package:timebuddy/core/time/zone_lookup.dart';
 import 'package:timebuddy/features/locations/domain/entities/board_entity.dart';
 import 'package:timebuddy/features/locations/presentation/cubit/board_cubit.dart';
 import 'package:timebuddy/features/preferences/presentation/cubit/preferences_cubit.dart';
+import 'package:timebuddy/features/preferences/presentation/cubit/preferences_state_defaults.dart';
 import 'package:timebuddy/features/time_grid/domain/usecases/build_grid_usecase.dart';
 import 'package:timebuddy/features/time_grid/presentation/cubit/time_grid_state.dart';
 import 'package:timebuddy/gen/i18n/strings.g.dart';
@@ -208,7 +208,7 @@ class TimeGridCubit extends Cubit<TimeGridState> {
     final referenceDate = _referenceDate ??= todayInHomeZone;
     final model = _buildGrid(
       board: board,
-      workingHours: _workingHours,
+      workingHours: _preferencesCubit.state.workingHoursOrDefault,
       referenceDate: referenceDate,
       nowInstant: _clock.nowUtc(),
       cursorInstant: _cursorInstant,
@@ -232,13 +232,6 @@ class TimeGridCubit extends Cubit<TimeGridState> {
       ),
     );
   }
-
-  WorkingHours get _workingHours => switch (_preferencesCubit.state) {
-    PreferencesReady(:final preferences) => preferences.workingHours,
-    // Preferences resolve during startup, before any page mounts; this only
-    // covers the frame where a test builds the grid first.
-    PreferencesLoading() => WorkingHours.defaultHours,
-  };
 
   /// The cursor's time of day, resolved against [date] in the home zone.
   ///

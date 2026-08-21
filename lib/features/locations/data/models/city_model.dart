@@ -1,3 +1,4 @@
+import 'package:timebuddy/core/utils/json_parse.dart';
 import 'package:timebuddy/features/locations/domain/entities/city_entity.dart';
 
 /// Serialization for [CityEntity].
@@ -31,10 +32,10 @@ class CityModel extends CityEntity {
   /// wrong type. Prefer [cityOrNull] when walking the asset: one bad row must
   /// cost that row, not the catalog.
   factory CityModel.fromJson(Map<String, dynamic> json) {
-    final zoneId = _asText(json['zoneId']);
-    final name = _asText(json['name']);
-    final countryCode = _asText(json['countryCode']);
-    final countryName = _asText(json['countryName']);
+    final zoneId = filledStringOrNull(json['zoneId']);
+    final name = filledStringOrNull(json['name']);
+    final countryCode = filledStringOrNull(json['countryCode']);
+    final countryName = filledStringOrNull(json['countryName']);
     // Identity and display are non-negotiable: a row with no zone cannot be
     // added to a board, and a row with no name cannot be recognised in a list.
     // Every optional field below has a meaningful zero value, so those degrade
@@ -50,8 +51,10 @@ class CityModel extends CityEntity {
       name: name,
       countryCode: countryCode,
       countryName: countryName,
-      prominence: _asProminence(json['prominence']),
-      admin1: _asText(json['admin1']),
+      // Missing or non-numeric degrades to 0, which reads as "derived, not
+      // curated" everywhere else in the app.
+      prominence: intOrNull(json['prominence']) ?? 0,
+      admin1: filledStringOrNull(json['admin1']),
       aliases: _asAliases(json['aliases']),
     );
   }
@@ -70,25 +73,11 @@ class CityModel extends CityEntity {
     };
   }
 
-  static String? _asText(Object? value) {
-    if (value is! String) return null;
-    final trimmed = value.trim();
-    return trimmed.isEmpty ? null : trimmed;
-  }
-
-  /// Missing or non-numeric degrades to 0, which reads as "derived, not
-  /// curated" everywhere else in the app.
-  static int _asProminence(Object? value) {
-    if (value is int) return value;
-    if (value is num) return value.toInt();
-    return 0;
-  }
-
   static List<String> _asAliases(Object? value) {
     if (value is! List<dynamic>) return const <String>[];
     final aliases = <String>[];
     for (final alias in value) {
-      final text = _asText(alias);
+      final text = filledStringOrNull(alias);
       if (text != null) aliases.add(text);
     }
     return List<String>.unmodifiable(aliases);

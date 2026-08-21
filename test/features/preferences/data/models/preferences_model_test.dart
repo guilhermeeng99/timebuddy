@@ -178,6 +178,30 @@ void main() {
       expect(parse(<String, dynamic>{'revision': 12}).revision, 12);
     });
 
+    // Behaviour change, and a deliberate one: this parser used to accept a
+    // stored string verbatim while every sibling model trimmed one, so a
+    // padded `" dark "` degraded to the system theme here and would have
+    // parsed anywhere else. Both sides now go through `filledStringOrNull`,
+    // and the setting the user chose survives a writer that padded it.
+    test('a padded enum name is the value, not damage', () {
+      final parsed = parse(<String, dynamic>{
+        'themeMode': ' dark ',
+        'hourFormat': '\th12\n',
+        'weekStartsOn': ' sunday',
+      });
+
+      expect(parsed.themeMode, ThemeMode.dark);
+      expect(parsed.hourFormat, ClockFormat.h12);
+      expect(parsed.weekStartsOn, WeekStart.sunday);
+    });
+
+    test('a blank locale is no locale', () {
+      // Same change seen from the other end: `"   "` is damage, not a BCP-47
+      // tag, and a blank tag reaching `Locale` would name no language at all.
+      expect(parse(<String, dynamic>{'locale': '   '}).localeTag, isNull);
+      expect(parse(<String, dynamic>{'locale': ' pt-BR '}).localeTag, 'pt-BR');
+    });
+
     test('keeps a known enum value', () {
       final parsed = parse(<String, dynamic>{
         'themeMode': 'dark',

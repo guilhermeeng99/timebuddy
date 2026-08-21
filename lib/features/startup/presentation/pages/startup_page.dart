@@ -7,8 +7,8 @@ import 'package:go_router/go_router.dart';
 import 'package:timebuddy/app/di/injection_container.dart';
 import 'package:timebuddy/app/routes/app_routes.dart';
 import 'package:timebuddy/app/theme/app_spacing.dart';
-import 'package:timebuddy/app/widgets/app_icon.dart';
 import 'package:timebuddy/app/widgets/clock_text.dart';
+import 'package:timebuddy/app/widgets/icon_disc.dart';
 import 'package:timebuddy/core/extensions/context_extensions.dart';
 import 'package:timebuddy/core/session/guest_session.dart';
 import 'package:timebuddy/core/time/timezone_engine.dart';
@@ -91,10 +91,15 @@ const double _clockHeight = 44;
 /// Size of the ticking digits. Large enough to read as the app's point.
 const double _clockFontSize = 34;
 
-/// The brand disc and the glyph inside it, matching `ErrorView`'s proportions.
-const double _brandDiscSize = 72;
+/// Size of the glyph inside the brand disc.
+///
+/// The disc itself is `IconDisc`'s default, which is `ErrorView`'s and
+/// `FeatureEmptyState`'s too — that is what "matching their proportions" now
+/// means, rather than a hand-kept copy of the number. The glyph is the one
+/// thing that is not shared: 34 against their 32. That is drift, not a
+/// decision, but correcting it would repaint the splash, so it stays a
+/// parameter until someone with the design in front of them chooses.
 const double _brandGlyphSize = 34;
-const double _brandDiscAlpha = 0.12;
 
 /// Width of the progress track and of the error copy.
 const double _contentWidth = 320;
@@ -201,18 +206,10 @@ class _BrandMark extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Container(
-          width: _brandDiscSize,
-          height: _brandDiscSize,
-          decoration: BoxDecoration(
-            color: colors.primary.withValues(alpha: _brandDiscAlpha),
-            shape: BoxShape.circle,
-          ),
-          child: AppIcon(
-            FontAwesomeIcons.earthAmericas,
-            size: _brandGlyphSize,
-            color: colors.primary,
-          ),
+        IconDisc(
+          icon: FontAwesomeIcons.earthAmericas,
+          color: colors.primary,
+          iconSize: _brandGlyphSize,
         ),
         const SizedBox(height: AppSpacing.lg),
         Text(t.app.name, style: context.textTheme.headlineSmall),

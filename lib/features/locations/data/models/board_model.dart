@@ -1,3 +1,4 @@
+import 'package:timebuddy/core/utils/json_parse.dart';
 import 'package:timebuddy/features/locations/data/models/saved_location_model.dart';
 import 'package:timebuddy/features/locations/domain/entities/board_entity.dart';
 import 'package:timebuddy/features/locations/domain/entities/saved_location_entity.dart';
@@ -33,9 +34,9 @@ class BoardModel extends BoardEntity {
     required String homeZoneIdFallback,
   }) {
     return BoardModel(
-      homeZoneId: _asFilledString(json['homeZoneId']) ?? homeZoneIdFallback,
+      homeZoneId: filledStringOrNull(json['homeZoneId']) ?? homeZoneIdFallback,
       locations: _locationsFrom(json['locations']),
-      revision: _asInt(json['revision']) ?? 0,
+      revision: intOrNull(json['revision']) ?? 0,
       updatedAt: timestampFromJson(json['updatedAt']),
     );
   }
@@ -71,18 +72,6 @@ class BoardModel extends BoardEntity {
       for (var position = 0; position < rows.length; position++)
         rows[position].copyWith(sortIndex: position),
     ]);
-  }
-
-  static String? _asFilledString(Object? raw) {
-    if (raw is! String) return null;
-    final trimmed = raw.trim();
-    return trimmed.isEmpty ? null : trimmed;
-  }
-
-  static int? _asInt(Object? raw) {
-    if (raw is int) return raw;
-    if (raw is num) return raw.toInt();
-    return null;
   }
 
   Map<String, dynamic> toJson() {

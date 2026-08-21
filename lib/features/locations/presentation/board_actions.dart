@@ -125,6 +125,15 @@ Future<void> removeLocationWithUndo(
       SnackBar(
         content: Text(t.locations.removed(city: location.label)),
         duration: boardUndoWindow,
+        // **Not optional, and not the default.** `SnackBar.persist` defaults
+        // to `action != null`, so a bar carrying an action ignores its own
+        // `duration` and stays until the user taps it or another snackbar
+        // replaces it. The undo bar has an action by definition, so without
+        // this line the five-second window locations.md rule 7 describes is
+        // asked for and never enforced: the Undo button survived a navigation
+        // away and stayed pressable minutes later, against a cubit whose
+        // remembered row a sync may have moved on from.
+        persist: false,
         action: SnackBarAction(
           label: t.locations.undo,
           onPressed: () => unawaited(_restore(cubit, messenger)),

@@ -41,7 +41,7 @@ EdgeInsets _keyboardInset(BuildContext context) =>
 /// final city = await showTimeBuddyPickerSheet<CityEntity>(
 ///   context,
 ///   builder: (_) => TimeBuddyPickerSheet(
-///     title: t.locations.addCity,
+///     title: t.locations.addTitle,
 ///     header: TimeBuddySearchField(
 ///       hintText: t.locations.searchHint,
 ///       onChanged: cubit.search,

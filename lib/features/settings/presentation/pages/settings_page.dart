@@ -338,9 +338,6 @@ class _TimeSection extends StatelessWidget {
           TimeBuddySettingsRow(
             icon: FontAwesomeIcons.stopwatch,
             title: t.settings.showSeconds,
-            // The hint is not decoration: this switch changes the app-wide
-            // ticker rate, not just the digits (preferences.md rule 10).
-            subtitle: t.settings.showSecondsHint,
             trailing: Switch(
               value: preferences.showSeconds,
               onChanged: (value) =>
@@ -501,20 +498,33 @@ class _LanguageSection extends StatelessWidget {
       card: false,
       child: TimeBuddyRowGroup(
         children: [
-          _LanguageRow(
-            label: t.settings.languageSystem,
-            isSelected: localeTag == null,
-            onTap: () => unawaited(cubit.setLocaleTag(null)),
-          ),
-          _LanguageRow(
-            label: t.settings.languagePortuguese,
-            isSelected: localeTag == _portugueseTag,
-            onTap: () => unawaited(cubit.setLocaleTag(_portugueseTag)),
-          ),
-          _LanguageRow(
-            label: t.settings.languageEnglish,
-            isSelected: localeTag == _englishTag,
-            onTap: () => unawaited(cubit.setLocaleTag(_englishTag)),
+          TimeBuddySettingsRow(
+            icon: FontAwesomeIcons.language,
+            // The group's own word, because this row *is* the group. Three
+            // rows and a check mark said the same thing in three times the
+            // height, and said it in a shape the page uses nowhere else.
+            title: t.settings.groupLanguage,
+            control: TimeBuddyPillToggle<String?>(
+              // `null` is a value here, not a missing one (preferences rule
+              // 3), and a segmented control is the one form that can show it
+              // as a peer of the two real locales rather than as an absence.
+              options: [
+                PillOption(
+                  value: null,
+                  label: t.settings.languageSystem,
+                ),
+                PillOption(
+                  value: _portugueseTag,
+                  label: t.settings.languagePortuguese,
+                ),
+                PillOption(
+                  value: _englishTag,
+                  label: t.settings.languageEnglish,
+                ),
+              ],
+              selected: localeTag,
+              onChanged: (value) => unawaited(cubit.setLocaleTag(value)),
+            ),
           ),
         ],
       ),
@@ -604,40 +614,3 @@ FaIconData _themeIcon(ThemeMode mode) => switch (mode) {
   ThemeMode.light => FontAwesomeIcons.solidSun,
   ThemeMode.dark => FontAwesomeIcons.solidMoon,
 };
-
-/// One locale choice, marked with a check rather than a chevron.
-///
-/// A radio group and not a list of doors: every row here sets the same field,
-/// so the trailing slot has to say *which one is on* rather than promising a
-/// screen behind each.
-class _LanguageRow extends StatelessWidget {
-  const _LanguageRow({
-    required this.label,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  static const double _markSize = 14;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.appColors;
-    return TimeBuddySettingsRow(
-      icon: FontAwesomeIcons.language,
-      title: label,
-      accent: isSelected ? colors.primary : colors.onBackgroundLight,
-      trailing: isSelected
-          ? AppIcon(
-              FontAwesomeIcons.check,
-              size: _markSize,
-              color: colors.primary,
-            )
-          : const SizedBox(width: _markSize),
-      onTap: onTap,
-    );
-  }
-}

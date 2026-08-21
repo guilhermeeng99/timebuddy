@@ -4,11 +4,10 @@ import 'package:timebuddy/app/widgets/clock_text.dart';
 import 'package:timebuddy/app/widgets/day_night_dot.dart';
 import 'package:timebuddy/app/widgets/dst_badge.dart';
 import 'package:timebuddy/app/widgets/hour_cell.dart';
+import 'package:timebuddy/app/widgets/local_date_line.dart';
 import 'package:timebuddy/app/widgets/location_row.dart';
 import 'package:timebuddy/core/extensions/context_extensions.dart';
-import 'package:timebuddy/core/utils/time_formatter.dart';
 import 'package:timebuddy/features/world_clock/domain/entities/world_clock_view_model.dart';
-import 'package:timebuddy/gen/i18n/strings.g.dart';
 
 /// Band tint behind a tile (rule 7): 8%, so a sleeping city looks asleep
 /// without the digits on top of it losing contrast in either palette.
@@ -153,64 +152,21 @@ class _DateLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.appColors;
-    final dayWord = worldClockDayWord(tile.dayDelta);
-    // Per tile, never once per page: at a single instant two cities can be on
-    // different calendar dates, which is the whole point of rule 6.
-    final localeTag = LocaleSettings.currentLocale.languageTag;
     return Row(
       mainAxisSize: MainAxisSize.min,
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
         if (tile.isDst) DstBadge(onTap: onDstTap),
-        // One span rather than two Texts side by side. Two `Flexible`s split
-        // the free width evenly regardless of what they need, so `Tomorrow`
-        // would ellipsize next to a `Tue 24` sitting in half a column it never
-        // asked for; one line lays out once and clips at its own end.
+        // Flexible around the shared line, not inside it: the badge beside it
+        // is what makes this row able to overrun the clock column, and the
+        // converter's copy of the same line has no badge to make room for.
         Flexible(
-          child: Text.rich(
-            TextSpan(
-              children: [
-                TextSpan(text: formatDayMonth(tile.localTime, localeTag)),
-                if (dayWord != null)
-                  TextSpan(
-                    text: ' · $dayWord',
-                    // The accent, because this is the fact the user came for
-                    // on a board that crosses the date line (rule 6).
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      color: colors.primary,
-                    ),
-                  ),
-              ],
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.end,
-            style: context.textTheme.labelMedium?.copyWith(
-              color: colors.onBackgroundLight,
-            ),
+          child: LocalDateLine(
+            localTime: tile.localTime,
+            dayDelta: tile.dayDelta,
           ),
         ),
       ],
     );
   }
 }
-
-/// "Tomorrow" / "Yesterday" for a [WorldClockTile.dayDelta], or `null` when
-/// there is nothing to say (rule 6).
-///
-/// `null` for `0` because the tile then shares the home zone's date, and also
-/// for the `±2` a Kiritimati-to-Niue board really can produce: naming that
-/// "Yesterday" would be wrong by a day, and the date beside it is already
-/// exact.
-///
-/// ```dart
-/// worldClockDayWord(1);   // 'Tomorrow'
-/// worldClockDayWord(-2);  // null
-/// ```
-String? worldClockDayWord(int dayDelta) => switch (dayDelta) {
-  1 => t.worldClock.tomorrow,
-  -1 => t.worldClock.yesterday,
-  _ => null,
-};

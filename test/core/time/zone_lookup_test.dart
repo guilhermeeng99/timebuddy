@@ -171,56 +171,6 @@ void main() {
     });
   });
 
-  group('zoneOrHome', () {
-    test('a resolvable id ignores the home zone entirely', () {
-      final ref = zoneOrHome('Europe/London', 'America/Sao_Paulo');
-
-      expect(ref.id, 'Europe/London');
-      expect(ref.wasAliased, isFalse);
-    });
-
-    test('an alias resolves canonically without touching the home zone', () {
-      final ref = zoneOrHome('Asia/Calcutta', 'America/Sao_Paulo');
-
-      expect(ref.id, 'Asia/Kolkata');
-      expect(ref.requestedId, 'Asia/Calcutta');
-    });
-
-    test('an unknown id falls back to the home zone', () {
-      final ref = zoneOrHome('Not/AZone', 'America/Sao_Paulo');
-
-      expect(ref.id, 'America/Sao_Paulo');
-      // requestedId still names the broken row so the board can flag it.
-      expect(ref.requestedId, 'Not/AZone');
-      expect(ref.wasAliased, isTrue);
-    });
-
-    test('an aliased home zone is itself canonicalised', () {
-      final ref = zoneOrHome('Not/AZone', 'Europe/Kiev');
-
-      expect(ref.id, 'Europe/Kyiv');
-      expect(ref.requestedId, 'Not/AZone');
-    });
-
-    test('a broken id and a broken home fall back to UTC', () {
-      // One corrupt saved board must never be able to blank the screen, so
-      // this branch has to be unreachable-by-failure rather than a throw.
-      final ref = zoneOrHome('Not/AZone', 'Also/Broken');
-
-      expect(ref.id, utcZoneId);
-      expect(ref.requestedId, 'Not/AZone');
-      expect(ref.wasAliased, isTrue);
-    });
-
-    test('a broken home does not break an otherwise valid id', () {
-      expect(zoneOrHome('Asia/Tokyo', 'Also/Broken').id, 'Asia/Tokyo');
-    });
-
-    test('an empty id falls back rather than resolving to UTC', () {
-      expect(zoneOrHome('', 'America/Sao_Paulo').id, 'America/Sao_Paulo');
-    });
-  });
-
   group('locationOrNull', () {
     test('returns the tz location for a canonical id', () {
       expect(locationOrNull('Europe/London')?.name, 'Europe/London');

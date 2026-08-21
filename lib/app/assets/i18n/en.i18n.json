@@ -1,7 +1,6 @@
 {
   "app": {
-    "name": "TimeBuddy",
-    "tagline": "Every time zone, side by side"
+    "name": "TimeBuddy"
   },
   "common": {
     "retry": "Try again",
@@ -17,14 +16,6 @@
     "done": "Done",
     "search": "Search",
     "clear": "Clear"
-  },
-  "home": {
-    "title": "TimeBuddy",
-    "deviceClockLabel": "Your device",
-    "settingsAction": "Settings",
-    "milestoneNotice": "The comparison grid arrives in the next milestone. Until then, this is your device clock.",
-    "deviceZoneUnknownTitle": "Time zone not detected",
-    "deviceZoneUnknownBody": "Your device did not report one, so this clock is showing UTC."
   },
   "startup": {
     "tagline": "Every time zone, side by side",
@@ -48,7 +39,6 @@
     "onboardingSkipHint": "Skip the tour and go straight to signing in.",
     "signInWithGoogle": "Sign in with Google",
     "signInFailed": "Sign-in didn't go through. Try again.",
-    "signInCancelled": "Sign-in was cancelled.",
     "signInStorageBlocked": "This browser is blocking the storage the sign-in needs. Allow cross-site cookies for this site, or allow pop-ups, and try again.",
     "signInPopupBlocked": "The sign-in window was blocked. Allow pop-ups for this site and press the button again.",
     "signOut": "Sign out",
@@ -96,7 +86,6 @@
     "hourFormat12": "12h",
     "hourFormat24": "24h",
     "showSeconds": "Show seconds",
-    "showSecondsHint": "Clocks tick every second instead of every minute.",
     "weekStartsOn": "Week starts on",
     "weekStartsMonday": "Monday",
     "weekStartsSunday": "Sunday",
@@ -105,8 +94,8 @@
     "workingHoursSummary": "${start} to ${end}",
     "workingHoursPreview": "Preview",
     "workingHoursInvalid": "The window must be between ${min} and ${max} hours long",
-    "languageSystem": "System language",
-    "languagePortuguese": "Português (Brasil)",
+    "languageSystem": "System",
+    "languagePortuguese": "Português",
     "languageEnglish": "English",
     "notSignedIn": "You are not signed in",
     "signOut": "Sign out",
@@ -126,7 +115,6 @@
     "grid": "Grid",
     "clocks": "Clocks",
     "converter": "Converter",
-    "locations": "Cities",
     "settings": "Settings",
     "profile": "Account"
   },
@@ -144,10 +132,7 @@
     "dstExplainBody": "This zone moves its clocks on this day, so the day is 23 or 25 hours long. One hour is skipped or repeated, and every hour after it shifts.",
     "unresolvedRow": "Time zone unavailable",
     "homeZoneBrokenBanner": "We could not resolve your home time zone, so the grid is lined up to UTC. Pick your home city to fix it.",
-    "rowActionSetHome": "Set as home",
-    "rowActionRemove": "Remove from board",
-    "rowActionReplaceZone": "Replace time zone",
-    "cursorHint": "Tap or drag across the hours to read one moment in every city."
+    "cursorHint": "Tap an hour in the ruler to read that moment in every city."
   },
   "worldClock": {
     "title": "World clock",
@@ -162,7 +147,6 @@
     "detailZoneId": "Time zone id",
     "detailOffsetUtc": "Offset from UTC",
     "detailOffsetHome": "Offset from home",
-    "actionSetHome": "Set as home",
     "actionRemove": "Remove from board",
     "actionOpenInGrid": "Open in the grid"
   },
@@ -183,10 +167,6 @@
     "needMoreCities": "Add another city to see this moment somewhere else."
   },
   "locations": {
-    "title": "My cities",
-    "emptyTitle": "Your board is empty",
-    "emptyMessage": "Add the cities you work with and see their hours side by side.",
-    "emptyCta": "Add a city",
     "addTitle": "Add a city",
     "searchHint": "Search a city, country or time zone",
     "searchNoResults": "No city matches that. Try the country, or a time zone id like America/Sao_Paulo.",
@@ -200,7 +180,6 @@
     "pickHomeMessage": "We could not detect your time zone, so every difference is measured from UTC. Choose your home city to fix it.",
     "setAsHome": "Set as home",
     "homeLabel": "Home",
-    "reorderHint": "Press and hold a city to drag it into place.",
     "countLabel": "${count} of ${max} cities"
   }
 }

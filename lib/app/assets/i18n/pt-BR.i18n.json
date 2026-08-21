@@ -1,7 +1,6 @@
 {
   "app": {
-    "name": "TimeBuddy",
-    "tagline": "Todos os fusos, lado a lado"
+    "name": "TimeBuddy"
   },
   "common": {
     "retry": "Tentar de novo",
@@ -17,14 +16,6 @@
     "done": "Pronto",
     "search": "Buscar",
     "clear": "Limpar"
-  },
-  "home": {
-    "title": "TimeBuddy",
-    "deviceClockLabel": "Seu dispositivo",
-    "settingsAction": "Configurações",
-    "milestoneNotice": "A grade de comparação chega na próxima etapa. Por enquanto, este é o relógio do seu dispositivo.",
-    "deviceZoneUnknownTitle": "Fuso horário não detectado",
-    "deviceZoneUnknownBody": "Seu dispositivo não informou nenhum, então este relógio está mostrando UTC."
   },
   "startup": {
     "tagline": "Todos os fusos, lado a lado",
@@ -48,7 +39,6 @@
     "onboardingSkipHint": "Pule a apresentação e vá direto para a entrada.",
     "signInWithGoogle": "Entrar com o Google",
     "signInFailed": "Não conseguimos entrar. Tente de novo.",
-    "signInCancelled": "Você cancelou a entrada.",
     "signInStorageBlocked": "Este navegador está bloqueando o armazenamento necessário para entrar. Libere os cookies de terceiros para este site, ou permita pop-ups, e tente de novo.",
     "signInPopupBlocked": "A janela de entrada foi bloqueada. Permita pop-ups para este site e tente entrar de novo.",
     "signOut": "Sair da conta",
@@ -96,7 +86,6 @@
     "hourFormat12": "12h",
     "hourFormat24": "24h",
     "showSeconds": "Mostrar segundos",
-    "showSecondsHint": "Os relógios passam a atualizar a cada segundo, e não a cada minuto.",
     "weekStartsOn": "A semana começa em",
     "weekStartsMonday": "Segunda-feira",
     "weekStartsSunday": "Domingo",
@@ -105,8 +94,8 @@
     "workingHoursSummary": "${start} às ${end}",
     "workingHoursPreview": "Prévia do dia",
     "workingHoursInvalid": "A janela deve ter entre ${min} e ${max} horas",
-    "languageSystem": "Idioma do sistema",
-    "languagePortuguese": "Português (Brasil)",
+    "languageSystem": "Sistema",
+    "languagePortuguese": "Português",
     "languageEnglish": "English",
     "notSignedIn": "Você ainda não entrou",
     "signOut": "Sair da conta",
@@ -126,7 +115,6 @@
     "grid": "Grade",
     "clocks": "Relógios",
     "converter": "Conversor",
-    "locations": "Cidades",
     "settings": "Configurações",
     "profile": "Conta"
   },
@@ -144,10 +132,7 @@
     "dstExplainBody": "Este fuso muda o relógio neste dia, então o dia tem 23 ou 25 horas. Uma hora é pulada ou repetida, e todas as horas seguintes se deslocam.",
     "unresolvedRow": "Fuso horário indisponível",
     "homeZoneBrokenBanner": "Não conseguimos identificar o fuso da sua cidade base, então a grade está alinhada pelo UTC. Escolha sua cidade base para corrigir.",
-    "rowActionSetHome": "Definir como base",
-    "rowActionRemove": "Remover do painel",
-    "rowActionReplaceZone": "Trocar o fuso horário",
-    "cursorHint": "Toque ou arraste sobre as horas para ver o mesmo momento em todas as cidades."
+    "cursorHint": "Toque em uma hora na régua para ver aquele momento em todas as cidades."
   },
   "worldClock": {
     "title": "Relógio mundial",
@@ -162,7 +147,6 @@
     "detailZoneId": "Id do fuso horário",
     "detailOffsetUtc": "Diferença para o UTC",
     "detailOffsetHome": "Diferença para a sua base",
-    "actionSetHome": "Definir como base",
     "actionRemove": "Remover do painel",
     "actionOpenInGrid": "Abrir na grade"
   },
@@ -183,10 +167,6 @@
     "needMoreCities": "Adicione outra cidade para ver este momento em outro lugar."
   },
   "locations": {
-    "title": "Minhas cidades",
-    "emptyTitle": "Seu painel está vazio",
-    "emptyMessage": "Adicione as cidades com que você trabalha e veja os horários delas lado a lado.",
-    "emptyCta": "Adicionar cidade",
     "addTitle": "Adicionar cidade",
     "searchHint": "Busque por cidade, país ou fuso horário",
     "searchNoResults": "Nenhuma cidade encontrada. Tente pelo país ou por um id de fuso, como America/Sao_Paulo.",
@@ -200,7 +180,6 @@
     "pickHomeMessage": "Não detectamos seu fuso horário, então todas as diferenças estão sendo medidas a partir do UTC. Escolha sua cidade base para corrigir.",
     "setAsHome": "Definir como base",
     "homeLabel": "Base",
-    "reorderHint": "Toque e segure uma cidade para arrastá-la até a posição.",
     "countLabel": "${count} de ${max} cidades"
   }
 }

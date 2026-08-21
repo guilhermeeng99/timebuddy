@@ -343,9 +343,13 @@ void main() {
     expect(bar.left, 0);
     expect(bar.right, _mobileSurface.width);
 
-    // Only the active destination names itself on a phone-width pill.
+    // Only the active destination names itself on a phone-width pill. The
+    // inactive ones checked here are `clocks` and `converter`. This used to
+    // name `t.nav.locations`, a key deleted with the Cities page it belonged
+    // to, so the assertion now points at destinations that exist.
     expect(find.text(t.nav.grid), findsOneWidget);
-    expect(find.text(t.nav.locations), findsNothing);
+    expect(find.text(t.nav.clocks), findsNothing);
+    expect(find.text(t.nav.converter), findsNothing);
     expect(find.text(t.nav.settings), findsNothing);
   });
 

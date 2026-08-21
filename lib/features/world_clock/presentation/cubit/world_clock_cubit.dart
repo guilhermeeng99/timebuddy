@@ -4,10 +4,10 @@ import 'package:bloc/bloc.dart';
 import 'package:timebuddy/core/time/clock.dart';
 import 'package:timebuddy/core/time/ticker_service.dart';
 import 'package:timebuddy/core/time/timezone_engine.dart';
-import 'package:timebuddy/core/time/working_hours.dart';
 import 'package:timebuddy/features/locations/domain/entities/board_entity.dart';
 import 'package:timebuddy/features/locations/presentation/cubit/board_cubit.dart';
 import 'package:timebuddy/features/preferences/presentation/cubit/preferences_cubit.dart';
+import 'package:timebuddy/features/preferences/presentation/cubit/preferences_state_defaults.dart';
 import 'package:timebuddy/features/world_clock/domain/usecases/build_world_clock_usecase.dart';
 import 'package:timebuddy/features/world_clock/presentation/cubit/world_clock_state.dart';
 import 'package:timebuddy/gen/i18n/strings.g.dart';
@@ -189,7 +189,7 @@ class WorldClockCubit extends Cubit<WorldClockState> {
       WorldClockReady(
         model: _buildWorldClock(
           board: board,
-          workingHours: _workingHours,
+          workingHours: _preferencesCubit.state.workingHoursOrDefault,
           nowInstant: nowInstant,
           // Read from slang rather than from a `BuildContext`: this cubit has
           // none, and rule 11 needs the hero named even on a board whose home
@@ -199,13 +199,6 @@ class WorldClockCubit extends Cubit<WorldClockState> {
       ),
     );
   }
-
-  WorkingHours get _workingHours => switch (_preferencesCubit.state) {
-    PreferencesReady(:final preferences) => preferences.workingHours,
-    // Preferences resolve during startup, before any page mounts; this only
-    // covers the frame where a test builds the page first.
-    PreferencesLoading() => WorkingHours.defaultHours,
-  };
 
   /// [instant] with its seconds and sub-seconds dropped, for comparing two
   /// instants by the minute they belong to.

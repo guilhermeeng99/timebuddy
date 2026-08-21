@@ -221,9 +221,10 @@ class TimeBuddySidebar extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 // Scrolls rather than a `Spacer`, and measured rather than
-                // assumed: brand (36) + gap (24) + five 58pt rows (290) +
-                // stepper block (~60) is ~410pt of rail, which fits a portrait
-                // tablet and does not fit a landscape phone at 360pt tall —
+                // assumed: brand (36) + gap (24) + four 58pt rows (232) +
+                // profile tile (~64) + stepper block (~60) is ~416pt of rail,
+                // which fits a portrait tablet and does not fit a landscape
+                // phone at 360pt tall —
                 // and the rail renders at any width >= 600, so that viewport
                 // is reachable. A `Spacer` in an over-full Column is a
                 // RenderFlex overflow; a scroll view is a scroll view.

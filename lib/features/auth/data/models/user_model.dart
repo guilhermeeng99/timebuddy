@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:timebuddy/core/utils/json_parse.dart';
 import 'package:timebuddy/features/auth/domain/entities/user_entity.dart';
 
 /// The stand-in for a profile whose `name` is missing or blank.
@@ -41,9 +42,9 @@ class UserModel extends UserEntity {
     final data = doc.data() ?? const <String, dynamic>{};
     return UserModel(
       id: doc.id,
-      name: _filledString(data['name']) ?? _fallbackName,
-      email: _filledString(data['email']) ?? '',
-      photoUrl: _filledString(data['photoUrl']),
+      name: filledStringOrNull(data['name']) ?? _fallbackName,
+      email: filledStringOrNull(data['email']) ?? '',
+      photoUrl: filledStringOrNull(data['photoUrl']),
       createdAt: _createdAtFrom(data['createdAt']),
     );
   }
@@ -66,9 +67,9 @@ class UserModel extends UserEntity {
   }) {
     return UserModel(
       id: id,
-      name: _filledString(name) ?? _fallbackName,
-      email: _filledString(email) ?? '',
-      photoUrl: _filledString(photoUrl),
+      name: filledStringOrNull(name) ?? _fallbackName,
+      email: filledStringOrNull(email) ?? '',
+      photoUrl: filledStringOrNull(photoUrl),
       createdAt: createdAt.toUtc(),
     );
   }
@@ -86,29 +87,21 @@ class UserModel extends UserEntity {
   /// Accepts every encoding the two writers can produce.
   ///
   /// A Firestore `Timestamp` is the shape this model writes; the `int` and
-  /// `String` arms cover a document that travelled through the JSON path
-  /// shared with `shared_preferences` (docs/specs/sync.md), so a profile
-  /// copied between the two sides never needs converting.
+  /// `String` arms `timestampFromJson` covers are for a document that
+  /// travelled through the JSON path shared with `shared_preferences`
+  /// (docs/specs/sync.md), so a profile copied between the two sides never
+  /// needs converting. An unreadable value becomes the epoch rather than
+  /// "now", so a timestamp nobody can read cannot pass itself off as freshly
+  /// written.
   ///
-  /// An unreadable value becomes the epoch rather than "now", for the same
-  /// reason `timestampFromJson` does it: a timestamp nobody can read must not
-  /// be able to pass itself off as freshly written.
+  /// The `Timestamp` arm is unwrapped here rather than inside
+  /// `timestampFromJson` because this is the only model that ever sees one:
+  /// `RemoteSettingsDataSource` unwraps the board's and the preferences'
+  /// before their models run, and moving this arm into `core/utils` would
+  /// hand cloud_firestore to every JSON parser in the app to serve one caller.
   static DateTime _createdAtFrom(Object? raw) {
     if (raw is Timestamp) return raw.toDate().toUtc();
-    if (raw is int) {
-      return DateTime.fromMillisecondsSinceEpoch(raw, isUtc: true);
-    }
-    if (raw is String) {
-      final parsed = DateTime.tryParse(raw);
-      if (parsed != null) return parsed.toUtc();
-    }
-    return DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
-  }
-
-  static String? _filledString(Object? raw) {
-    if (raw is! String) return null;
-    final trimmed = raw.trim();
-    return trimmed.isEmpty ? null : trimmed;
+    return timestampFromJson(raw);
   }
 
   /// The document body, without `id`: that is the document's own key.

@@ -135,7 +135,6 @@ class _SectionHeader extends StatelessWidget {
 class _CountPill extends StatelessWidget {
   const _CountPill({required this.count});
 
-  static const double _tintAlpha = 0.12;
 
   final int count;
 
@@ -146,7 +145,7 @@ class _CountPill extends StatelessWidget {
       decoration: BoxDecoration(
         // The accent at low alpha, so the pill reads as a quantity rather than
         // as a second call to action next to the header.
-        color: colors.primary.withValues(alpha: _tintAlpha),
+        color: colors.primary.withValues(alpha: AppAlpha.tint),
         borderRadius: BorderRadius.circular(AppRadius.sm),
       ),
       child: Padding(

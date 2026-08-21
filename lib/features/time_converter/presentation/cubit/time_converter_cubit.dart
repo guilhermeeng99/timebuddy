@@ -3,11 +3,11 @@ import 'dart:async';
 import 'package:bloc/bloc.dart';
 import 'package:timebuddy/core/time/clock.dart';
 import 'package:timebuddy/core/time/timezone_engine.dart';
-import 'package:timebuddy/core/time/working_hours.dart';
 import 'package:timebuddy/core/time/zone_lookup.dart';
 import 'package:timebuddy/features/locations/domain/entities/board_entity.dart';
 import 'package:timebuddy/features/locations/presentation/cubit/board_cubit.dart';
 import 'package:timebuddy/features/preferences/presentation/cubit/preferences_cubit.dart';
+import 'package:timebuddy/features/preferences/presentation/cubit/preferences_state_defaults.dart';
 import 'package:timebuddy/features/time_converter/domain/entities/conversion_result.dart';
 import 'package:timebuddy/features/time_converter/domain/usecases/convert_time_usecase.dart';
 import 'package:timebuddy/features/time_converter/presentation/cubit/time_converter_state.dart';
@@ -240,7 +240,7 @@ class TimeConverterCubit extends Cubit<TimeConverterState> {
           _convertTime(
             board: board,
             input: input,
-            workingHours: _workingHours,
+            workingHours: _preferencesCubit.state.workingHoursOrDefault,
           ),
         ),
       ),
@@ -294,11 +294,4 @@ class TimeConverterCubit extends Cubit<TimeConverterState> {
   /// against no entry at all (locations rule 11).
   String _homeZoneIdOf(BoardEntity board) =>
       zoneOrNull(board.homeZoneId)?.id ?? utcZoneId;
-
-  WorkingHours get _workingHours => switch (_preferencesCubit.state) {
-    PreferencesReady(:final preferences) => preferences.workingHours,
-    // Preferences resolve during startup, before any page mounts; this only
-    // covers the frame where a test builds the converter first.
-    PreferencesLoading() => WorkingHours.defaultHours,
-  };
 }

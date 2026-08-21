@@ -3,6 +3,7 @@ import 'package:timebuddy/app/theme/app_colors.dart';
 import 'package:timebuddy/app/theme/app_spacing.dart';
 import 'package:timebuddy/core/extensions/context_extensions.dart';
 import 'package:timebuddy/core/time/hour_band.dart';
+import 'package:timebuddy/core/utils/time_formatter.dart';
 
 /// The single mapping from an [HourBand] to a palette token.
 ///
@@ -34,7 +35,6 @@ Color hourBandColor(HourBand band, AppColorsData colors) => switch (band) {
 ///   band: hourBandFor(localTime.hour, preferences.workingHours),
 ///   minute: localTime.minute,   // only for :30 / :45 zones
 ///   isCursor: slot == cursorSlot,
-///   onTap: () => cubit.setCursor(slot),
 /// );
 /// ```
 class HourCell extends StatelessWidget {
@@ -44,7 +44,6 @@ class HourCell extends StatelessWidget {
     this.minute,
     this.isCursor = false,
     this.isSelected = false,
-    this.onTap,
     this.height = GridMetrics.rowHeight,
     this.compact = false,
     super.key,
@@ -75,9 +74,6 @@ class HourCell extends StatelessWidget {
   /// rather than a replacement of it, so a picked slot still says whether it
   /// is a good hour.
   final bool isSelected;
-
-  /// Tap handler. `null` renders a non-interactive cell with no ink response.
-  final VoidCallback? onTap;
 
   /// Cell height. Defaults to one grid row.
   final double height;
@@ -118,13 +114,14 @@ class HourCell extends StatelessWidget {
   static const double _inkBlend = 0.55;
   static const double _cursorInkBlend = 0.45;
 
-  bool get _hasMinutes => minute != null && minute != 0;
-
-  String get _label {
-    final paddedHour = hour.toString().padLeft(2, '0');
-    if (!_hasMinutes) return paddedHour;
-    return '$paddedHour:${minute!.toString().padLeft(2, '0')}';
-  }
+  /// The cell's digits, through the grid's one formatter.
+  ///
+  /// A `DateTime` is built here purely as a carrier for the two fields
+  /// [formatGridHour] reads; it is not an instant and must never be treated as
+  /// one. Going through the shared function rather than interpolating here is
+  /// what keeps this cell and the ruler above it from drifting apart, which is
+  /// exactly what had happened when both hand-rolled the same `padLeft`.
+  String get _label => formatGridHour(DateTime(2000, 1, 1, hour, minute ?? 0));
 
   @override
   Widget build(BuildContext context) {
@@ -132,21 +129,20 @@ class HourCell extends StatelessWidget {
     return SizedBox(
       width: GridMetrics.hourColumnWidth,
       height: height,
-      child: Material(
-        type: MaterialType.transparency,
-        child: InkWell(
-          onTap: onTap,
-          // The comfortable cell has no inset: its fill runs to the column's
-          // edges so neighbouring hours meet, which is what turns a row of
-          // cells into a timeline.
-          child: compact
-              ? Padding(
-                  padding: const EdgeInsets.all(AppSpacing.xs),
-                  child: _surface(context, colors),
-                )
-              : _surface(context, colors),
-        ),
-      ),
+      // No ink response and no tap target: the cursor is set from the ruler
+      // (docs/specs/time_grid.md rule 8) and the cells are a read surface, so
+      // the whole track is free for the pan. An affordance that splashes and
+      // does nothing is worse than one that does not splash.
+      //
+      // The comfortable cell has no inset: its fill runs to the column's edges
+      // so neighbouring hours meet, which is what turns a row of cells into a
+      // timeline.
+      child: compact
+          ? Padding(
+              padding: const EdgeInsets.all(AppSpacing.xs),
+              child: _surface(context, colors),
+            )
+          : _surface(context, colors),
     );
   }
 

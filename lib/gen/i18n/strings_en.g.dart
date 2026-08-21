@@ -42,7 +42,6 @@ class Translations with BaseTranslations<AppLocale, Translations> {
 	// Translations
 	late final Translations$app$en app = Translations$app$en._(_root);
 	late final Translations$common$en common = Translations$common$en._(_root);
-	late final Translations$home$en home = Translations$home$en._(_root);
 	late final Translations$startup$en startup = Translations$startup$en._(_root);
 	late final Translations$auth$en auth = Translations$auth$en._(_root);
 	late final Translations$profile$en profile = Translations$profile$en._(_root);
@@ -65,9 +64,6 @@ class Translations$app$en {
 
 	/// en: 'TimeBuddy'
 	String get name => 'TimeBuddy';
-
-	/// en: 'Every time zone, side by side'
-	String get tagline => 'Every time zone, side by side';
 }
 
 // Path: common
@@ -116,33 +112,6 @@ class Translations$common$en {
 
 	/// en: 'Clear'
 	String get clear => 'Clear';
-}
-
-// Path: home
-class Translations$home$en {
-	Translations$home$en._(this._root);
-
-	final Translations _root; // ignore: unused_field
-
-	// Translations
-
-	/// en: 'TimeBuddy'
-	String get title => 'TimeBuddy';
-
-	/// en: 'Your device'
-	String get deviceClockLabel => 'Your device';
-
-	/// en: 'Settings'
-	String get settingsAction => 'Settings';
-
-	/// en: 'The comparison grid arrives in the next milestone. Until then, this is your device clock.'
-	String get milestoneNotice => 'The comparison grid arrives in the next milestone. Until then, this is your device clock.';
-
-	/// en: 'Time zone not detected'
-	String get deviceZoneUnknownTitle => 'Time zone not detected';
-
-	/// en: 'Your device did not report one, so this clock is showing UTC.'
-	String get deviceZoneUnknownBody => 'Your device did not report one, so this clock is showing UTC.';
 }
 
 // Path: startup
@@ -218,9 +187,6 @@ class Translations$auth$en {
 
 	/// en: 'Sign-in didn't go through. Try again.'
 	String get signInFailed => 'Sign-in didn\'t go through. Try again.';
-
-	/// en: 'Sign-in was cancelled.'
-	String get signInCancelled => 'Sign-in was cancelled.';
 
 	/// en: 'This browser is blocking the storage the sign-in needs. Allow cross-site cookies for this site, or allow pop-ups, and try again.'
 	String get signInStorageBlocked => 'This browser is blocking the storage the sign-in needs. Allow cross-site cookies for this site, or allow pop-ups, and try again.';
@@ -369,9 +335,6 @@ class Translations$settings$en {
 	/// en: 'Show seconds'
 	String get showSeconds => 'Show seconds';
 
-	/// en: 'Clocks tick every second instead of every minute.'
-	String get showSecondsHint => 'Clocks tick every second instead of every minute.';
-
 	/// en: 'Week starts on'
 	String get weekStartsOn => 'Week starts on';
 
@@ -396,11 +359,11 @@ class Translations$settings$en {
 	/// en: 'The window must be between ${min} and ${max} hours long'
 	String workingHoursInvalid({required Object min, required Object max}) => 'The window must be between ${min} and ${max} hours long';
 
-	/// en: 'System language'
-	String get languageSystem => 'System language';
+	/// en: 'System'
+	String get languageSystem => 'System';
 
-	/// en: 'Português (Brasil)'
-	String get languagePortuguese => 'Português (Brasil)';
+	/// en: 'Português'
+	String get languagePortuguese => 'Português';
 
 	/// en: 'English'
 	String get languageEnglish => 'English';
@@ -465,9 +428,6 @@ class Translations$nav$en {
 	/// en: 'Converter'
 	String get converter => 'Converter';
 
-	/// en: 'Cities'
-	String get locations => 'Cities';
-
 	/// en: 'Settings'
 	String get settings => 'Settings';
 
@@ -522,17 +482,8 @@ class Translations$grid$en {
 	/// en: 'We could not resolve your home time zone, so the grid is lined up to UTC. Pick your home city to fix it.'
 	String get homeZoneBrokenBanner => 'We could not resolve your home time zone, so the grid is lined up to UTC. Pick your home city to fix it.';
 
-	/// en: 'Set as home'
-	String get rowActionSetHome => 'Set as home';
-
-	/// en: 'Remove from board'
-	String get rowActionRemove => 'Remove from board';
-
-	/// en: 'Replace time zone'
-	String get rowActionReplaceZone => 'Replace time zone';
-
-	/// en: 'Tap or drag across the hours to read one moment in every city.'
-	String get cursorHint => 'Tap or drag across the hours to read one moment in every city.';
+	/// en: 'Tap an hour in the ruler to read that moment in every city.'
+	String get cursorHint => 'Tap an hour in the ruler to read that moment in every city.';
 }
 
 // Path: worldClock
@@ -578,9 +529,6 @@ class Translations$worldClock$en {
 
 	/// en: 'Offset from home'
 	String get detailOffsetHome => 'Offset from home';
-
-	/// en: 'Set as home'
-	String get actionSetHome => 'Set as home';
 
 	/// en: 'Remove from board'
 	String get actionRemove => 'Remove from board';
@@ -648,18 +596,6 @@ class Translations$locations$en {
 
 	// Translations
 
-	/// en: 'My cities'
-	String get title => 'My cities';
-
-	/// en: 'Your board is empty'
-	String get emptyTitle => 'Your board is empty';
-
-	/// en: 'Add the cities you work with and see their hours side by side.'
-	String get emptyMessage => 'Add the cities you work with and see their hours side by side.';
-
-	/// en: 'Add a city'
-	String get emptyCta => 'Add a city';
-
 	/// en: 'Add a city'
 	String get addTitle => 'Add a city';
 
@@ -699,9 +635,6 @@ class Translations$locations$en {
 	/// en: 'Home'
 	String get homeLabel => 'Home';
 
-	/// en: 'Press and hold a city to drag it into place.'
-	String get reorderHint => 'Press and hold a city to drag it into place.';
-
 	/// en: '${count} of ${max} cities'
 	String countLabel({required Object count, required Object max}) => '${count} of ${max} cities';
 }
@@ -715,7 +648,6 @@ extension on Translations {
 	dynamic _flatMapFunction(String path) {
 		return switch (path) {
 			'app.name' => 'TimeBuddy',
-			'app.tagline' => 'Every time zone, side by side',
 			'common.retry' => 'Try again',
 			'common.cancel' => 'Cancel',
 			'common.save' => 'Save',
@@ -729,12 +661,6 @@ extension on Translations {
 			'common.done' => 'Done',
 			'common.search' => 'Search',
 			'common.clear' => 'Clear',
-			'home.title' => 'TimeBuddy',
-			'home.deviceClockLabel' => 'Your device',
-			'home.settingsAction' => 'Settings',
-			'home.milestoneNotice' => 'The comparison grid arrives in the next milestone. Until then, this is your device clock.',
-			'home.deviceZoneUnknownTitle' => 'Time zone not detected',
-			'home.deviceZoneUnknownBody' => 'Your device did not report one, so this clock is showing UTC.',
 			'startup.tagline' => 'Every time zone, side by side',
 			'startup.stepLoadingData' => 'Loading time zone data',
 			'startup.stepCheckingAuth' => 'Checking your account',
@@ -754,7 +680,6 @@ extension on Translations {
 			'auth.onboardingSkipHint' => 'Skip the tour and go straight to signing in.',
 			'auth.signInWithGoogle' => 'Sign in with Google',
 			'auth.signInFailed' => 'Sign-in didn\'t go through. Try again.',
-			'auth.signInCancelled' => 'Sign-in was cancelled.',
 			'auth.signInStorageBlocked' => 'This browser is blocking the storage the sign-in needs. Allow cross-site cookies for this site, or allow pop-ups, and try again.',
 			'auth.signInPopupBlocked' => 'The sign-in window was blocked. Allow pop-ups for this site and press the button again.',
 			'auth.signOut' => 'Sign out',
@@ -798,7 +723,6 @@ extension on Translations {
 			'settings.hourFormat12' => '12h',
 			'settings.hourFormat24' => '24h',
 			'settings.showSeconds' => 'Show seconds',
-			'settings.showSecondsHint' => 'Clocks tick every second instead of every minute.',
 			'settings.weekStartsOn' => 'Week starts on',
 			'settings.weekStartsMonday' => 'Monday',
 			'settings.weekStartsSunday' => 'Sunday',
@@ -807,8 +731,8 @@ extension on Translations {
 			'settings.workingHoursSummary' => ({required Object start, required Object end}) => '${start} to ${end}',
 			'settings.workingHoursPreview' => 'Preview',
 			'settings.workingHoursInvalid' => ({required Object min, required Object max}) => 'The window must be between ${min} and ${max} hours long',
-			'settings.languageSystem' => 'System language',
-			'settings.languagePortuguese' => 'Português (Brasil)',
+			'settings.languageSystem' => 'System',
+			'settings.languagePortuguese' => 'Português',
 			'settings.languageEnglish' => 'English',
 			'settings.notSignedIn' => 'You are not signed in',
 			'settings.signOut' => 'Sign out',
@@ -824,7 +748,6 @@ extension on Translations {
 			'nav.grid' => 'Grid',
 			'nav.clocks' => 'Clocks',
 			'nav.converter' => 'Converter',
-			'nav.locations' => 'Cities',
 			'nav.settings' => 'Settings',
 			'nav.profile' => 'Account',
 			'grid.title' => 'Time grid',
@@ -840,10 +763,7 @@ extension on Translations {
 			'grid.dstExplainBody' => 'This zone moves its clocks on this day, so the day is 23 or 25 hours long. One hour is skipped or repeated, and every hour after it shifts.',
 			'grid.unresolvedRow' => 'Time zone unavailable',
 			'grid.homeZoneBrokenBanner' => 'We could not resolve your home time zone, so the grid is lined up to UTC. Pick your home city to fix it.',
-			'grid.rowActionSetHome' => 'Set as home',
-			'grid.rowActionRemove' => 'Remove from board',
-			'grid.rowActionReplaceZone' => 'Replace time zone',
-			'grid.cursorHint' => 'Tap or drag across the hours to read one moment in every city.',
+			'grid.cursorHint' => 'Tap an hour in the ruler to read that moment in every city.',
 			'worldClock.title' => 'World clock',
 			'worldClock.sameTime' => 'Same time',
 			'worldClock.tomorrow' => 'Tomorrow',
@@ -856,7 +776,6 @@ extension on Translations {
 			'worldClock.detailZoneId' => 'Time zone id',
 			'worldClock.detailOffsetUtc' => 'Offset from UTC',
 			'worldClock.detailOffsetHome' => 'Offset from home',
-			'worldClock.actionSetHome' => 'Set as home',
 			'worldClock.actionRemove' => 'Remove from board',
 			'worldClock.actionOpenInGrid' => 'Open in the grid',
 			'converter.title' => 'Time converter',
@@ -873,10 +792,6 @@ extension on Translations {
 			'converter.copied' => 'Copied to the clipboard',
 			'converter.outOfRange' => ({required Object years}) => 'We only convert up to ${years} years from today. Past that, the rules are still guesses.',
 			'converter.needMoreCities' => 'Add another city to see this moment somewhere else.',
-			'locations.title' => 'My cities',
-			'locations.emptyTitle' => 'Your board is empty',
-			'locations.emptyMessage' => 'Add the cities you work with and see their hours side by side.',
-			'locations.emptyCta' => 'Add a city',
 			'locations.addTitle' => 'Add a city',
 			'locations.searchHint' => 'Search a city, country or time zone',
 			'locations.searchNoResults' => 'No city matches that. Try the country, or a time zone id like America/Sao_Paulo.',
@@ -890,7 +805,6 @@ extension on Translations {
 			'locations.pickHomeMessage' => 'We could not detect your time zone, so every difference is measured from UTC. Choose your home city to fix it.',
 			'locations.setAsHome' => 'Set as home',
 			'locations.homeLabel' => 'Home',
-			'locations.reorderHint' => 'Press and hold a city to drag it into place.',
 			'locations.countLabel' => ({required Object count, required Object max}) => '${count} of ${max} cities',
 			_ => null,
 		};

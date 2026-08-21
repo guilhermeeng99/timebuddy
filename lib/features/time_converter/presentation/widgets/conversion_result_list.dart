@@ -3,6 +3,7 @@ import 'package:timebuddy/app/theme/app_spacing.dart';
 import 'package:timebuddy/app/theme/app_typography.dart';
 import 'package:timebuddy/app/widgets/day_night_dot.dart';
 import 'package:timebuddy/app/widgets/hour_cell.dart';
+import 'package:timebuddy/app/widgets/local_date_line.dart';
 import 'package:timebuddy/app/widgets/location_row.dart';
 import 'package:timebuddy/core/extensions/context_extensions.dart';
 import 'package:timebuddy/core/time/time_formats.dart';
@@ -159,47 +160,8 @@ class _LineReading extends StatelessWidget {
             ),
           ),
           const SizedBox(height: AppSpacing.xs),
-          _DateLine(line: line),
+          LocalDateLine(localTime: line.localTime, dayDelta: line.dayDelta),
         ],
-      ),
-    );
-  }
-}
-
-/// The local date of this line, and the relative day word when there is one.
-class _DateLine extends StatelessWidget {
-  const _DateLine({required this.line});
-
-  final ConversionLine line;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.appColors;
-    final dayWord = _dayWord(line.dayDelta);
-    // Per line, never once per page: at a single instant two cities can be on
-    // different calendar dates, which is exactly what rule 7 is about.
-    final localeTag = LocaleSettings.currentLocale.languageTag;
-    return Text.rich(
-      TextSpan(
-        children: [
-          TextSpan(text: formatDayMonth(line.localTime, localeTag)),
-          if (dayWord != null)
-            TextSpan(
-              text: ' · $dayWord',
-              // The accent, because on a board that crosses the date line
-              // this is the fact the user came for.
-              style: TextStyle(
-                fontWeight: FontWeight.w600,
-                color: colors.primary,
-              ),
-            ),
-        ],
-      ),
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
-      textAlign: TextAlign.end,
-      style: context.textTheme.labelMedium?.copyWith(
-        color: colors.onBackgroundLight,
       ),
     );
   }
@@ -223,20 +185,3 @@ class _NeedMoreCitiesNote extends StatelessWidget {
     );
   }
 }
-
-/// "Tomorrow" / "Yesterday" for a [ConversionLine.dayDelta], or `null` when
-/// there is nothing to say (rule 7).
-///
-/// `null` for `0` because the line then shares the source's date, and also
-/// for the `±2` a Kiritimati-to-Niue board really can produce: naming that
-/// "Yesterday" would be wrong by a day, and the date beside it is exact.
-///
-/// The world clock's copy, deliberately its own four lines rather than an
-/// import of that page's helper: the two features say the same thing about a
-/// day delta and have no other reason to depend on each other, which is the
-/// same trade `ConvertTimeUseCase` made with its own stand-in row.
-String? _dayWord(int dayDelta) => switch (dayDelta) {
-  1 => t.worldClock.tomorrow,
-  -1 => t.worldClock.yesterday,
-  _ => null,
-};

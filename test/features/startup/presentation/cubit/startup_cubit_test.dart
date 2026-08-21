@@ -567,7 +567,9 @@ void main() {
       expect(guestSession.isGuest, isFalse);
     });
 
-    test('an adopting sync is not cut off by the time box', () async {
+    testWidgets('an adopting sync is not cut off by the time box', (
+      tester,
+    ) async {
       await becomeGuest();
       authBlocHolds(Authenticated(_user));
       final slow = Completer<Either<Failure, SyncOutcome>>();
@@ -582,9 +584,13 @@ void main() {
       addTearDown(cubit.close);
       unawaited(cubit.initialize());
       // Well past rule 8's budget, which an ordinary first sync would have
-      // abandoned by now.
-      await Future<void>.delayed(StartupCubit.syncTimeBox * 2);
-      await pumpEventQueue();
+      // abandoned by now — spent inside `testWidgets`' fake async rather than
+      // on the wall clock. It used to be a real `Future.delayed`, which made
+      // one test more than half the suite's total runtime and left the
+      // assertion below dependent on how loaded the machine was. The sibling
+      // test above already made this trade; this one had not.
+      await tester.pump(StartupCubit.syncTimeBox * 2);
+      await tester.pump();
 
       // Rule 7: `AppShell` builds `BoardCubit` the moment the router leaves
       // `/startup`, so opening early would load the guest's document a
@@ -592,7 +598,7 @@ void main() {
       expect(cubit.state, isA<StartupLoading>());
 
       slow.complete(Right<Failure, SyncOutcome>(_reconciled));
-      await pumpEventQueue();
+      await tester.pump();
       expect(
         cubit.state,
         const StartupAuthenticated(userId: _userId, syncFailed: false),

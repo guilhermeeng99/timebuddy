@@ -13,10 +13,10 @@ import 'package:timebuddy/core/extensions/context_extensions.dart';
 ///
 /// ```dart
 /// TimeBuddyPickerSheet(
-///   title: t.locations.addCity,
+///   title: t.locations.addTitle,
 ///   header: searchField,
 ///   bodyBuilder: (context, scrollController) => TimeBuddyPickerSheetEmpty(
-///     message: t.locations.noResults,
+///     message: t.locations.searchNoResults,
 ///     scrollController: scrollController,
 ///   ),
 /// );

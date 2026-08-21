@@ -198,14 +198,13 @@ class _StatusLine extends StatelessWidget {
 class _HomeChip extends StatelessWidget {
   const _HomeChip();
 
-  static const double _tintAlpha = 0.12;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: colors.primary.withValues(alpha: _tintAlpha),
+        color: colors.primary.withValues(alpha: AppAlpha.tint),
         borderRadius: BorderRadius.circular(AppRadius.sm),
       ),
       child: Padding(

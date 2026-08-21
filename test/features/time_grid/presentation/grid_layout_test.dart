@@ -210,38 +210,5 @@ void main() {
       expect(wide.fitsEntirely(_slots), isTrue);
       expect(wide.offsetOfColumn(20, _slots), 0);
     });
-
-    test('columnAt maps a pointer to the hour under it', () {
-      final layout = _at(900);
-      final width = layout.hourColumnWidth;
-
-      expect(
-        layout.columnAt(trackDx: width * 2.5, scrollOffset: 0, slotCount: 30),
-        2,
-      );
-      // Scrolled: the same pixel is a later hour.
-      expect(
-        layout.columnAt(
-          trackDx: width * 2.5,
-          scrollOffset: width * 4,
-          slotCount: 30,
-        ),
-        6,
-      );
-      // Left of the track is the pinned column, not column zero.
-      expect(
-        layout.columnAt(trackDx: -1, scrollOffset: 0, slotCount: 30),
-        isNull,
-      );
-      // Past the last slot is nothing, not the last slot clamped.
-      expect(
-        layout.columnAt(
-          trackDx: width,
-          scrollOffset: width * 40,
-          slotCount: 30,
-        ),
-        isNull,
-      );
-    });
   });
 }

@@ -4,6 +4,7 @@ import 'package:timebuddy/app/theme/light_palettes.dart';
 import 'package:timebuddy/core/time/time_formats.dart';
 import 'package:timebuddy/core/time/working_hours.dart';
 import 'package:timebuddy/core/utils/enum_parse.dart';
+import 'package:timebuddy/core/utils/json_parse.dart';
 import 'package:timebuddy/features/preferences/domain/entities/preferences_entity.dart';
 
 /// Serialization for [PreferencesEntity].
@@ -39,34 +40,34 @@ class PreferencesModel extends PreferencesEntity {
     return PreferencesModel(
       themeMode: enumByName(
         ThemeMode.values,
-        _asString(json['themeMode']),
+        filledStringOrNull(json['themeMode']),
         orElse: ThemeMode.system,
       ),
       lightPalette: enumByName(
         LightPalette.values,
-        _asString(json['lightPalette']),
+        filledStringOrNull(json['lightPalette']),
         orElse: LightPalette.indigoCloud,
       ),
       darkPalette: enumByName(
         DarkPalette.values,
-        _asString(json['darkPalette']),
+        filledStringOrNull(json['darkPalette']),
         orElse: DarkPalette.midnightIndigo,
       ),
       hourFormat: enumByName(
         ClockFormat.values,
-        _asString(json['hourFormat']),
+        filledStringOrNull(json['hourFormat']),
         orElse: ClockFormat.h24,
       ),
       workingHours: _workingHoursFrom(json['workingHours']),
       weekStartsOn: enumByName(
         WeekStart.values,
-        _asString(json['weekStartsOn']),
+        filledStringOrNull(json['weekStartsOn']),
         orElse: WeekStart.monday,
       ),
       showSeconds: json['showSeconds'] == true,
-      localeTag: _asString(json['locale']),
-      revision: _asInt(json['revision']) ?? 0,
-      updatedAt: _updatedAtFrom(json['updatedAt']),
+      localeTag: filledStringOrNull(json['locale']),
+      revision: intOrNull(json['revision']) ?? 0,
+      updatedAt: timestampFromJson(json['updatedAt']),
     );
   }
 
@@ -91,34 +92,12 @@ class PreferencesModel extends PreferencesEntity {
   static WorkingHours _workingHoursFrom(Object? raw) {
     if (raw is! Map<String, dynamic>) return WorkingHours.defaultHours;
 
-    final startHour = _asInt(raw['start']);
-    final endHour = _asInt(raw['end']);
+    final startHour = intOrNull(raw['start']);
+    final endHour = intOrNull(raw['end']);
     if (startHour == null || endHour == null) return WorkingHours.defaultHours;
 
     final parsed = WorkingHours(startHour: startHour, endHour: endHour);
     return parsed.isValid ? parsed : WorkingHours.defaultHours;
-  }
-
-  /// Accepts both encodings of the dual-write contract, and falls back to the
-  /// epoch rather than to "now": an unreadable timestamp must lose every tie it
-  /// enters (sync.md rule 5), not win them by looking freshly written.
-  static DateTime _updatedAtFrom(Object? raw) {
-    if (raw is int) {
-      return DateTime.fromMillisecondsSinceEpoch(raw, isUtc: true);
-    }
-    if (raw is String) {
-      final parsed = DateTime.tryParse(raw);
-      if (parsed != null) return parsed.toUtc();
-    }
-    return DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
-  }
-
-  static String? _asString(Object? raw) => raw is String ? raw : null;
-
-  static int? _asInt(Object? raw) {
-    if (raw is int) return raw;
-    if (raw is num) return raw.toInt();
-    return null;
   }
 
   Map<String, dynamic> toJson() {
@@ -126,6 +105,15 @@ class PreferencesModel extends PreferencesEntity {
       'themeMode': themeMode.name,
       'lightPalette': lightPalette.name,
       'darkPalette': darkPalette.name,
+      // `this.` is load-bearing here and nowhere else in this map, however
+      // inconsistent it looks. `hourFormat` is *inherited* from
+      // [PreferencesEntity], and an inherited member is not in this class's
+      // lexical scope, so the bare name falls through to the library scope and
+      // finds the top-level `hourFormat({required TimeOfDayFormat of})` that
+      // `package:flutter/material.dart` exports — a compile error, not a wrong
+      // value. Every sibling key names a field with no such twin. Kept
+      // explicit rather than hidden behind an import alias, so the next reader
+      // to "fix" the inconsistency finds the reason before the error.
       'hourFormat': this.hourFormat.name,
       'workingHours': <String, dynamic>{
         'start': workingHours.startHour,

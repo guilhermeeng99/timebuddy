@@ -27,6 +27,7 @@ import 'package:timebuddy/features/locations/domain/repositories/city_catalog_re
 import 'package:timebuddy/features/locations/presentation/cubit/board_cubit.dart';
 import 'package:timebuddy/features/locations/presentation/cubit/location_search_cubit.dart';
 import 'package:timebuddy/features/preferences/presentation/cubit/preferences_cubit.dart';
+import 'package:timebuddy/features/preferences/presentation/cubit/preferences_state_defaults.dart';
 import 'package:timebuddy/features/time_converter/domain/entities/conversion_result.dart';
 import 'package:timebuddy/features/time_converter/domain/usecases/convert_time_usecase.dart';
 import 'package:timebuddy/features/time_converter/presentation/cubit/time_converter_cubit.dart';
@@ -40,8 +41,8 @@ const int _loadingRowCount = 4;
 /// Placeholder rows while the city catalog loads inside the source picker.
 const int _pickerLoadingRowCount = 6;
 
-/// Tint behind the disclosure banner, and the size of its glyph.
-const double _bannerTintAlpha = 0.12;
+/// Size of the disclosure banner's glyph. Its tint is the shared
+/// `AppAlpha.tint`, the same wash every warning surface in the app carries.
 const double _bannerIconSize = 20;
 
 /// "It is 15:00 on 12 March in Lisbon. What time is that everywhere else?"
@@ -108,7 +109,8 @@ class _ConverterBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final hourFormat = _hourFormatOf(context);
+    final hourFormat =
+        context.watch<PreferencesCubit>().state.hourFormatOrDefault;
     return ListView(
       padding: EdgeInsets.fromLTRB(
         AppSpacing.lg,
@@ -321,7 +323,7 @@ class _DisclosureBanner extends StatelessWidget {
     final colors = context.appColors;
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: colors.warning.withValues(alpha: _bannerTintAlpha),
+        color: colors.warning.withValues(alpha: AppAlpha.tint),
         borderRadius: BorderRadius.circular(AppRadius.md),
       ),
       child: Padding(
@@ -527,12 +529,3 @@ DateTime _inputLocalTime(ConversionInput input) => DateTime.utc(
   input.hour,
   input.minute,
 );
-
-/// Watched rather than read: a 12h/24h switch in settings must repaint every
-/// reading on the page.
-ClockFormat _hourFormatOf(BuildContext context) =>
-    switch (context.watch<PreferencesCubit>().state) {
-      PreferencesReady(:final preferences) => preferences.hourFormat,
-      // Preferences resolve during startup, before any page mounts.
-      PreferencesLoading() => ClockFormat.h24,
-    };

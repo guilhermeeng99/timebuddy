@@ -15,9 +15,9 @@ import 'package:timebuddy/core/extensions/context_extensions.dart';
 /// ```dart
 /// TimeBuddyPickerField(
 ///   icon: FontAwesomeIcons.earthAmericas,
-///   label: t.locations.homeCity,
+///   label: t.locations.homeLabel,
 ///   value: home?.label,
-///   placeholder: t.locations.pickHomeCity,
+///   placeholder: t.locations.pickHomeTitle,
 ///   onTap: _openHomePicker,
 /// );
 /// ```

@@ -30,9 +30,17 @@ class PreferencesLocalDataSourceImpl implements PreferencesLocalDataSource {
 
   @override
   Future<PreferencesModel?> read() async {
-    final raw = await _store.readRaw(StorageKeys.preferences);
-    if (raw == null) return null;
-    return PreferencesModel.fromJson(_decodeObject(raw));
+    // The message names the document because `readJsonObject` cannot: a
+    // document that is not even a JSON object cannot be salvaged field by
+    // field, so it is reported rather than silently replaced, and the
+    // repository decides whether to fall back to defaults or surface the
+    // failure.
+    final json = await _store.readJsonObject(
+      StorageKeys.preferences,
+      malformedMessage: 'Stored preferences are not a readable JSON object.',
+    );
+    if (json == null) return null;
+    return PreferencesModel.fromJson(json);
   }
 
   @override
@@ -40,22 +48,6 @@ class PreferencesLocalDataSourceImpl implements PreferencesLocalDataSource {
     return _store.writeRaw(
       StorageKeys.preferences,
       jsonEncode(preferences.toJson()),
-    );
-  }
-
-  /// A document that is not even a JSON object cannot be salvaged field by
-  /// field, so it is reported rather than silently replaced: the repository
-  /// decides whether to fall back to defaults or surface the failure.
-  Map<String, dynamic> _decodeObject(String raw) {
-    try {
-      final decoded = jsonDecode(raw) as Object?;
-      if (decoded is Map<String, dynamic>) return decoded;
-    } on FormatException catch (_) {
-      // Falls through to the exception below: the message is the same either
-      // way, and the caller cannot act on the difference.
-    }
-    throw const CacheException(
-      'Stored preferences are not a readable JSON object.',
     );
   }
 }

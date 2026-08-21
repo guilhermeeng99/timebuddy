@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:timebuddy/app/di/injection_container.dart';
+import 'package:timebuddy/app/routes/app_routes.dart';
 import 'package:timebuddy/app/theme/app_colors.dart';
 import 'package:timebuddy/app/theme/app_spacing.dart';
 import 'package:timebuddy/app/widgets/app_icon.dart';
@@ -60,7 +61,13 @@ class ProfilePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: TimeBuddyLargeAppBar(title: t.profile.title),
+      // `/profile` is a root-level route outside the shell, so a cold open
+      // has neither a navigator stack to pop nor a bar or rail to navigate
+      // with. The fallback is what stops a page reload from being a dead end.
+      appBar: TimeBuddyLargeAppBar(
+        title: t.profile.title,
+        fallbackRoute: AppRoutes.grid,
+      ),
       body: BlocConsumer<AuthBloc, AuthState>(
         listener: _onAuthState,
         builder: (context, state) => switch (state) {
@@ -384,14 +391,13 @@ class _InitialAvatar extends StatelessWidget {
 
   final String name;
 
-  static const double _tintAlpha = 0.12;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
     final trimmed = name.trim();
     return ColoredBox(
-      color: colors.primary.withValues(alpha: _tintAlpha),
+      color: colors.primary.withValues(alpha: AppAlpha.tint),
       child: Center(
         child: trimmed.isEmpty
             // A nameless account gets a glyph rather than a hardcoded letter:

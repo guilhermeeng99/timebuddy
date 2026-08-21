@@ -1,10 +1,10 @@
 import 'dart:async';
 
 import 'package:dartz/dartz.dart';
-import 'package:timebuddy/core/errors/exceptions.dart';
 import 'package:timebuddy/core/errors/failures.dart';
 import 'package:timebuddy/core/sync/sync_coordinator.dart';
 import 'package:timebuddy/core/time/clock.dart';
+import 'package:timebuddy/core/utils/storage_guard.dart';
 import 'package:timebuddy/features/locations/data/datasources/board_local_datasource.dart';
 import 'package:timebuddy/features/locations/data/models/board_model.dart';
 import 'package:timebuddy/features/locations/domain/entities/board_entity.dart';
@@ -39,12 +39,12 @@ class BoardRepositoryImpl implements BoardRepository {
   @override
   Future<Either<Failure, BoardEntity>> load({
     required String homeZoneIdFallback,
-  }) async {
-    try {
+  }) {
+    return guardStorage(() async {
       final stored = await _localDataSource.read(
         homeZoneIdFallback: homeZoneIdFallback,
       );
-      if (stored != null) return Right(stored);
+      if (stored != null) return stored;
 
       final seeded = BoardEntity.empty(
         homeZoneId: homeZoneIdFallback,
@@ -56,30 +56,24 @@ class BoardRepositoryImpl implements BoardRepository {
       // board is measured against when the user travels
       // (docs/specs/locations.md rule 3).
       await _localDataSource.write(BoardModel.fromEntity(seeded));
-      return Right(seeded);
-    } on CacheException catch (error) {
-      return Left(StorageFailure(error.message));
-    } on StorageException catch (error) {
-      return Left(StorageFailure(error.message));
-    }
+      return seeded;
+    });
   }
 
   @override
-  Future<Either<Failure, BoardEntity>> save(BoardEntity board) async {
-    try {
+  Future<Either<Failure, BoardEntity>> save(BoardEntity board) {
+    return guardStorage(() async {
       await _localDataSource.write(BoardModel.fromEntity(board));
-    } on CacheException catch (error) {
-      return Left(StorageFailure(error.message));
-    } on StorageException catch (error) {
-      return Left(StorageFailure(error.message));
-    }
 
-    // Rule 2, and the reason this is not awaited: the local write already
-    // decided the answer, and a reorder that waited on a Firestore round trip
-    // would freeze the list for as long as the network felt like taking. The
-    // coordinator swallows the failure and marks the document dirty (rules 3
-    // and 4), so nothing here can turn a bad radio into a Left.
-    unawaited(_syncCoordinator.pushBoard(board));
-    return Right(board);
+      // Rule 2, and the reason this is not awaited: the local write already
+      // decided the answer, and a reorder that waited on a Firestore round
+      // trip would freeze the list for as long as the network felt like
+      // taking. The coordinator swallows the failure and marks the document
+      // dirty (rules 3 and 4), so nothing here can turn a bad radio into a
+      // Left. It is started only after the local write returned, so a refused
+      // write still fails before anything is pushed.
+      unawaited(_syncCoordinator.pushBoard(board));
+      return board;
+    });
   }
 }
