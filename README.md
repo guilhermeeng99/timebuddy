@@ -3,9 +3,11 @@
 Real-time world clock and timezone comparison for Android and Web. See what time
 it is in every city you care about, and find an hour that works for all of them.
 
-**Live build: <https://guilhermeeng99.github.io/timebuddy/>**
+**<https://guilhermeeng99.github.io/timebuddy/>** — the site, with the app
+one level down at **[/timebuddy/app/](https://guilhermeeng99.github.io/timebuddy/app/)**.
 
-> Status: milestones 1 through 4 are implemented. M1 shipped the theme layer,
+> Status: milestones 1 through 4 are implemented, and three of M5's four
+> release audits have run. M1 shipped the theme layer,
 > the timezone engine, the core time utilities, local storage, preferences and
 > the settings page. M2 shipped the 500-city catalog and its search, the saved
 > board (add, remove with undo, reorder, set home, replace a zone), the
@@ -15,7 +17,12 @@ it is in every city you care about, and find an hour that works for all of them.
 > the time converter. It also shipped a meeting planner, which was **deleted**
 > the next day at the owner's request: it had no entry point and a tested
 > feature nobody enters is a second answer to "what does this screen do".
-> What remains is M5, the release pass. See [docs/roadmap.md](docs/roadmap.md).
+> M5, the release pass, is under way: the empty/loading/error audit, the
+> 20-palette contrast check and the accessibility pass all ran on 2026-08-21
+> and are now **tests** rather than reviews
+> (`test/app/theme/palette_contrast_test.dart`,
+> `test/app/accessibility_test.dart`). What is left of M5 is the PWA work and
+> Play App Signing. See [docs/roadmap.md](docs/roadmap.md).
 >
 > **Sign-in is optional.** What a visitor meets is a splash while tzdata loads,
 > then a three-slide tour. Every slide carries *continue without an account*,
@@ -54,7 +61,9 @@ Shipped:
 - **Theming**: light and dark. Ten palettes each ship and sync, but the picker
   was taken out of Settings during the icon pass and `palette_picker_sheet.dart`
   currently has no call site: Appearance is one theme toggle. The machinery is
-  intact, it just has no entry point.
+  intact, it just has no entry point. Every one of the twenty clears WCAG AA on
+  every pair the app paints, and a test says so per palette rather than a review
+  having said so once.
 - **Your account**: sign in with Google and the same board and preferences show
   up on the phone and in the browser. Two documents per user in Firestore,
   reconciled by revision number. A write that cannot reach the server is never
@@ -83,6 +92,8 @@ scripts/          # build_city_catalog.dart + city_seeds.dart: regenerate the
                   #   city asset. check_glyphs.py: verify every icon glyph
                   #   survived into the release bundle (CI runs it as a gate).
                   #   Build tooling, not shipped in the app
+site/             # The landing page served at the Pages root. Vite + Tailwind,
+                  #   its own toolchain, deployed by the same workflow
 test/
 └── harness/      # Centralized mocks, factories, helpers, FakeClock
 ```
@@ -100,6 +111,24 @@ status; `startup/` is a cubit that composes four collaborators it does not own.
 Sync itself lives in `core/sync/` rather than in a feature: it is the one place
 that reconciles *both* documents against one account, and a copy of the conflict
 rules per feature would be two owners of one rule.
+
+### The published site is two bundles
+
+`site/` is a Vite + Tailwind static page with its own toolchain, served at the
+Pages root; the Flutter web build is served one level down at `/timebuddy/app/`.
+The same workflow job builds both and assembles them into one artifact, because
+a Pages deployment carries exactly one — two jobs racing to publish would leave
+a site pointing at an app that had not landed yet.
+
+The landing page's hero is a **working miniature of the grid**, not a
+screenshot: the columns are real instants, each cell resolves through the
+browser's own IANA database, and the first row is the visitor's own time zone.
+`hourBandFor` and `relativeOffsetLabel` are ported from `lib/` rather than
+approximated, so the page cannot show an hour the app would disagree with.
+Details in [site/README.md](site/README.md).
+
+Old app bookmarks still work: the landing page forwards any hash beginning with
+`#/` — go_router's URL shape — to `./app/`.
 
 ### The one architectural rule worth stating up front
 
@@ -182,6 +211,10 @@ flutter run             # connected Android device
 # 3. Or build the release web bundle
 flutter build web --release --no-tree-shake-icons
 python scripts/check_glyphs.py
+
+# 4. The landing site, which is a separate bundle with its own toolchain
+npm --prefix site ci
+npm --prefix site run dev      # preview on http://localhost:5173
 ```
 
 `--no-tree-shake-icons` is not a performance oversight and not optional: the
@@ -189,6 +222,21 @@ icon shaker cannot see through `font_awesome_flutter`'s `FaIconData`, so a
 default release build drops most of the app's glyphs and renders them as empty
 boxes, without a build error. `check_glyphs.py` is what catches a regression.
 See the Commands section in [CLAUDE.md](CLAUDE.md).
+
+To reproduce what the deployment actually serves — the landing page at the root
+with the app under `app/` — build both and assemble them, exactly as the
+workflow's `Assemble the Pages bundle` step does:
+
+```bash
+flutter build web --release --base-href /timebuddy/app/ --no-tree-shake-icons
+npm --prefix site run build
+rm -rf public && mkdir -p public/app
+cp -r site/dist/. public/ && cp -r build/web/. public/app/
+```
+
+On Git Bash for Windows that `--base-href` is rewritten into a Windows path by
+MSYS before Flutter sees it and the build stops; run it from PowerShell, or
+prefix the command with `MSYS_NO_PATHCONV=1`.
 
 That is the whole setup for the project's own Firebase project: both
 `lib/firebase_options.dart` and `android/app/google-services.json` are
@@ -211,11 +259,22 @@ registered or it fails with `ApiException: 10`.
 flutter analyze              # must be zero errors, warnings and info issues
 flutter test                 # must be green
 python scripts/check_glyphs.py   # after any icon change, against a release build
+npm --prefix site run typecheck  # after any change under site/
 ```
 
-The first two run before every commit, and all three run again in CI: the Pages
-workflow (`.github/workflows/deploy-pages.yml`) analyses and tests before it
-builds — with `--no-tree-shake-icons --base-href /timebuddy/` — and then runs
-the glyph check on the bundle, so neither a red `main` nor a page of empty boxes
-reaches the published site. See the post-change checklist in
-[CLAUDE.md](CLAUDE.md).
+The first two run before every commit, and all four run again in CI: the Pages
+workflow (`.github/workflows/deploy-pages.yml`) analyses and tests, builds the
+app with `--no-tree-shake-icons --base-href /timebuddy/app/`, runs the glyph
+check on the bundle, then typechecks and builds the landing site and assembles
+the two into one artifact. A red `main`, a page of empty boxes and a broken
+front door are each blocked before the deploy step. See the post-change
+checklist in [CLAUDE.md](CLAUDE.md).
+
+Two of that bar are properties rather than commands, and they live in tests
+because a review only holds for the day it happened:
+
+- `test/app/theme/palette_contrast_test.dart` measures every colour pair the app
+  paints against WCAG AA, on all twenty palettes.
+- `test/app/accessibility_test.dart` asserts that every icon-only control has a
+  name and that an hour cell says which band it is in rather than only colouring
+  itself.

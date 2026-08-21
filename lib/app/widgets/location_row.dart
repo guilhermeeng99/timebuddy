@@ -217,7 +217,7 @@ class _HomeChip extends StatelessWidget {
           maxLines: 1,
           style: context.textTheme.labelSmall?.copyWith(
             fontWeight: FontWeight.w600,
-            color: colors.primary,
+            color: colors.primaryInk,
           ),
         ),
       ),

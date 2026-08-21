@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:timebuddy/app/theme/app_spacing.dart';
 import 'package:timebuddy/core/extensions/context_extensions.dart';
+import 'package:timebuddy/gen/i18n/strings.g.dart';
 
 /// The app's loading placeholder: pulsing blocks in the shape of the content
 /// that is about to arrive.
@@ -69,6 +70,22 @@ class _LoadingShimmerState extends State<LoadingShimmer>
   @override
   Widget build(BuildContext context) {
     final blockColor = context.appColors.surfaceVariant;
+    return Semantics(
+      // A shimmer is a *visual* placeholder: it announced nothing at all, so
+      // the page a screen reader reached while the board loaded was silence
+      // with no way to tell it from an empty one. `liveRegion` is what makes
+      // the announcement happen when the placeholder appears rather than only
+      // when the user wanders onto it.
+      label: t.common.loading,
+      liveRegion: true,
+      // The blocks stand in for content that does not exist yet; there is
+      // nothing under here worth reading.
+      excludeSemantics: true,
+      child: _blocks(blockColor),
+    );
+  }
+
+  Widget _blocks(Color blockColor) {
     return FadeTransition(
       // One opacity animation over the whole column rather than one per block:
       // the pulse is the only thing moving, so it costs a single repaint of an

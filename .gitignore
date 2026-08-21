@@ -31,6 +31,10 @@ migrate_working_dir/
 .pub-cache/
 .pub/
 /build/
+# The Pages bundle the deploy workflow assembles (landing site at the root,
+# the Flutter app under app/). Built in CI, never committed; present locally
+# only if someone reproduces the assembly step by hand.
+/public/
 /coverage/
 
 # Symbolication related

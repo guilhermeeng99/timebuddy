@@ -15,7 +15,11 @@
     "remove": "Remover",
     "done": "Pronto",
     "search": "Buscar",
-    "clear": "Limpar"
+    "clear": "Limpar",
+    "back": "Voltar",
+    "previousDay": "Dia anterior",
+    "nextDay": "Próximo dia",
+    "hourInBand": "${hour}, ${band}"
   },
   "startup": {
     "tagline": "Todos os fusos, lado a lado",

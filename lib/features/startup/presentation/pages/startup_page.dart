@@ -166,7 +166,7 @@ class _StartupProgress extends StatelessWidget {
             value: progress,
             minHeight: _progressHeight,
             backgroundColor: colors.surfaceVariant,
-            color: colors.primary,
+            color: colors.primaryGlyph,
           ),
         ),
         const SizedBox(height: AppSpacing.md),

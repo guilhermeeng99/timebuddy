@@ -215,7 +215,7 @@ class GridHeaderColumn extends StatelessWidget {
                 style: context.textTheme.labelSmall?.copyWith(
                   fontSize: _dateFontSize,
                   fontWeight: FontWeight.w600,
-                  color: colors.primary,
+                  color: colors.primaryInk,
                 ),
               ),
             Text(

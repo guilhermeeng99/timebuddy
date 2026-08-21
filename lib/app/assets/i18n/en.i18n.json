@@ -15,7 +15,11 @@
     "remove": "Remove",
     "done": "Done",
     "search": "Search",
-    "clear": "Clear"
+    "clear": "Clear",
+    "back": "Back",
+    "previousDay": "Previous day",
+    "nextDay": "Next day",
+    "hourInBand": "${hour}, ${band}"
   },
   "startup": {
     "tagline": "Every time zone, side by side",

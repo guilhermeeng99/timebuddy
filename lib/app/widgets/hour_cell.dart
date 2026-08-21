@@ -4,6 +4,7 @@ import 'package:timebuddy/app/theme/app_spacing.dart';
 import 'package:timebuddy/core/extensions/context_extensions.dart';
 import 'package:timebuddy/core/time/hour_band.dart';
 import 'package:timebuddy/core/utils/time_formatter.dart';
+import 'package:timebuddy/gen/i18n/strings.g.dart';
 
 /// The single mapping from an [HourBand] to a palette token.
 ///
@@ -46,8 +47,22 @@ class HourCell extends StatelessWidget {
     this.isSelected = false,
     this.height = GridMetrics.rowHeight,
     this.compact = false,
+    this.semanticLabel,
     super.key,
   });
+
+  /// The name of [band] in the user's language, as the settings legend and
+  /// the day/night dot say it.
+  ///
+  /// Public so a caller composing a longer label for one cell — the grid's
+  /// date turnover, its DST marker — builds it out of the same four words
+  /// rather than inventing a fifth.
+  static String bandLabel(HourBand band) => switch (band) {
+    HourBand.good => t.bands.good,
+    HourBand.fair => t.bands.fair,
+    HourBand.poor => t.bands.poor,
+    HourBand.night => t.bands.night,
+  };
 
   /// Local hour of the cell, `0..23`. Rendered zero-padded.
   final int hour;
@@ -94,13 +109,26 @@ class HourCell extends StatelessWidget {
   /// restyled.
   final bool compact;
 
+  /// Replaces the label a screen reader hears for this cell.
+  ///
+  /// Pass one when the cell carries marks this widget cannot see — the grid's
+  /// day boundary and its DST dot are drawn *over* the cell by
+  /// `GridRowView`, so only that caller can say "and the date turns here".
+  /// `null` uses [_defaultSemanticLabel], which is the hour and its band.
+  final String? semanticLabel;
+
   /// Band tint under the digits.
+  ///
+  /// Public, with the three below, so
+  /// `test/app/theme/palette_contrast_test.dart` can measure the colour a
+  /// cell actually paints instead of a second copy of these numbers that
+  /// drifts the first time one is retuned.
   ///
   /// 0.16, up from 0.12: at the old value four bands were four shades of the
   /// same murk on a dark palette, and the colour was carrying no information a
   /// user could act on.
-  static const double _fillAlpha = 0.16;
-  static const double _selectedAlpha = 0.18;
+  static const double fillAlpha = 0.16;
+  static const double selectedAlpha = 0.18;
   static const double _compactFontSize = 11;
   static const double _comfortableFontSize = 15;
 
@@ -111,8 +139,13 @@ class HourCell extends StatelessWidget {
   /// in even to someone reading one row out of the corner of their eye — and
   /// lerping toward `onBackground` rather than hardcoding a light tint is what
   /// keeps that legible on all twenty palettes, light ones included.
-  static const double _inkBlend = 0.55;
-  static const double _cursorInkBlend = 0.45;
+  static const double inkBlend = 0.55;
+
+  /// 0.50, up from 0.45. At 0.45 the cursor's digits measured **4.31:1**
+  /// against their own wash on Mint Fresh, just under the 4.5 that 15pt text
+  /// owes; 0.50 lifts the worst palette to 4.73:1 and every other one further.
+  /// Pinned by `test/app/theme/palette_contrast_test.dart`.
+  static const double cursorInkBlend = 0.50;
 
   /// The cell's digits, through the grid's one formatter.
   ///
@@ -123,9 +156,33 @@ class HourCell extends StatelessWidget {
   /// exactly what had happened when both hand-rolled the same `padLeft`.
   String get _label => formatGridHour(DateTime(2000, 1, 1, hour, minute ?? 0));
 
+  /// What a screen reader hears: the hour, then the band it falls in.
+  ///
+  /// **The band is otherwise carried by colour and nothing else.** The fill is
+  /// a 16% wash and the digits are tinted, so a user reading this screen by
+  /// voice got twenty-odd bare numbers and no answer to the question the
+  /// screen exists to answer — which of these hours is a reasonable one. The
+  /// hour alone is not a substitute: "is 03:00 good" depends on a working
+  /// window this widget already knows the answer for.
+  ///
+  /// It is deliberately terse. A grid row is thirty of these in a line, and a
+  /// sentence per cell is a screen nobody would listen to the end of.
+  String get _defaultSemanticLabel =>
+      t.common.hourInBand(hour: _label, band: bandLabel(band));
+
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
+    return Semantics(
+      label: semanticLabel ?? _defaultSemanticLabel,
+      // The digits are already inside the label, so leaving the `Text` visible
+      // to the tree would announce the hour twice.
+      excludeSemantics: true,
+      child: _sized(context, colors),
+    );
+  }
+
+  Widget _sized(BuildContext context, AppColorsData colors) {
     return SizedBox(
       width: GridMetrics.hourColumnWidth,
       height: height,
@@ -158,8 +215,8 @@ class HourCell extends StatelessWidget {
         // eighty; a filled column reads as "here" from across the row and
         // costs no extra edge.
         color: isCursor
-            ? colors.primary.withValues(alpha: _selectedAlpha)
-            : bandColor.withValues(alpha: _fillAlpha),
+            ? colors.primary.withValues(alpha: selectedAlpha)
+            : bandColor.withValues(alpha: fillAlpha),
         borderRadius: radius,
       ),
       child: DecoratedBox(
@@ -167,7 +224,7 @@ class HourCell extends StatelessWidget {
         // so a picked slot still says whether it is a good hour to meet.
         decoration: BoxDecoration(
           color: isSelected
-              ? colors.primary.withValues(alpha: _selectedAlpha)
+              ? colors.primary.withValues(alpha: selectedAlpha)
               : null,
           borderRadius: radius,
         ),
@@ -198,12 +255,12 @@ class HourCell extends StatelessWidget {
       return Color.lerp(
         colors.primary,
         colors.onBackground,
-        _cursorInkBlend,
+        cursorInkBlend,
       )!;
     }
     // The compact chip is small enough that a tinted digit loses contrast
     // before it gains meaning, so it keeps the plain foreground.
     if (compact) return colors.onBackground;
-    return Color.lerp(bandColor, colors.onBackground, _inkBlend)!;
+    return Color.lerp(bandColor, colors.onBackground, inkBlend)!;
   }
 }

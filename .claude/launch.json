@@ -30,6 +30,22 @@
       ],
       "port": 5600,
       "url": "http://localhost:5600"
+    },
+    {
+      "name": "timebuddy-site",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--prefix",
+        "site",
+        "--",
+        "--port",
+        "5601",
+        "--strictPort"
+      ],
+      "port": 5601,
+      "url": "http://localhost:5601"
     }
   ]
 }

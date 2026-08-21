@@ -1,9 +1,18 @@
 name: Deploy web to GitHub Pages
 
-# Every push to main is a candidate release of the web build. The job refuses
-# to deploy anything that does not meet the repository's quality bar
-# (CLAUDE.md: zero analyzer issues, green tests), so a red main never reaches
-# the published site.
+# Every push to main is a candidate release of the published site, and the
+# site is two bundles deployed as one:
+#
+#   /timebuddy/      the landing page   (site/, Vite + Tailwind)
+#   /timebuddy/app/  the Flutter app    (build/web)
+#
+# Both are built and uploaded by the single `build` job below, because one
+# Pages deployment can only carry one artifact — two jobs racing to publish
+# would leave a site pointing at an app that had not landed yet.
+#
+# The job refuses to deploy anything that does not meet the repository's
+# quality bar (CLAUDE.md: zero analyzer issues, green tests, every icon glyph
+# present), so a red main never reaches the published site.
 on:
   push:
     branches: [main]
@@ -57,9 +66,15 @@ jobs:
         run: flutter test
 
       - name: Build web
-        # The base href must match the repository name: a project page is
-        # served from /timebuddy/, and a build made for / requests its assets
-        # from the domain root, where nothing answers.
+        # The base href must match where the bundle is actually served from.
+        # A project page is served from /timebuddy/, and since the landing
+        # site took that root the app lives one level down at
+        # /timebuddy/app/ — a build made for the wrong prefix requests its
+        # assets where nothing answers.
+        #
+        # Old bookmarks pointing at /timebuddy/#/… still work: the landing
+        # page forwards any hash beginning with `#/` to ./app/
+        # (site/src/main.ts).
         # `--no-tree-shake-icons` is not optional here, and it is not a
         # performance oversight. The icon tree-shaker scans the compiled
         # constants for `IconData` and rewrites each bundled font to hold only
@@ -73,17 +88,52 @@ jobs:
         # alone is 7 MB. The step below is what stops this
         # regressing quietly.
         run: >-
-          flutter build web --release --base-href /timebuddy/
+          flutter build web --release --base-href /timebuddy/app/
           --no-tree-shake-icons
 
       - name: Verify every icon glyph survived into the bundle
         run: python scripts/check_glyphs.py
 
+      # The landing site (site/) is a separate Vite bundle with its own
+      # toolchain. It is built here rather than in a job of its own so that
+      # one artifact carries both halves: two jobs uploading to one Pages
+      # deployment is a race, and a site published without the app it links
+      # to is worse than neither.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+
+      - name: Build the landing site
+        # `npm ci` and not `npm install`, so the deployed bundle resolves
+        # exactly what package-lock.json pins rather than whatever is latest
+        # at build time. `typecheck` is the site's only test: the page has no
+        # runtime to assert against, and a broken hero grid is a broken
+        # front door.
+        run: |
+          npm ci --prefix site
+          npm run typecheck --prefix site
+          npm run build --prefix site
+
+      - name: Assemble the Pages bundle
+        # Landing page at the Pages root (/timebuddy/), the Flutter web app
+        # one level down (/timebuddy/app/). The copy order matters only in
+        # that `app/` must not exist in site/dist — it does not, and a stray
+        # one would be overwritten here rather than silently merged.
+        run: |
+          rm -rf public
+          mkdir -p public/app
+          cp -r site/dist/. public/
+          cp -r build/web/. public/app/
+          test -f public/index.html
+          test -f public/app/index.html
+
       - uses: actions/configure-pages@v5
 
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: build/web
+          path: public
 
   deploy:
     name: Deploy

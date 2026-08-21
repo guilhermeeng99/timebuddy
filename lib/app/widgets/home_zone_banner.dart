@@ -58,7 +58,7 @@ class HomeZoneBanner extends StatelessWidget {
               AppIcon(
                 FontAwesomeIcons.triangleExclamation,
                 size: _iconSize,
-                color: colors.warning,
+                color: colors.warningInk,
               ),
               const SizedBox(width: AppSpacing.sm),
               Expanded(

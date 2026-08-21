@@ -466,7 +466,7 @@ class _SignInBlockedNotice extends StatelessWidget {
               AppIcon(
                 FontAwesomeIcons.triangleExclamation,
                 size: _iconSize,
-                color: colors.warning,
+                color: colors.warningInk,
               ),
               const SizedBox(width: AppSpacing.sm),
               // Expanded, not a bare Text: this is two sentences of advice

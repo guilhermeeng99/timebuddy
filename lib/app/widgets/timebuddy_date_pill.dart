@@ -4,6 +4,7 @@ import 'package:timebuddy/app/theme/app_spacing.dart';
 import 'package:timebuddy/app/widgets/app_icon.dart';
 import 'package:timebuddy/core/extensions/context_extensions.dart';
 import 'package:timebuddy/core/utils/time_formatter.dart';
+import 'package:timebuddy/gen/i18n/strings.g.dart';
 
 /// The compact stepper for the grid's reference day: chevron, date, chevron,
 /// and a Today reset (design_system §7, time_grid.md rule 11).
@@ -34,8 +35,6 @@ class TimeBuddyDatePill extends StatelessWidget {
     required this.today,
     required this.todayLabel,
     required this.onChanged,
-    this.previousDayLabel,
-    this.nextDayLabel,
     this.localeTag,
     super.key,
   });
@@ -56,11 +55,13 @@ class TimeBuddyDatePill extends StatelessWidget {
   /// Called with the new reference day. Never called with the current one.
   final ValueChanged<DateTime> onChanged;
 
-  /// Optional tooltip and screen-reader label for the back chevron.
-  final String? previousDayLabel;
-
-  /// Optional tooltip and screen-reader label for the forward chevron.
-  final String? nextDayLabel;
+  // The two chevrons used to take their tooltips as optional parameters, and
+  // **no caller ever passed one**, so both shipped as buttons a screen reader
+  // announced as "button" — twice, in a mirrored pair, which is worse than one
+  // unnamed control because the user cannot tell which way either goes. There
+  // is no caller that would want different words for "the day before this
+  // one", so the copy is resolved here, the way `TimeBuddyNavDestination.label`
+  // resolves its own: at read time, so switching language relabels it.
 
   /// Locale for the `Tue 24` label. Defaults to the app's resolved locale.
   final String? localeTag;
@@ -113,7 +114,7 @@ class TimeBuddyDatePill extends StatelessWidget {
             children: [
               _StepButton(
                 icon: FontAwesomeIcons.chevronLeft,
-                tooltip: previousDayLabel,
+                tooltip: t.common.previousDay,
                 onTap: () => onChanged(_stepped(-1)),
               ),
               Flexible(
@@ -135,7 +136,7 @@ class TimeBuddyDatePill extends StatelessWidget {
               ),
               _StepButton(
                 icon: FontAwesomeIcons.chevronRight,
-                tooltip: nextDayLabel,
+                tooltip: t.common.nextDay,
                 onTap: () => onChanged(_stepped(1)),
               ),
               // Absent on today, because a reset to where you already are is a
@@ -156,12 +157,25 @@ class TimeBuddyDatePill extends StatelessWidget {
 }
 
 class _StepButton extends StatelessWidget {
-  const _StepButton({required this.icon, required this.onTap, this.tooltip});
+  const _StepButton({
+    required this.icon,
+    required this.onTap,
+    required this.tooltip,
+  });
 
   final FaIconData icon;
   final VoidCallback onTap;
-  final String? tooltip;
 
+  /// Required, not optional: a chevron has no accessible name of its own,
+  /// and the version of this class that let a caller omit one had two call
+  /// sites, both omitting it.
+  final String tooltip;
+
+  /// 36, against Material's 48 guidance and WCAG 2.2's 24 minimum.
+  /// Deliberate: the pill is chrome that has to fit a 375pt phone beside a
+  /// date and a Today reset, and 48 would cost 24pt of that width. It
+  /// clears the accessibility floor with half again to spare; it does not
+  /// clear the comfort guidance, and that is the trade.
   static const double _size = 36;
   static const double _iconSize = 20;
 
@@ -182,9 +196,7 @@ class _StepButton extends StatelessWidget {
         ),
       ),
     );
-    final message = tooltip;
-    if (message == null) return button;
-    return Tooltip(message: message, child: button);
+    return Tooltip(message: tooltip, child: button);
   }
 }
 
@@ -214,7 +226,7 @@ class _TodayReset extends StatelessWidget {
             softWrap: false,
             overflow: TextOverflow.ellipsis,
             style: context.textTheme.labelMedium?.copyWith(
-              color: colors.primary,
+              color: colors.primaryInk,
               fontWeight: FontWeight.w600,
             ),
           ),

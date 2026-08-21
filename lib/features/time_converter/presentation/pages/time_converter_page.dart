@@ -208,6 +208,10 @@ class _DayStepButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return IconButton(
       onPressed: () => _step(context),
+      // Both chevrons announced themselves as "button", which on a control
+      // that comes in a mirrored pair is worse than one unnamed button: the
+      // user cannot tell which way either one goes.
+      tooltip: days < 0 ? t.common.previousDay : t.common.nextDay,
       icon: AppIcon(icon, color: context.appColors.onBackgroundLight),
     );
   }
@@ -337,7 +341,7 @@ class _DisclosureBanner extends StatelessWidget {
                 AppIcon(
                   FontAwesomeIcons.circleInfo,
                   size: _bannerIconSize,
-                  color: colors.warning,
+                  color: colors.warningInk,
                 ),
                 const SizedBox(width: AppSpacing.sm),
                 Expanded(

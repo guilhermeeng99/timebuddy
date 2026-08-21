@@ -4,6 +4,7 @@ import 'package:timebuddy/app/theme/app_spacing.dart';
 import 'package:timebuddy/app/widgets/app_icon.dart';
 import 'package:timebuddy/core/extensions/context_extensions.dart';
 import 'package:timebuddy/core/extensions/context_navigation_extensions.dart';
+import 'package:timebuddy/gen/i18n/strings.g.dart';
 
 /// The default page header: a large, left-aligned title in the iOS manner.
 ///
@@ -93,6 +94,9 @@ class TimeBuddyLargeAppBar extends StatelessWidget
                 FontAwesomeIcons.chevronLeft,
                 size: _chevronSize,
               ),
+              // Without this the only control on the bar announces itself as
+              // "button". A chevron is a shape, not a name.
+              tooltip: t.common.back,
               color: colors.onBackground,
               // Without a fallback this stays a plain `Navigator.pop`, so the
               // bar still works inside a pushed route that has no router above

@@ -643,20 +643,146 @@ relaunch.
   on it and is now recorded under Open risks below rather than in a report
   nobody re-reads.
 
+### The front door, and the release audits
+
+- 2026-08-21: **The published site grew a landing page, and three of M5's four
+  audits ran.** One commit, because the audits are what the landing page has to
+  be honest about.
+  → [specs/design_system.md](specs/design_system.md),
+  [specs/time_grid.md](specs/time_grid.md)
+
+  **`site/` is a Vite + Tailwind static page at the Pages root**, with the
+  Flutter app one level down at `/timebuddy/app/`. The same arrangement the
+  Financo repo uses, built by the same `deploy-pages` job rather than a second
+  one: a Pages deployment carries exactly one artifact, and two jobs racing to
+  publish would leave a site pointing at an app that had not landed yet. The
+  app's `--base-href` moved with it, and old bookmarks still work — the landing
+  page forwards any hash beginning with `#/` to `./app/`, which is the one thing
+  a URL change owes the people who saved the old one.
+
+  The hero is a **working miniature of the grid**, not a screenshot of one: the
+  columns are real instants, every cell resolves through the browser's own IANA
+  database, the first row is the visitor's own zone, and `hourBandFor` and
+  `relativeOffsetLabel` are ported from `lib/` rather than approximated. Kolkata
+  is in the fixed city list on purpose — at `+05:30` a demo built on
+  `hour + offset` arithmetic prints the wrong thing where anyone can see it.
+
+  The GitHub repository now carries a description and the site as its homepage,
+  which is how the Financo repo reads.
+
+  **Item 16, the 20-palette check, is a test now** rather than a review that
+  happened once. `test/app/theme/palette_contrast_test.dart` walks both
+  catalogs, reproduces the composites the widgets actually paint — the hour
+  cell's 16% wash under its 55%-blended digits, the cursor's own wash, a status
+  glyph on its banner — and measures each against the WCAG ratio its role owes.
+  240 judgements is not a thing anyone reviews correctly by eye, and the
+  failures are exactly the ones a designer with good eyesight does not notice.
+
+  It found four, and the first is the worst thing this project has shipped:
+
+  - **`foregroundOn` put white on the primary of 14 of the 20 palettes**, as
+    low as **1.81:1** on Deep Ocean and Cyan Neon against a bar of 4.5. It
+    picked by a luminance threshold of `0.55`, justified in a comment claiming
+    mid-tone brand colors "read better with white than `0.5` predicts"; measured
+    against the catalog, the opposite is true by a wide margin. Since
+    `onPrimary` is what labels every filled button and the selected nav
+    destination, those were the app's least readable pixels on most palettes.
+    It now picks whichever candidate measures better, which cannot be worse than
+    any threshold because the threshold was an approximation of that comparison.
+    All fourteen land between 4.63:1 and 11.62:1; the six that were right do not
+    move.
+  - **Six light palettes drew the accent as text below the bar**, down to
+    2.39:1 on Mint Fresh — the `Today` pill, the `Tomorrow` word, the `Home`
+    badge. Repaired with derived tokens (`primaryInk`, `primaryGlyph`,
+    `warningInk`, `successInk`, `errorInk`) rather than by editing the catalog:
+    a palette keeps the exact colour the user picked for every fill, disc and
+    wash, and only the places that draw an accent *as content* take the darker
+    one. The repair is a fixed 40% blend toward `onBackground` and is skipped
+    entirely on the 13 palettes that never needed it, because a blend applied
+    unconditionally is a design change wearing an accessibility argument.
+  - **Muted text missed on four light palettes**, between 4.06:1 and 4.42:1.
+    That one *is* a catalog edit — `onBackgroundLight` has hundreds of call
+    sites and no derived token between it and them — of between 3% and 10%
+    toward the foreground, which is invisible and enough.
+  - **`AppColors.defaultLight` had already drifted from the catalog entry it
+    duplicates.** `app_colors.dart` cannot import the catalogs, because the
+    catalogs import `AppColorsData` from it, so the two copies are the one pair
+    of values in the theme layer with no compiler holding them together. A test
+    holds them now.
+
+  **Item 17, the accessibility pass**, found what the M2 entry predicted it
+  would: the grid is the hard part. What shipped:
+
+  - Every hour cell announces `"{hour}, {band}"`. The band was carried by
+    colour and by nothing else, so a screen reader got a line of bare numbers
+    and no answer to the question the screen exists to answer. Where the grid
+    draws marks *over* a cell, the row passes a fuller label carrying the same
+    facts the marks carry.
+  - **Three icon-only controls had no name at all**: the app bar's back
+    chevron, and the converter's two day steppers — a mirrored pair, where an
+    unnamed control is worse than usual because the user cannot tell which way
+    either goes. The date pill's two chevrons had *declared parameters* for
+    their labels and **no caller passing them**, in the same shape the
+    2026-08-21 audit found `popOrGo` in. They are resolved inside the widget
+    now; there was never a caller who wanted different words.
+  - `LoadingShimmer` published no semantics, so a loading page and an empty one
+    sounded identical. It announces `t.common.loading` as a live region.
+  - `HourCell.cursorInkBlend` moved from `0.45` to `0.50`: at `0.45` the
+    cursor's digits measured `4.31:1` on Mint Fresh.
+
+  `test/app/accessibility_test.dart` pins all of it, because every one of these
+  was a property somebody believed was already true.
+
+  **Item 15, the empty/loading/error audit, found nothing to fix**, and that is
+  worth recording rather than leaving as an absence. Every page has all three
+  states, and each of the four apparent gaps turns out to be a decision with its
+  reason already written down: preferences has no error state because a storage
+  failure is surfaced passively by sync (sync.md rule 4) and there is always a
+  usable in-memory document; the converter answers an empty board with a muted
+  note rather than an empty state, because a board holding only the source zone
+  is a valid answer; the world clock puts its invitation *under* the home clock
+  rather than in place of it (world_clock.md rule 11); and `AuthError` on the
+  profile page holds a shimmer rather than the signed-out panel, because on
+  that page it means a failed *sign-out* and the user is still signed in. The
+  one change was the shimmer's semantics, above.
+
+  1002 tests passing, `flutter analyze` clean.
+
+  **What item 17 did not settle, and it is a design question rather than a
+  bug:** by eye the band is still a colour. Four hues at a 16% wash, with the
+  digits tinted from the same token — for a reader with deuteranopia the good
+  and poor bands are close, and the only non-colour cue is the hour itself. The
+  options are costed in [specs/time_grid.md](specs/time_grid.md) under
+  Accessibility; the cheapest is a hairline along the bottom edge of the
+  working window, which is one mark rather than four and answers the question
+  the user actually has.
+
 ---
 
 ## In progress
 
-- **M5: release.** M4 is done and deployed and the planner is deleted, so what
-  is left is the release pass: items 13 and 15 to 17 below, and the Play App
-  Signing step from [android_release.md](android_release.md) that item 14 now
-  reduces to.
+- **M5: release.** Items 15, 16 and 17 ran on 2026-08-21 (see The front door,
+  and the release audits, under Done), so what is left is **item 13**, the PWA
+  work, and the **Play App Signing** step from
+  [android_release.md](android_release.md) that item 14 reduces to. Item 17
+  leaves one open question behind it rather than a task: whether the hour bands
+  need a non-colour cue, and which one.
+- **The app's own web shell is still Flutter's scaffold**, and the landing page
+  made that visible: `web/index.html` is titled `timebuddy` in lower case,
+  `web/manifest.json` still carries Flutter's default `#0175C2` blue as its
+  theme and background colour, and `web/icons/` holds the stock Flutter logo in
+  all four sizes. `flutter_launcher_icons` is in `dev_dependencies` with **no
+  configuration block in `pubspec.yaml`** and has therefore never run. None of
+  it is visible inside the app — `MaterialApp.title` sets the tab title once the
+  first frame lands, and the icons only show in a bookmark, an install prompt or
+  a task switcher — which is exactly why it survived four milestones. It belongs
+  to item 13.
 - **The DST explanation sheet** (`t.grid.dstExplainTitle` / `dstExplainBody`),
   the last of M2's four deferred details still open. `DstBadge` has carried an
   `onTap` with nothing behind it since M2 and the strings have shipped in both
   locales just as long. Its original reason for waiting — that the planner
   would reopen the grid's interaction surface anyway — is gone with the
-  planner, so it is now an ordinary piece of grid polish and belongs to item 15.
+  planner, so it is now an ordinary piece of grid polish.
 
 ---
 
@@ -688,11 +814,31 @@ so an item number still points at the piece of work it always did.
     then works in a local release build and fails for every store install, which
     is the worst possible time to find out.
     → [android_release.md](android_release.md) step 5
-15. Empty, loading and error states audited on every page.
-16. Light and dark checked against all 20 palettes.
-17. Accessibility pass: contrast on every hour band, screen-reader labels for the
-    grid (a table of colored cells is the hardest part of this app to make
-    accessible, and it needs its own decision before release).
+15. ~~Empty, loading and error states audited on every page.~~ **Done**
+    (2026-08-21). The audit found nothing to fix: every page carries all three
+    states and each apparent gap is a decision with its reason already written
+    down. The Done entry lists the four.
+16. ~~Light and dark checked against all 20 palettes.~~ **Done** (2026-08-21),
+    and it is a test rather than a review —
+    `test/app/theme/palette_contrast_test.dart`. It found four defects, one of
+    them the worst thing the project has shipped: `foregroundOn` put white on
+    the primary of 14 of the 20 palettes, down to 1.81:1 on the label of every
+    filled button.
+17. ~~Accessibility pass.~~ **Mostly done** (2026-08-21): contrast on every
+    hour band and on every accent drawn as content, screen-reader labels for the
+    grid's cells, and names for the five icon-only controls that had none.
+    Pinned by `test/app/accessibility_test.dart`.
+
+    **One question survives, and it is the one M2 predicted would be hard.** By
+    eye, an hour's band is still carried by colour and nothing else: four hues
+    at a 16% wash, digits tinted from the same token, no shape or weight
+    separating them. The screen-reader path is fixed; the colour-blind reader's
+    is not, and the only non-colour cue on screen is the hour itself. Three
+    options are costed in [specs/time_grid.md](specs/time_grid.md) under
+    Accessibility — a per-band glyph, a pinned legend (declined once already,
+    for height), or a hairline along the bottom edge of the working window,
+    which is one mark rather than four and answers the question the user
+    actually has. **Decide before release.**
 
 ---
 
@@ -743,6 +889,14 @@ Two options, and only two:
 
 Decide before **2026-09-20**. If option 1 has not paid off by early September,
 option 2 is the one that meets the date.
+
+**Re-measured 2026-08-21, thirty days out: nothing has moved.** `flutter pub
+outdated` reports no newer `timezone`, and the resolved package's
+`lib/data/latest_all.dart` still says `Timezone data version: 2025c` on line 2.
+Option 1 has one month left to pay off, and option 2 — generating the `.tzf`
+with the package's own `tool/get.dart` and loading it through the public
+`initializeDatabase` — is a day of work that has to start before it is due,
+not on the day.
 
 ---
 

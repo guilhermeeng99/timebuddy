@@ -134,7 +134,7 @@ class _RowContent extends StatelessWidget {
         ),
         if (isSelected) ...[
           const SizedBox(width: AppSpacing.sm),
-          AppIcon(FontAwesomeIcons.check, color: colors.primary),
+          AppIcon(FontAwesomeIcons.check, color: colors.primaryGlyph),
         ],
       ],
     );

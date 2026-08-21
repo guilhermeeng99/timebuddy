@@ -81,6 +81,10 @@ class _Translations$common$pt_BR implements Translations$common$en {
 	@override String get done => 'Pronto';
 	@override String get search => 'Buscar';
 	@override String get clear => 'Limpar';
+	@override String get back => 'Voltar';
+	@override String get previousDay => 'Dia anterior';
+	@override String get nextDay => 'Próximo dia';
+	@override String hourInBand({required Object hour, required Object band}) => '${hour}, ${band}';
 }
 
 // Path: startup
@@ -340,6 +344,10 @@ extension on TranslationsPtBr {
 			'common.done' => 'Pronto',
 			'common.search' => 'Buscar',
 			'common.clear' => 'Limpar',
+			'common.back' => 'Voltar',
+			'common.previousDay' => 'Dia anterior',
+			'common.nextDay' => 'Próximo dia',
+			'common.hourInBand' => ({required Object hour, required Object band}) => '${hour}, ${band}',
 			'startup.tagline' => 'Todos os fusos, lado a lado',
 			'startup.stepLoadingData' => 'Carregando os fusos horários',
 			'startup.stepCheckingAuth' => 'Conferindo sua conta',

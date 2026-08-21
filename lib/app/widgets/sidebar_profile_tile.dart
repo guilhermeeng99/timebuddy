@@ -192,12 +192,12 @@ class _Avatar extends StatelessWidget {
             ? AppIcon(
                 FontAwesomeIcons.solidUser,
                 size: _glyphSize,
-                color: colors.primary,
+                color: colors.primaryGlyph,
               )
             : Text(
                 initial,
                 style: TextStyle(
-                  color: colors.primary,
+                  color: colors.primaryInk,
                   fontWeight: FontWeight.w700,
                   fontSize: _initialFontSize,
                 ),

@@ -1,0 +1,21 @@
+<!--
+  The app's own brand mark, redrawn as vector art.
+
+  In the app it is `FontAwesomeIcons.earthAmericas` on a `colors.primary` disc
+  at `AppRadius.md` (`timebuddy_sidebar.dart`, `startup_page.dart`). Font
+  Awesome carves continent shapes out of a filled circle, which turns to mud
+  below about 24px; the wireframe globe below reads at favicon size and keeps
+  the same silhouette — indigo square, white globe.
+
+  The indigo is `AppColors.defaultLight.primary` (#5B5FEF), not a colour picked
+  for the web.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="TimeBuddy">
+  <rect width="64" height="64" rx="15" fill="#5B5FEF" />
+  <g fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round">
+    <circle cx="32" cy="32" r="16.5" />
+    <path d="M15.5 32h33" />
+    <path d="M18.6 22.5h26.8M18.6 41.5h26.8" stroke-width="2.2" opacity="0.72" />
+    <ellipse cx="32" cy="32" rx="7.6" ry="16.5" />
+  </g>
+</svg>

@@ -112,6 +112,18 @@ class Translations$common$en {
 
 	/// en: 'Clear'
 	String get clear => 'Clear';
+
+	/// en: 'Back'
+	String get back => 'Back';
+
+	/// en: 'Previous day'
+	String get previousDay => 'Previous day';
+
+	/// en: 'Next day'
+	String get nextDay => 'Next day';
+
+	/// en: '${hour}, ${band}'
+	String hourInBand({required Object hour, required Object band}) => '${hour}, ${band}';
 }
 
 // Path: startup
@@ -661,6 +673,10 @@ extension on Translations {
 			'common.done' => 'Done',
 			'common.search' => 'Search',
 			'common.clear' => 'Clear',
+			'common.back' => 'Back',
+			'common.previousDay' => 'Previous day',
+			'common.nextDay' => 'Next day',
+			'common.hourInBand' => ({required Object hour, required Object band}) => '${hour}, ${band}',
 			'startup.tagline' => 'Every time zone, side by side',
 			'startup.stepLoadingData' => 'Loading time zone data',
 			'startup.stepCheckingAuth' => 'Checking your account',

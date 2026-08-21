@@ -1,0 +1,450 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="./logo.svg" />
+    <link rel="icon" type="image/png" href="./favicon.png" />
+    <link rel="apple-touch-icon" href="./favicon.png" />
+    <title>TimeBuddy — every time zone, side by side</title>
+    <meta
+      name="description"
+      content="TimeBuddy is an open-source world clock and time zone comparison tool for Web and Android. Line your cities up on one timeline, see whose hour is a good one, and convert an instant across all of them."
+    />
+    <meta property="og:title" content="TimeBuddy — every time zone, side by side" />
+    <meta
+      property="og:description"
+      content="Open-source world clock and time zone comparison for Web and Android. Your cities on one timeline, coloured by whose hour is a good one."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://guilhermeeng99.github.io/timebuddy/" />
+    <meta property="og:image" content="https://guilhermeeng99.github.io/timebuddy/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <!-- Both brand indigos: the light palette's primary, and the dark one's,
+         so the browser chrome matches the page in either scheme. -->
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#5b5fef" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0f1117" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700;800&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+
+    <header class="sticky top-0 z-50 border-b border-hairline bg-canvas/85 backdrop-blur">
+      <div class="mx-auto flex h-16 max-w-[1100px] items-center justify-between px-6">
+        <a href="#top" class="flex items-center gap-2.5">
+          <img src="./logo.svg" alt="" width="32" height="32" class="h-8 w-8" />
+          <span class="font-display text-heading font-bold tracking-tight text-ink">TimeBuddy</span>
+        </a>
+        <nav aria-label="Main" class="flex items-center gap-6">
+          <a
+            href="#features"
+            class="hidden font-body text-body-lg font-medium text-ink-soft hover:text-indigo sm:inline"
+            >Features</a
+          >
+          <a
+            href="#time"
+            class="hidden font-body text-body-lg font-medium text-ink-soft hover:text-indigo md:inline"
+            >Why it's hard</a
+          >
+          <a
+            href="https://github.com/guilhermeeng99/timebuddy"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="font-body text-body-lg font-medium text-ink-soft hover:text-indigo"
+            >GitHub</a
+          >
+          <a
+            href="./app/"
+            class="rounded-pill bg-indigo px-5 py-2 font-body text-body-lg font-semibold text-white transition hover:bg-indigo-dark"
+            >Open app</a
+          >
+        </nav>
+      </div>
+    </header>
+
+    <main id="main">
+      <!-- Hero -->
+      <section id="top" class="relative overflow-hidden">
+        <div
+          aria-hidden="true"
+          class="pointer-events-none absolute -top-32 -right-24 h-96 w-96 rounded-full bg-indigo/15 blur-3xl"
+        ></div>
+        <div
+          aria-hidden="true"
+          class="pointer-events-none absolute -bottom-40 -left-28 h-96 w-96 rounded-full bg-good/12 blur-3xl"
+        ></div>
+
+        <div class="relative mx-auto max-w-[1100px] px-6 pt-20 pb-14">
+          <div class="flex flex-col items-center text-center">
+            <span
+              class="rounded-pill border border-hairline bg-surface px-4 py-1 font-body text-body font-semibold text-ink-soft shadow-sm"
+            >
+              Open source · Web &amp; Android · No account needed
+            </span>
+            <h1
+              class="mt-7 max-w-4xl font-display text-display-sm font-bold tracking-tight text-ink md:text-display lg:text-display-lg"
+            >
+              Find an hour that works everywhere
+            </h1>
+            <p class="mt-6 max-w-2xl text-subheading text-ink-soft">
+              TimeBuddy lines your cities up on one timeline, so you read the same moment from all
+              of them at once — and see at a glance whose hour is a good one.
+            </p>
+            <div class="mt-9 flex flex-col items-center gap-3 sm:flex-row">
+              <a
+                href="./app/"
+                class="rounded-pill bg-indigo px-7 py-3 font-body text-body-lg font-semibold text-white transition hover:-translate-y-0.5 hover:bg-indigo-dark"
+                >Open the app</a
+              >
+              <a
+                href="https://github.com/guilhermeeng99/timebuddy"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="rounded-pill border border-hairline bg-surface px-7 py-3 font-body text-body-lg font-semibold text-ink transition hover:-translate-y-0.5 hover:border-indigo hover:text-indigo"
+                >View on GitHub</a
+              >
+            </div>
+            <p class="mt-4 font-body text-body text-ink-soft">
+              Runs in the browser and on Android · free and open source · built with Flutter
+            </p>
+          </div>
+
+          <!-- The live grid: a working miniature of the app's main screen,
+               drawn from the visitor's own time zone. -->
+          <figure class="mt-14">
+            <div class="overflow-hidden rounded-card border border-hairline bg-surface shadow-card">
+              <div
+                class="flex flex-wrap items-center justify-between gap-3 border-b border-hairline px-4 py-3"
+              >
+                <p class="font-display text-body-lg font-semibold text-ink">
+                  Right now, from where you are
+                </p>
+                <ul class="flex flex-wrap items-center gap-x-4 gap-y-1">
+                  <li class="flex items-center gap-1.5 font-body text-caption text-ink-soft">
+                    <span class="h-3 w-3 rounded-xs bg-good" aria-hidden="true"></span>Good
+                  </li>
+                  <li class="flex items-center gap-1.5 font-body text-caption text-ink-soft">
+                    <span class="h-3 w-3 rounded-xs bg-fair" aria-hidden="true"></span>Borderline
+                  </li>
+                  <li class="flex items-center gap-1.5 font-body text-caption text-ink-soft">
+                    <span class="h-3 w-3 rounded-xs bg-poor" aria-hidden="true"></span>Off hours
+                  </li>
+                  <li class="flex items-center gap-1.5 font-body text-caption text-ink-soft">
+                    <span class="h-3 w-3 rounded-xs bg-night" aria-hidden="true"></span>Night
+                  </li>
+                </ul>
+              </div>
+              <div class="overflow-x-auto" data-grid-scroller>
+                <div id="live-grid">
+                  <p class="px-4 py-10 text-center font-body text-body-lg text-ink-soft">
+                    Loading the clocks…
+                  </p>
+                </div>
+              </div>
+            </div>
+            <figcaption class="mt-3 text-center font-body text-body text-ink-soft">
+              Live, in your own time zone. Each column is one moment; each row reads it on its own
+              clock. Colours follow a 9-to-5 day, which the app lets you change.
+            </figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <!-- Features -->
+      <section id="features" class="mx-auto max-w-[1100px] px-6 py-16">
+        <div class="mx-auto mb-10 max-w-2xl text-center">
+          <h2 class="font-display text-display-sm font-bold tracking-tight text-ink">
+            Four screens, one question each
+          </h2>
+          <p class="mt-3 text-body-lg text-ink-soft">
+            Compare, glance, convert, tune. Everything else is the same board of cities seen a
+            different way.
+          </p>
+        </div>
+        <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <article class="flex flex-col gap-3 rounded-card border border-hairline bg-surface p-6 shadow-sm">
+            <span
+              class="flex h-11 w-11 items-center justify-center rounded-bubble bg-indigo/12 text-2xl"
+              aria-hidden="true"
+              >🗓️</span
+            >
+            <h3 class="font-display text-heading font-semibold tracking-tight text-ink">
+              The time grid
+            </h3>
+            <p class="text-body-lg text-ink-soft">
+              One row per city, one column per hour, coloured by how reachable that hour is
+              locally. Pan the timeline and read the same instant everywhere at once.
+            </p>
+          </article>
+          <article class="flex flex-col gap-3 rounded-card border border-hairline bg-surface p-6 shadow-sm">
+            <span
+              class="flex h-11 w-11 items-center justify-center rounded-bubble bg-good/12 text-2xl"
+              aria-hidden="true"
+              >🕰️</span
+            >
+            <h3 class="font-display text-heading font-semibold tracking-tight text-ink">
+              World clock
+            </h3>
+            <p class="text-body-lg text-ink-soft">
+              The glance view: your home clock as a hero block, then every saved city ticking live
+              with its offset, a day/night dot and a <em>Tomorrow</em> marker when the date differs
+              from yours.
+            </p>
+          </article>
+          <article class="flex flex-col gap-3 rounded-card border border-hairline bg-surface p-6 shadow-sm">
+            <span
+              class="flex h-11 w-11 items-center justify-center rounded-bubble bg-indigo/12 text-2xl"
+              aria-hidden="true"
+              >🔁</span
+            >
+            <h3 class="font-display text-heading font-semibold tracking-tight text-ink">
+              Time converter
+            </h3>
+            <p class="text-body-lg text-ink-soft">
+              "15:00 on 12 March in Lisbon" resolved across your whole board — including dates far
+              enough out that today's daylight-saving rules no longer apply.
+            </p>
+          </article>
+          <article class="flex flex-col gap-3 rounded-card border border-hairline bg-surface p-6 shadow-sm">
+            <span
+              class="flex h-11 w-11 items-center justify-center rounded-bubble bg-fair/15 text-2xl"
+              aria-hidden="true"
+              >🔎</span
+            >
+            <h3 class="font-display text-heading font-semibold tracking-tight text-ink">
+              500 cities, accents optional
+            </h3>
+            <p class="text-body-lg text-ink-soft">
+              Search by city, country or raw IANA id — <code class="font-mono">Asia/Tokyo</code>
+              works, and so does <span class="whitespace-nowrap">"sao paulo"</span>. Keep up to 20
+              on your board, reorder them, pick the one you measure everything else from.
+            </p>
+          </article>
+          <article class="flex flex-col gap-3 rounded-card border border-hairline bg-surface p-6 shadow-sm">
+            <span
+              class="flex h-11 w-11 items-center justify-center rounded-bubble bg-night/25 text-2xl"
+              aria-hidden="true"
+              >🌗</span
+            >
+            <h3 class="font-display text-heading font-semibold tracking-tight text-ink">
+              Light and dark, your hours
+            </h3>
+            <p class="text-body-lg text-ink-soft">
+              Set your own working window — a 22:00–06:00 night shift is an ordinary value here —
+              and every colour on every screen follows it. 12- or 24-hour clock, English or
+              Portuguese.
+            </p>
+          </article>
+          <article class="flex flex-col gap-3 rounded-card border border-hairline bg-surface p-6 shadow-sm">
+            <span
+              class="flex h-11 w-11 items-center justify-center rounded-bubble bg-indigo/12 text-2xl"
+              aria-hidden="true"
+              >☁️</span
+            >
+            <h3 class="font-display text-heading font-semibold tracking-tight text-ink">
+              An account, if you want one
+            </h3>
+            <p class="text-body-lg text-ink-soft">
+              Use everything without signing in. Sign in with Google and the same board shows up in
+              the browser and on your phone — and a write that cannot reach the server is
+              remembered and retried, never thrown back at you.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <!-- The differentiator -->
+      <section id="time" class="border-y border-hairline bg-canvas-deep">
+        <div class="mx-auto max-w-[1100px] px-6 py-16">
+          <div class="mx-auto mb-10 max-w-2xl text-center">
+            <span class="rounded-pill bg-indigo/10 px-3 py-1 font-body text-body font-semibold text-indigo"
+              >Under the clock face</span
+            >
+            <h2 class="mt-4 font-display text-display-sm font-bold tracking-tight text-ink">
+              Time is harder than it looks
+            </h2>
+            <p class="mt-3 text-body-lg text-ink-soft">
+              Every rule below exists because the naive version quietly produces a wrong hour for
+              somebody, some month a year. They are written down, tested against real historical
+              transitions, and enforced in one place.
+            </p>
+          </div>
+          <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+            <article class="rounded-card border border-hairline bg-surface p-6 shadow-sm">
+              <h3 class="font-display text-heading font-semibold text-ink">
+                Not every offset is a whole hour
+              </h3>
+              <p class="mt-2 text-body-lg text-ink-soft">
+                India is <strong class="text-ink">+05:30</strong>, Nepal
+                <strong class="text-ink">+05:45</strong>, the Chatham Islands
+                <strong class="text-ink">+12:45</strong>. Those rows print their minutes instead of
+                being rounded into a column they do not belong to.
+              </p>
+            </article>
+            <article class="rounded-card border border-hairline bg-surface p-6 shadow-sm">
+              <h3 class="font-display text-heading font-semibold text-ink">
+                A day is not always 24 hours
+              </h3>
+              <p class="mt-2 text-body-lg text-ink-soft">
+                On the days the clocks move it is 23 or 25. The grid asks the time zone engine how
+                many hours the day actually has instead of counting to 24, so those days line up
+                like any other.
+              </p>
+            </article>
+            <article class="rounded-card border border-hairline bg-surface p-6 shadow-sm">
+              <h3 class="font-display text-heading font-semibold text-ink">
+                Some times never happen. Some happen twice
+              </h3>
+              <p class="mt-2 text-body-lg text-ink-soft">
+                On a spring-forward date an hour is skipped; on a fall-back date one is repeated.
+                The converter says so above the answer, with a toggle for the second occurrence —
+                rather than silently answering a different question.
+              </p>
+            </article>
+            <article class="rounded-card border border-hairline bg-surface p-6 shadow-sm">
+              <h3 class="font-display text-heading font-semibold text-ink">
+                A zone that disappears is flagged, never guessed
+              </h3>
+              <p class="mt-2 text-body-lg text-ink-soft">
+                Time zone identifiers get renamed and retired. When a saved city's zone stops
+                resolving, its row is kept and marked — because a clock that reads plausibly and
+                belongs to somewhere else is the worst possible answer.
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <!-- Three steps -->
+      <section id="start" class="mx-auto max-w-[1100px] px-6 py-16">
+        <div class="mx-auto mb-10 max-w-2xl text-center">
+          <h2 class="font-display text-display-sm font-bold tracking-tight text-ink">
+            In three steps
+          </h2>
+        </div>
+        <ol class="grid grid-cols-1 gap-6 sm:grid-cols-3">
+          <li class="rounded-card border border-hairline bg-surface p-6 shadow-sm">
+            <span class="font-display text-display-sm font-bold text-indigo">1</span>
+            <h3 class="mt-2 font-display text-heading font-semibold text-ink">Just open it</h3>
+            <p class="mt-2 text-body-lg text-ink-soft">
+              No sign-up wall. The app starts on your own time zone and everything works straight
+              away, stored on your device.
+            </p>
+          </li>
+          <li class="rounded-card border border-hairline bg-surface p-6 shadow-sm">
+            <span class="font-display text-display-sm font-bold text-indigo">2</span>
+            <h3 class="mt-2 font-display text-heading font-semibold text-ink">Add your cities</h3>
+            <p class="mt-2 text-body-lg text-ink-soft">
+              Search 500 of them, drag them into the order you think in, and pick the one everything
+              else is measured against.
+            </p>
+          </li>
+          <li class="rounded-card border border-hairline bg-surface p-6 shadow-sm">
+            <span class="font-display text-display-sm font-bold text-indigo">3</span>
+            <h3 class="mt-2 font-display text-heading font-semibold text-ink">Read the grid</h3>
+            <p class="mt-2 text-body-lg text-ink-soft">
+              Find the column where nobody is asleep. Sign in with Google when you want that board
+              on your phone too.
+            </p>
+          </li>
+        </ol>
+      </section>
+
+      <!-- Under the hood -->
+      <section class="border-y border-hairline bg-canvas-deep">
+        <div class="mx-auto grid max-w-[1100px] grid-cols-1 gap-8 px-6 py-16 sm:grid-cols-3">
+          <div>
+            <h3 class="font-display text-heading font-semibold text-ink">Open source</h3>
+            <p class="mt-2 text-body-lg text-ink-soft">
+              Flutter, clean architecture, one specification per feature. Read the code, run it
+              yourself, or fork it — the conventions are written down, not implied.
+            </p>
+          </div>
+          <div>
+            <h3 class="font-display text-heading font-semibold text-ink">The same board everywhere</h3>
+            <p class="mt-2 text-body-lg text-ink-soft">
+              Two small documents per account, reconciled by revision number. Local is always the
+              read path, so the app opens instantly and works offline.
+            </p>
+          </div>
+          <div>
+            <h3 class="font-display text-heading font-semibold text-ink">Tested where it matters</h3>
+            <p class="mt-2 text-body-lg text-ink-soft">
+              Every time zone rule is pinned by a test against a real historical or scheduled
+              transition, never a synthetic one. The clock is injected, so no test reads the wall.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Final CTA -->
+      <section class="mx-auto max-w-[1100px] px-6 py-20 text-center">
+        <h2 class="font-display text-display-sm font-bold tracking-tight text-ink">
+          Every time zone, side by side
+        </h2>
+        <p class="mx-auto mt-3 max-w-xl text-body-lg text-ink-soft">
+          Free and open source, in the browser and on Android.
+        </p>
+        <div class="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+          <a
+            href="./app/"
+            class="rounded-pill bg-indigo px-8 py-4 font-body text-subheading font-semibold text-white transition hover:-translate-y-0.5 hover:bg-indigo-dark"
+            >Open the app</a
+          >
+          <a
+            href="https://github.com/guilhermeeng99/timebuddy"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="rounded-pill border border-hairline bg-surface px-8 py-4 font-body text-subheading font-semibold text-ink transition hover:-translate-y-0.5 hover:border-indigo hover:text-indigo"
+            >Read the code</a
+          >
+        </div>
+        <p class="mt-4 font-body text-body text-ink-soft">
+          No account required. Sign in only if you want the same board on two devices.
+        </p>
+      </section>
+    </main>
+
+    <footer class="border-t border-hairline bg-surface">
+      <div
+        class="mx-auto flex max-w-[1100px] flex-col items-center justify-between gap-4 px-6 py-10 sm:flex-row"
+      >
+        <a href="#top" class="flex items-center gap-2.5">
+          <img src="./logo.svg" alt="" width="32" height="32" class="h-8 w-8" />
+          <span class="font-display text-body-lg font-bold tracking-tight text-ink">TimeBuddy</span>
+        </a>
+        <p class="font-body text-body text-ink-soft">
+          Open source · Web &amp; Android · built with Flutter
+        </p>
+        <nav aria-label="Elsewhere" class="flex items-center gap-5">
+          <a
+            href="https://github.com/guilhermeeng99/timebuddy"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="font-body text-body-lg font-medium text-ink-soft hover:text-indigo"
+            >GitHub</a
+          >
+          <a
+            href="https://www.linkedin.com/in/guigapassos/"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="font-body text-body-lg font-medium text-ink-soft hover:text-indigo"
+            >LinkedIn</a
+          >
+        </nav>
+      </div>
+      <p class="pb-8 text-center font-body text-body text-ink-soft">
+        © <span id="year">2026</span> TimeBuddy
+      </p>
+    </footer>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

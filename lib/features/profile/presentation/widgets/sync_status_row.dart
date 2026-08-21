@@ -89,19 +89,19 @@ class _SyncStatusRowState extends State<SyncStatusRow> {
     if (status == SyncStatus.syncing) {
       return CircularProgressIndicator(
         strokeWidth: _spinnerStroke,
-        color: colors.primary,
+        color: colors.primaryGlyph,
       );
     }
     return AppIcon(
       _iconFor(status),
       size: _leadingSize,
       color: switch (status) {
-        SyncStatus.idle => colors.success,
+        SyncStatus.idle => colors.successInk,
         // Muted, not red: being offline is a fact about the network, and the
         // user's cities are safe on the device either way (rule 1).
         SyncStatus.offline => colors.onBackgroundLight,
-        SyncStatus.error => colors.warning,
-        SyncStatus.syncing => colors.primary,
+        SyncStatus.error => colors.warningInk,
+        SyncStatus.syncing => colors.primaryGlyph,
       },
     );
   }

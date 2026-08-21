@@ -101,25 +101,127 @@ class AppColorsData {
   /// every palette, so 20 copies of `0xFF000000` would only create 20 places
   /// for a "themed" scrim to creep in and muddy the dim.
   Color get scrim => const Color(0xFF000000);
+
+  /// WCAG AA for body copy: what any text below 18pt has to clear.
+  static const double minTextRatio = 4.5;
+
+  /// WCAG AA for non-text content: icons that carry meaning, the "now" line,
+  /// a progress track. Anything a user has to *see* but does not read.
+  static const double minGlyphRatio = 3;
+
+  /// How far a failing accent is pulled toward [onBackground] to repair it.
+  ///
+  /// One fixed step rather than a search, because a search is a loop in a
+  /// getter called from `build`. Measured against the shipped catalog: the
+  /// worst palette needs `0.39` to lift `primary` over [minTextRatio] and
+  /// `0.23` to lift `warning` over [minGlyphRatio], so `0.40` clears every
+  /// one of the twenty with nothing to spare and nothing wasted.
+  static const double _repairBlend = 0.40;
+
+  /// [accent] pulled toward [onBackground] until it is legible on
+  /// [background] — returned **unchanged** when it already is.
+  ///
+  /// The palettes are chosen for their fills, where a brand color only has to
+  /// be itself. Six of the ten light ones then fail as *content*: Mint Fresh's
+  /// `primary` is `2.39:1` against its own page, which is a caption a
+  /// low-vision user cannot read and a marker they cannot find. Repairing here
+  /// rather than in the catalog is deliberate — the catalog keeps the color
+  /// the user picked for every fill, disc and wash, and only the places that
+  /// draw the accent *as content* take the darker one.
+  ///
+  /// Blending toward [onBackground] rather than toward black or white is what
+  /// keeps the result inside the palette's own ink family, so a repaired
+  /// accent on a dark palette lightens instead of turning muddy. It is the
+  /// same move `HourCell` makes on its digits.
+  ///
+  /// ```dart
+  /// Text(label, style: TextStyle(color: colors.inkFor(colors.secondary)));
+  /// ```
+  Color inkFor(Color accent, {double minRatio = minTextRatio}) =>
+      contrastRatio(accent, background) >= minRatio
+      ? accent
+      : Color.lerp(accent, onBackground, _repairBlend)!;
+
+  /// [primary] as **text**: the `Today` pill, the `Tomorrow` word, a section's
+  /// count badge. Never as a fill — a filled control uses [primary] itself and
+  /// labels it with [onPrimary].
+  Color get primaryInk => inkFor(primary);
+
+  /// [primary] as a **meaningful graphic**: the "now" line, a selected row's
+  /// check, the splash's progress track. Held to [minGlyphRatio] rather than
+  /// [minTextRatio], because nobody reads a line.
+  ///
+  /// Decorative uses of the accent keep [primary] itself: an `IconDisc`'s
+  /// glyph sits on a wash of its own color and is captioned by the text under
+  /// it, so darkening it would repair nothing and change every empty state.
+  Color get primaryGlyph => inkFor(primary, minRatio: minGlyphRatio);
+
+  /// [warning] as a meaningful graphic: the banner's triangle, the DST dot,
+  /// the sync-failure icon. Raw [warning] is `2.15:1` on the worst light
+  /// palette, which is below even the non-text bar.
+  Color get warningInk => inkFor(warning, minRatio: minGlyphRatio);
+
+  /// [success] as a meaningful graphic — today, the "everything is synced"
+  /// check on the profile page.
+  Color get successInk => inkFor(success, minRatio: minGlyphRatio);
+
+  /// [error] as a meaningful graphic. It already clears [minGlyphRatio] on all
+  /// twenty palettes; the getter exists so a call site does not have to know
+  /// which of the three status colors happens to be safe this month.
+  Color get errorInk => inkFor(error, minRatio: minGlyphRatio);
+}
+
+/// The WCAG 2.1 contrast ratio between two **opaque** colors, `1.0` to `21.0`.
+///
+/// Both arguments must be opaque: the formula has nowhere to put an alpha, and
+/// a translucent one silently measures a color nobody sees. Composite first —
+/// `Color.alphaBlend(fill, page)` — and pass the result.
+///
+/// The thresholds worth remembering are on [AppColorsData.minTextRatio] and
+/// [AppColorsData.minGlyphRatio].
+///
+/// ```dart
+/// contrastRatio(colors.onBackground, colors.background); // 14.4 on Mint Fresh
+/// ```
+double contrastRatio(Color a, Color b) {
+  final first = a.computeLuminance();
+  final second = b.computeLuminance();
+  final lighter = first > second ? first : second;
+  final darker = first > second ? second : first;
+  return (lighter + 0.05) / (darker + 0.05);
 }
 
 /// Picks black or white for content drawn on an arbitrary [background].
 ///
-/// Used where the backdrop is a color the theme does not own — a location's
-/// user-picked color, a country flag tint — so no semantic token can answer
-/// the question.
+/// Used where the backdrop is a color the theme does not own — a palette's
+/// own `primary` behind a filled button's label, a location's user-picked
+/// color, a country flag tint — so no semantic token can answer the question.
 ///
-/// The threshold is `0.55` rather than the naive midpoint because mid-tone
-/// brand colors read better with white than `0.5` predicts; lowering it makes
-/// medium indigos and greens flip to black text and lose contrast.
+/// **It picks whichever of the two actually measures better, and that is a
+/// correction.** This used to be a luminance threshold of `0.55`, justified in
+/// a comment that said mid-tone brand colors "read better with white than
+/// `0.5` predicts". Measured against the shipped catalog, the opposite is
+/// true: the threshold put white on the primary of **14 of the 20 palettes**
+/// whose primary should carry black, and since `onPrimary` is what labels
+/// every filled button and the selected nav destination, those labels sat as
+/// low as **1.81:1** (Deep Ocean, Cyan Neon) against a WCAG AA bar of 4.5.
+/// Choosing by contrast lifts all fourteen to between 4.63:1 and 11.62:1 and
+/// changes nothing on the six that were already right.
 ///
-/// Example:
+/// Comparing the two candidates cannot be worse than any fixed threshold: the
+/// threshold is an approximation of exactly this comparison.
+/// `test/app/theme/palette_contrast_test.dart` pins it for every palette.
+///
 /// ```dart
 /// final foreground = foregroundOn(location.tint);
 /// ```
-Color foregroundOn(Color background) => background.computeLuminance() > 0.55
-    ? const Color(0xFF000000)
-    : const Color(0xFFFFFFFF);
+Color foregroundOn(Color background) {
+  const black = Color(0xFF000000);
+  const white = Color(0xFFFFFFFF);
+  return contrastRatio(white, background) >= contrastRatio(black, background)
+      ? white
+      : black;
+}
 
 /// The palettes currently in effect, plus the shipped defaults.
 ///
@@ -145,7 +247,7 @@ abstract class AppColors {
     surface: Color(0xFFFFFFFF),
     surfaceVariant: Color(0xFFEEF0F6),
     onBackground: Color(0xFF1A1B1F),
-    onBackgroundLight: Color(0xFF6B7280),
+    onBackgroundLight: Color(0xFF676E7B),
     hourGood: Color(0xFF22C55E),
     hourFair: Color(0xFFF59E0B),
     hourPoor: Color(0xFFEF4444),

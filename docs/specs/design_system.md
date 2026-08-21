@@ -75,7 +75,7 @@ Colors are **semantic**, never literal. The full token set (`AppColorsData`,
 | `success` | Confirmation, green |
 | `error` | Validation/destructive, red |
 
-Three tokens are **computed getters**, not palette fields, for the same reason
+Several tokens are **computed getters**, not palette fields, for the same reason
 Financo computes `onPrimary`: they are fully determined by other fields, and
 making all 20 catalog palettes hand-pick them invites 20 chances to get it wrong.
 
@@ -84,10 +84,47 @@ making all 20 catalog palettes hand-pick them invites 20 chances to get it wrong
 | `onPrimary` | `foregroundOn(primary)` | Foreground on a `primary` fill: filled button label, selected chip icon, hour-cursor label |
 | `hourNight` | `Color.lerp(surfaceVariant, onBackgroundLight, 0.35)` | The sleeping-hours band. Must read as "dimmed", not as a fourth accent color, in both light and dark |
 | `scrim` | Always `0xFF000000` | Modal dim, tooltip backdrop. Callers choose the alpha |
+| `primaryInk` | `inkFor(primary)` | The accent as **text**: the `Today` pill, the `Tomorrow` word, a section's count badge, the `Home` badge |
+| `primaryGlyph` | `inkFor(primary, minRatio: 3)` | The accent as a **meaningful graphic**: the "now" line, a selected row's check, the splash's progress track |
+| `warningInk` / `successInk` / `errorInk` | `inkFor(token, minRatio: 3)` | A status color as a glyph: the banner triangle, the DST dot, the sync icons |
 
-`foregroundOn(background)` (black or white by luminance, threshold `0.55`) stays
-as the shared helper for arbitrary backdrops the theme does not own, such as a
-user-picked location color.
+`foregroundOn(background)` stays as the shared helper for arbitrary backdrops the
+theme does not own, such as a user-picked location color. **It picks whichever
+of black and white measures better, and that is a correction made in the M5
+accessibility pass**: it used to be a luminance threshold of `0.55`, which put
+white on the primary of 14 of the 20 palettes whose primary should carry black,
+as low as `1.81:1` against a 4.5 bar. Since `onPrimary` labels every filled
+button and the selected nav destination, those were the app's least readable
+pixels on most palettes.
+
+### The accessibility floor, and the repair
+
+Two constants on `AppColorsData` name the WCAG 2.1 AA thresholds the app holds
+itself to, so no call site has to remember a number:
+
+* `minTextRatio` = **4.5** — anything below 18pt that is read.
+* `minGlyphRatio` = **3.0** — icons that carry meaning, markers, tracks.
+
+`inkFor(accent, {minRatio})` returns `accent` **unchanged** when it already
+clears the bar against `background`, and otherwise pulls it 40% toward
+`onBackground`. Three properties matter and are pinned by
+`test/app/theme/palette_contrast_test.dart`:
+
+1. **The repair is rare.** 13 of the 20 palettes never trigger it. A blend
+   applied unconditionally would mute the accent everywhere for no measured
+   gain, which is a design change wearing an accessibility argument.
+2. **The catalog is not edited.** A palette keeps the exact color the user
+   picked for every fill, disc and wash; only the places that draw the accent
+   *as content* take the darker one.
+3. **The blend goes toward `onBackground`**, not toward black or white, so the
+   result stays in the palette's own ink family and a repaired accent on a dark
+   palette lightens rather than turning muddy. It is the move `HourCell` already
+   makes on its digits.
+
+The one place the catalog *was* edited is `onBackgroundLight`, on four light
+palettes (Indigo Cloud, Mint Fresh, Slate Modern, Cyan Pop), by between 3% and
+10% toward the foreground. Muted text is text and there is no derived token
+between it and its hundreds of call sites, so the fix belongs to the value.
 
 ### Hour band rule
 
@@ -114,6 +151,21 @@ the same reason: 06:00 next to a 07:00 start is `fair`, not `night`.
 Cells are painted with the token at **16% alpha** for the fill and the full token
 for the text when emphasis is needed. No screen hand-picks these colors: every
 hour surface goes through `HourCell`.
+
+**A band is never carried by colour alone.** Every cell also announces
+`"{hour}, {band}"` — `t.common.hourInBand` over the four `t.bands.*` names — so
+the answer the screen exists to give survives a screen reader and does not
+depend on telling green from amber. `HourCell.bandLabel(band)` is the one
+mapping from a band to its word, the way `hourBandColor` is the one mapping to
+its colour; a caller that draws marks *over* a cell (the grid's day boundary and
+DST dot) passes a fuller `semanticLabel` rather than composing a fifth
+vocabulary. Pinned by `test/app/accessibility_test.dart`.
+
+What this does **not** solve is the sighted colour-blind reader: the four bands
+are still four hues, and the only non-colour cue on screen is the hour itself.
+Adding a per-band shape would put a second mark in every one of six hundred
+cells, so it is a deliberate open question rather than an oversight — recorded
+under Open questions in [time_grid.md](time_grid.md).
 
 ### Palette system (runtime-switchable)
 

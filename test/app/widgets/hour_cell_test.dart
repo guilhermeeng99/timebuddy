@@ -14,19 +14,19 @@ import 'package:timebuddy/gen/i18n/strings.g.dart';
 // a user that 09:00 is reachable and that a row does not line up with the
 // column above it.
 
-/// The band token's opacity on the cell fill (design_system, hour bands).
-const double _fillAlpha = 0.16;
+// The four weights below are read off `HourCell` rather than copied. They
+// used to be local literals, and one of them (`_cursorInkBlend`) went stale
+// the moment the accessibility pass retuned it — a test asserting a number
+// nobody paints any more is worse than no test, because it passes.
+const double _fillAlpha = HourCell.fillAlpha;
+const double _selectedAlpha = HourCell.selectedAlpha;
+const double _inkBlend = HourCell.inkBlend;
+const double _cursorInkBlend = HourCell.cursorInkBlend;
 
-/// The selection wash over that fill, and the cursor's own fill.
-const double _selectedAlpha = 0.18;
-
-/// The comfortable cell's digits, and the compact chip's.
+/// The comfortable cell's digits, and the compact chip's. Still literals: they
+/// are private to the widget and a size is what this file is here to assert.
 const double _comfortableFontSize = 15;
 const double _compactFontSize = 11;
-
-/// How far a digit is pulled from its band toward the foreground.
-const double _inkBlend = 0.55;
-const double _cursorInkBlend = 0.45;
 
 void main() {
   setUpAll(() => LocaleSettings.setLocaleSync(AppLocale.en));

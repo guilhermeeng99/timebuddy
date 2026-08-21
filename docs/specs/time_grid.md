@@ -660,3 +660,54 @@ instant in every row, a half-hour zone renders its minutes while home does not,
 the empty board invites a first city with no grid behind it, the placeholder
 holds until the board resolves, the home-zone banner appears only when the zone
 did not resolve, and the last row scrolls clear of the FAB.
+
+---
+
+## Accessibility
+
+The M5 pass, and what it did and did not settle.
+
+**By voice, a cell now says which band it is in.** Each hour announces
+`"{hour}, {band}"` — the hour exactly as it is printed, minutes and all, then
+one of the four `t.bands.*` names. Where the grid draws a mark *over* a cell,
+`GridRowView` replaces the label with a longer one carrying the same facts the
+mark carries: the date the row turns over on (rule 6) and
+`t.grid.dstTransitionHere`, the tooltip on the transition dot. Before this the screen read as a
+line of bare numbers, which is the one thing this screen is not.
+
+It is deliberately terse — a row is thirty cells, and a sentence apiece is a
+screen nobody listens to the end of. It is also why the cells are *not* wrapped
+in a semantic table: a 20×30 grid is 600 nodes to step through, and the city
+name in the pinned label column already precedes its own row in traversal
+order.
+
+**By eye, the band is still a colour.** The fill is a 16% wash and the digits
+are tinted; there is no shape, weight or glyph distinguishing `good` from
+`poor`. For a reader with deuteranopia the two adjacent hues are close, and the
+only non-colour cue on screen is the hour itself — which is a real but weak
+mitigation, since "is 03:00 a good hour" is only answerable against a working
+window the app knows and the reader would have to recall.
+
+This is an **open question, not an oversight**. The options were costed:
+
+* A per-band glyph or fill pattern puts a second mark in every one of up to 600
+  cells, on a surface whose whole design argument is that a row of hours reads
+  as one continuous day rather than as a line of decorated boxes.
+* A band **legend** was already declined once, for a different reason: on the
+  artboard the grid was a fixed block with room under it; in the app the rows
+  scroll beneath a floating bar, so a legend has to be pinned and costs height
+  on every screen. The bands are named in Settings → Working hours.
+* Marking only `good` — a hairline along the bottom edge of the working
+  window — is one mark, not four, and answers the actual question ("where can
+  we all meet") rather than restating the whole scale. It is the cheapest
+  option and the one to try first.
+
+Nothing here is decided; the roadmap carries it as an M5 item that survived the
+pass.
+
+**Contrast is measured, not reviewed.** Every pair the grid paints — four band
+inks on four band fills, and the cursor's digits on the cursor wash — clears
+WCAG AA on all 20 palettes, pinned per palette by
+`test/app/theme/palette_contrast_test.dart`. The cursor's ink blend moved from
+`0.45` to `0.50` in that pass because at `0.45` it measured `4.31:1` on Mint
+Fresh.

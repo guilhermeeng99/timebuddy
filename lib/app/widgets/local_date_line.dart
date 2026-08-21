@@ -56,7 +56,7 @@ class LocalDateLine extends StatelessWidget {
               // is the fact the user came for.
               style: TextStyle(
                 fontWeight: FontWeight.w600,
-                color: colors.primary,
+                color: colors.primaryInk,
               ),
             ),
         ],

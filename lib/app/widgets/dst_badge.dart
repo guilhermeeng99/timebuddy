@@ -64,7 +64,7 @@ class DstBadge extends StatelessWidget {
           ? FontAwesomeIcons.clockRotateLeft
           : FontAwesomeIcons.solidCircleUp,
       size: size,
-      color: context.appColors.warning,
+      color: context.appColors.warningInk,
       semanticLabel: message,
     );
     return Tooltip(

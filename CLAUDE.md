@@ -28,6 +28,8 @@ lib/
 
 scripts/              # build_city_catalog.dart + city_seeds.dart +
                       #   check_glyphs.py (build tooling, not shipped)
+site/                 # The landing page at the Pages root: Vite + Tailwind,
+                      #   its own toolchain, deployed by the same workflow
 ```
 
 Each feature follows:
@@ -121,7 +123,18 @@ dart run scripts/build_city_catalog.dart # Regenerate the city catalog asset
 
 flutter build web --release --no-tree-shake-icons  # Release web bundle
 python scripts/check_glyphs.py                     # Verify the icon glyphs survived
+
+npm --prefix site ci                     # Landing site: install (first time)
+npm --prefix site run dev                # Landing site: local preview
+npm --prefix site run build              # Landing site: static output -> site/dist
+npm --prefix site run typecheck          # Landing site: its only test
 ```
+
+**On Git Bash for Windows, a `--base-href` starting with `/` is rewritten into
+a Windows path** by MSYS before Flutter sees it, and the build stops with
+`Received a --base-href value of "C:/Program Files/Git/timebuddy/app/"`. Use
+PowerShell for that one flag, or prefix the command with `MSYS_NO_PATHCONV=1`.
+CI runs on Linux and never meets it.
 
 **`--no-tree-shake-icons` is not optional.** The icon tree-shaker scans the
 compiled constants for `IconData` and rewrites each bundled font to hold only
@@ -132,8 +145,17 @@ glyph is not a build error, which is why `check_glyphs.py` exists: it parses
 each bundled font's `cmap` and compares it against every `FontAwesomeIcons.*`
 in the source. Run it after any change that adds, removes or swaps an icon. CI
 (`.github/workflows/deploy-pages.yml`) runs the same two commands, adding
-`--base-href /timebuddy/` to the build because a project page is not served
-from the domain root.
+`--base-href /timebuddy/app/` to the build because a project page is not served
+from the domain root **and the app no longer sits at the project root** — the
+landing site does, with the app one level down.
+
+**The published site is two bundles in one deployment.** `site/` is a Vite +
+Tailwind static page built by the same workflow job, and the job assembles
+`site/dist` at the root of the Pages artifact with `build/web` under `app/`. One
+job rather than two, because a Pages deployment carries exactly one artifact and
+two jobs racing to publish would leave a site pointing at an app that had not
+landed. Old app bookmarks (`/timebuddy/#/settings`) still work: the landing page
+forwards any hash beginning with `#/` to `./app/`.
 
 slang is the only code generator this project runs, and it is invoked directly
 rather than through `build_runner`: one generator with its own CLI does not need
@@ -161,7 +183,14 @@ After every code change:
    or the zone-to-country tables in the script changed, and commit the
    regenerated asset with them
 3. Run `flutter analyze`: **zero** errors, warnings, and info-level issues
-4. Run `flutter test`: all tests must pass
+4. Run `flutter test`: all tests must pass. Two suites are worth knowing about
+   before you touch what they cover, because both assert properties that are
+   easy to break without noticing:
+   `test/app/theme/palette_contrast_test.dart` measures every colour pair the
+   app paints against WCAG AA on all twenty palettes, and
+   `test/app/accessibility_test.dart` asserts that every icon-only control has
+   a name and that an hour cell says which band it is in
+4b. Run `npm --prefix site run typecheck` if anything under `site/` changed
 5. If the change added, removed or swapped an icon, build the web bundle and
    run `python scripts/check_glyphs.py`: a dropped glyph fails neither the
    analyzer nor the tests, and only shows up as an empty box on screen
@@ -360,6 +389,8 @@ test run. Any test touching the engine must call it in `setUpAll`.
 | `store.readJsonObject(key, malformedMessage:)` | `lib/core/storage/local_store.dart` | Reading a stored JSON document. An extension rather than a member of `LocalStore` on purpose: the interface is implemented by test doubles, and Dart's `implements` would force every one of them to reimplement a method none of them cares about. |
 | `LocalStore` / `StorageKeys` | `lib/core/storage/local_store.dart` | Every read and write to the device store. Keys are declared once, and the three that hold a **document** (`board.v1`, `preferences.v1`, `guest.v1`) carry a version suffix, so a breaking change to a JSON shape writes `.v2` and leaves behind a document an older build can still parse. The two dirty flags (`dirty.board`, `dirty.preferences`) deliberately do not: a bool meaning "this document still owes the server a write" has no shape to break, and versioning it would strand a pending write behind a rename. |
 | `context.appColors` | `lib/core/extensions/context_extensions.dart` | Reading a semantic color token. Never `AppColors.light` / `AppColors.dark` at a call site: naming one hardcodes a brightness that survives a theme switch and only shows up in the other mode. |
+| `colors.primaryInk` / `primaryGlyph` / `warningInk` / `successInk` / `errorInk` | `lib/app/theme/app_colors.dart` | Drawing an accent **as content** — accent text, a marker, a status icon. The catalog picks its colors to be *fills*, and six of the ten light palettes then fail as content: Mint Fresh's `primary` is 2.39:1 against its own page. Each getter is `inkFor(token)`, which returns the token untouched when it already clears the bar and otherwise pulls it 40% toward `onBackground`, so 13 of the 20 palettes are not repaired at all. Keep raw `primary` / `warning` for the fill, the disc and the wash. |
+| `contrastRatio(a, b)` | `lib/app/theme/app_colors.dart` | Measuring two **opaque** colors. Composite a translucent one first (`Color.alphaBlend`) — the formula has nowhere to put an alpha and will happily report a ratio for a color nobody sees. `AppColorsData.minTextRatio` (4.5) and `minGlyphRatio` (3.0) are the two bars. |
 | `context.popOrGo(fallbackRoute, {result})` | `lib/core/extensions/context_navigation_extensions.dart` | Closing a pushed sub-page. Every sub-page is URL-reachable on web, so a deep-linked route has an empty stack and a bare `pop()` strands the user on web and closes the app on Android. Reached through `TimeBuddyLargeAppBar`: pass it a `fallbackRoute` and its back chevron renders even when there is nothing to pop, closing through `popOrGo` instead of `Navigator.pop`. Without one the bar keeps its older rule and hides the chevron rather than drawing a dead control. |
 | `context.showSnack(message)` | `lib/core/extensions/context_extensions.dart` | Plain-text feedback. Snackbars needing actions or custom durations still call `ScaffoldMessenger` directly. |
 | `bottomSafeForFab(context, isSubPage:)` / `bottomSafeForBar(context, isSubPage:)` | `lib/app/widgets/fab_safe_area.dart` | Bottom padding of any scroll view on a page that has chrome floating over it. The bar and the FAB reserve no layout space, so a list that stops at its own last pixel hands the user a final row they can see and cannot tap. Both derive their numbers from `TimeBuddyBottomBar.reservedHeight` and `kFloatingActionButtonMargin`, so a per-page `120` invented at a call site drifts the moment the bar is retuned. |

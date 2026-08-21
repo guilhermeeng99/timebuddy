@@ -249,7 +249,7 @@ class _TimeGridViewState extends State<_TimeGridView> {
                   slotCount: model.slots.length,
                   columnWidth: layout.hourColumnWidth,
                   horizontalOffset: _hourOffset,
-                  color: context.appColors.primary,
+                  color: context.appColors.primaryGlyph,
                 ),
               ),
             // Last in the stack, so the wash covers the cells and the "now"

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:timebuddy/app/theme/app_spacing.dart';
 import 'package:timebuddy/app/widgets/hour_cell.dart';
 import 'package:timebuddy/core/extensions/context_extensions.dart';
+import 'package:timebuddy/core/utils/time_formatter.dart';
 import 'package:timebuddy/features/time_grid/domain/entities/grid_view_model.dart';
 import 'package:timebuddy/gen/i18n/strings.g.dart';
 
@@ -148,6 +149,25 @@ class _GridCellView extends StatelessWidget {
   static const double _dateFontSize = 9;
   static const double _transitionDotSize = 5;
 
+  /// The hour, its band, and whichever of the two marks this cell carries.
+  ///
+  /// Built as a list joined with ", " rather than as a sentence per case:
+  /// four cases would be four strings to translate and three of them would
+  /// differ only in what they append.
+  String get _semanticLabel {
+    final parts = <String>[
+      t.common.hourInBand(
+        hour: formatGridHour(cell.localTime),
+        band: HourCell.bandLabel(cell.band),
+      ),
+      // The same words the marks carry visually: the date label the cell
+      // already prints, and the tooltip on the dot.
+      ?cell.dateLabel,
+      if (cell.hasTransition) t.grid.dstTransitionHere,
+    ];
+    return parts.join(', ');
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
@@ -164,6 +184,11 @@ class _GridCellView extends StatelessWidget {
           // because Lord Howe grows its `:30` halfway through a row (rule 5).
           minute: cell.localTime.minute,
           isCursor: isCursor,
+          // The two marks below are drawn *over* the cell, so `HourCell`
+          // cannot see them and cannot name them. Both are facts a sighted
+          // user reads off a 1px rule and a 5px dot; a screen reader gets
+          // them here or not at all.
+          semanticLabel: _semanticLabel,
         ),
         if (cell.isDayStart)
           Positioned(
@@ -208,7 +233,7 @@ class _GridCellView extends StatelessWidget {
                   height: _transitionDotSize,
                   child: DecoratedBox(
                     decoration: BoxDecoration(
-                      color: colors.warning,
+                      color: colors.warningInk,
                       shape: BoxShape.circle,
                     ),
                   ),
