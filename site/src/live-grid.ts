@@ -179,9 +179,21 @@ function element<K extends keyof HTMLElementTagNameMap>(
   return node;
 }
 
+/**
+ * Width of one hour column and of the pinned label column, in px.
+ *
+ * Applied as an inline style rather than as a Tailwind class, deliberately:
+ * the opening scroll offset is arithmetic over both numbers, and Tailwind
+ * resolves its classes by scanning the source for literals, so a class name
+ * built by template interpolation compiles to nothing at all — and a
+ * hand-written `w-[62px]` beside a constant is two places to change one width.
+ */
+const CELL_W = 62;
+const LABEL_W = 150;
+
 const CELL_CLASS =
-  "hour-cell relative h-14 w-[62px] shrink-0 border-r border-canvas/60 text-center " +
-  "align-middle font-body text-body-lg font-semibold tabular-nums";
+  "hour-cell relative h-14 shrink-0 border-r border-canvas/60 " +
+  "text-center align-middle font-body text-body-lg font-semibold tabular-nums";
 
 /** The visitor's own zone, or UTC when the platform refuses to name one. */
 function viewerZone(): string {
@@ -226,6 +238,7 @@ function render(host: HTMLElement): void {
   const head = document.createElement("thead");
   const headRow = document.createElement("tr");
   const corner = element("th", "sticky left-0 z-10 bg-surface");
+  corner.style.width = `${LABEL_W}px`;
   corner.scope = "col";
   corner.append(element("span", "sr-only", "City"));
   headRow.append(corner);
@@ -233,10 +246,11 @@ function render(host: HTMLElement): void {
   slots.forEach((slot, index) => {
     const cell = element(
       "th",
-      "h-9 w-[62px] shrink-0 border-r border-canvas/60 bg-canvas-deep text-center " +
+      "h-9 shrink-0 border-r border-canvas/60 bg-canvas-deep text-center " +
         "font-body text-body font-semibold tabular-nums " +
         (index === nowIndex ? "text-indigo" : "text-ink-soft"),
     );
+    cell.style.width = `${CELL_W}px`;
     cell.scope = "col";
     const parts = partsAt(slot, home);
     cell.textContent = gridHour(parts);
@@ -256,9 +270,11 @@ function render(host: HTMLElement): void {
 
     const label = element(
       "th",
-      "sticky left-0 z-10 w-[150px] min-w-[150px] border-r border-hairline bg-surface " +
-        "px-3 py-2 text-left align-middle",
+      "sticky left-0 z-10 border-r border-hairline bg-surface px-3 py-2 " +
+        "text-left align-middle",
     );
+    label.style.width = `${LABEL_W}px`;
+    label.style.minWidth = `${LABEL_W}px`;
     label.scope = "row";
     label.append(
       element("span", "block font-body text-body-lg font-semibold text-ink truncate", city.label),
@@ -283,6 +299,7 @@ function render(host: HTMLElement): void {
         "td",
         `${CELL_CLASS} band-${bandFor(parts.hour)}${index === nowIndex ? " hour-now" : ""}`,
       );
+      cell.style.width = `${CELL_W}px`;
       cell.textContent = gridHour(parts);
 
       // The date turns over inside this row, at this column and no other.
@@ -310,6 +327,32 @@ function render(host: HTMLElement): void {
 }
 
 /**
+ * Puts the current hour on screen, the way the app's grid opens centred on now
+ * (time_grid.md rule 13).
+ *
+ * Only meaningful on a narrow window — a desktop fits all fourteen columns and
+ * this is a no-op. It has to run *after* layout: setting `scrollLeft` on a
+ * container whose content has not been measured yet clamps to 0, which is
+ * exactly what a `requestAnimationFrame` immediately after the first render
+ * did, silently, at every width below about 1000px.
+ *
+ * Reading `scrollWidth` first is what forces that measurement.
+ */
+function scrollToNow(host: HTMLElement): void {
+  const scroller = host.closest<HTMLElement>("[data-grid-scroller]");
+  if (!scroller) return;
+  if (scroller.scrollWidth <= scroller.clientWidth) return;
+
+  // A cell at index `i` starts at `LABEL_W + i * CELL_W` in content
+  // coordinates, and the pinned label covers the first `LABEL_W` of the
+  // viewport — so `scrollLeft = i * CELL_W` puts that cell flush against the
+  // label. One column short of that leaves the hour before it visible too,
+  // which is the context the marker is worth having.
+  const target = Math.max(0, (SLOTS_BEFORE - 1) * CELL_W);
+  scroller.scrollLeft = target;
+}
+
+/**
  * Mounts the live grid into `#live-grid` and keeps it current.
  *
  * ```ts
@@ -322,6 +365,7 @@ export function mountLiveGrid(): void {
 
   const draw = () => render(host);
   draw();
+  scrollToNow(host);
 
   let timer = window.setInterval(draw, REFRESH_MS);
   // A backgrounded tab does not need a redraw a minute, and it wakes up owing
@@ -334,9 +378,7 @@ export function mountLiveGrid(): void {
     }
   });
 
-  // The grid opens scrolled to "now", the way the app's does (rule 13).
-  requestAnimationFrame(() => {
-    const scroller = host.closest<HTMLElement>("[data-grid-scroller]");
-    if (scroller) scroller.scrollLeft = Math.max(0, SLOTS_BEFORE * 62 - 40);
-  });
+  // Re-centred on a resize, but never on a redraw: a tick that yanked the
+  // track back would fight a visitor who had scrolled it themselves.
+  window.addEventListener("resize", () => scrollToNow(host));
 }
