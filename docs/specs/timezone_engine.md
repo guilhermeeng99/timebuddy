@@ -1,9 +1,9 @@
 # Timezone Engine Spec
 
 The engine is the only part of the app that knows what a timezone is. Every
-feature (grid, clocks, planner, converter) asks it questions and renders the
-answers. It lives in `lib/core/time/` and is the **only** place in `lib/` allowed
-to import `package:timezone`.
+feature (grid, clocks, converter) asks it questions and renders the answers. It
+lives in `lib/core/time/` and is the **only** place in `lib/` allowed to import
+`package:timezone`.
 
 Getting this wrong is invisible: the app looks right for eleven months and shows
 a meeting one hour off in the twelfth. Every rule below is testable and must have
@@ -94,15 +94,30 @@ lands inside the season and the other outside it.
    `offsetOf(zoneId)` overload and there must never be one. A cached offset is
    correct until the next DST transition and then silently wrong.
 
-3. **Unknown zone ids degrade, never throw.** `zoneOrNull(id)` returns `null` for
-   an id neither the tzdata nor the alias map knows. Causes seen in practice: a
-   zone renamed upstream (`Asia/Calcutta` to `Asia/Kolkata`), a zone removed from
-   a newer tzdata release, and corrupted persisted state. Callers use
-   `zoneOrHome(id, home)` when they need a guaranteed value: it falls back to the
-   home zone and then to `utcZoneId`, so it has no failing branch and callers
-   need no `try`/`catch` around a saved board. The engine methods themselves
-   resolve the same way and fall through to UTC rather than throwing. One bad
-   saved row must never blank the board.
+3. **Unknown zone ids degrade, never throw.** `zoneOrNull(id)` returns `null`
+   for an id neither the tzdata nor the alias map knows. Causes seen in
+   practice: a zone renamed upstream (`Asia/Calcutta` to `Asia/Kolkata`), a zone
+   removed from a newer tzdata release, and corrupted persisted state.
+   `zoneOrNull` is the **only** sanctioned lookup: a `null` is an answer the
+   caller has to hold, and holding it is what lets a board keep an unresolved
+   row, mark it, and offer a repair.
+
+   **`zoneOrHome(id, home)` has been deleted**, and its absence is the rule.
+   It returned a guaranteed `ZoneRef` by falling back to the home zone and then
+   to `utcZoneId`, which reads as convenience and behaves as data loss: it
+   silently substituted a *different city's clock* for the one the user saved,
+   which [locations.md](locations.md) rule 11 forbids outright — an unresolved
+   row is kept and flagged, never quietly replaced. A caller that wants a
+   guaranteed value now writes the fallback itself, at the call site, where it
+   is visible.
+
+   The engine's own methods still degrade rather than throw: `_resolve` falls
+   through to `utcZoneId` / `tz.UTC` when `zoneOrNull` misses, so one bad saved
+   row can never blank a screen. That is a rendering fallback inside a single
+   call, not a stored substitution — the board still holds the id the user
+   saved, and `BuildGridUseCase` / `BuildWorldClockUseCase` ask `zoneOrNull`
+   themselves precisely so they can flag the row instead of drawing a plausible
+   UTC clock over it.
 
 4. **Zone ids are canonicalised, and the dataset choice is what makes that
    safe.** `package:timezone` ships three datasets at the same tzdata release.
@@ -110,13 +125,30 @@ lands inside the season and the other outside it.
    because it is the only one that keeps the IANA `Link` lines.
 
    That choice is the whole rule. The obvious import, and what most projects
-   use, is `data/latest.dart`. Measured, not assumed: it holds **341** locations
-   and drops every `Link`, so `Europe/Oslo`, `Europe/Amsterdam`,
+   use, is `data/latest.dart`. Measured, not assumed: it holds **341**
+   locations and drops every `Link`, so `Europe/Oslo`, `Europe/Amsterdam`,
    `Asia/Kuala_Lumpur`, `America/Montreal` and `Atlantic/Reykjavik` are absent
-   from it, as is plain `UTC`. Roughly two hundred current, everyday ids do not
-   resolve there, and each miss degrades to UTC **silently**, which is the worst
-   failure mode a clock has. The extra 185 KB buys that away, next to a
-   CanvasKit payload that dwarfs it.
+   from its database, as is plain `UTC`. Both counts still hold exactly on
+   `timezone` 0.11.1.
+
+   **What that costs was over-stated here, and the correction is worth
+   keeping.** This rule used to claim roughly two hundred everyday ids stop
+   resolving under `latest.dart`. They stop being *in the database*; they do
+   not stop resolving, because `zoneOrNull` consults the alias map first (see
+   below) and folds each of them onto a target the trimmed dataset keeps.
+   `tzdata_dataset_test.dart` ran the whole shipped catalog through
+   `zoneOrNull` against both datasets: 313 distinct zone ids, **0** unresolved
+   under `latest_all` and **1** under `latest` — `Asia/Choibalsan`, a `Link`
+   the alias map does not carry.
+
+   So the real trade is: one city today, plus **independence from a
+   hand-maintained map of roughly 250 entries** for the other 256. That map is
+   a file a person edits; the dataset is generated upstream from IANA. The
+   silent-UTC failure mode is what makes the difference matter — a miss does
+   not error, it prints a perfectly plausible clock that is an hour wrong for
+   half the year — and 185 KB next to a CanvasKit payload is not a price. The
+   argument is weaker than the one this rule used to make and still decides the
+   same way.
 
    `zone_lookup.dart` still carries an alias map of roughly 250 entries, but the
    dataset changed its job: it no longer rescues dropped ids, it
@@ -133,7 +165,14 @@ lands inside the season and the other outside it.
    real zone would then slip past the duplicate check
    ([locations.md](locations.md) rule 2), and a stored legacy id would never be
    rewritten. The returned `ZoneRef` carries both the canonical `id` and the
-   `requestedId`, so a caller that sees `wasAliased` can persist the rewrite.
+   `requestedId`, so a caller that sees `wasAliased` **could** persist the
+   rewrite — **nothing does today**. `requestedId` and `wasAliased` have no
+   consumer in `lib/`; `BoardCubit` canonicalises on load and writes the result
+   back through its own `zoneOrNull(...)?.id ?? id` calls rather than by reading
+   the flag. The two fields stay because the information is otherwise
+   unrecoverable at a call site and they cost nothing, but the rewrite is a
+   promise this codebase has not kept, and the note is here so the next reader
+   does not go hunting for the caller.
 
    Canonicalising ahead of the raw id is only safe while no alias points at a
    different clock, so `zone_lookup_test.dart` asserts that over the **whole**
@@ -211,6 +250,11 @@ lands inside the season and the other outside it.
    differs from 24, so `Australia/Lord_Howe` still gets its badge on a day whose
    slot count happens to come out at 24.
 
+   The walk carries a hard stop at 26 slots (`_maxHourSlots`). It is a guard,
+   not a bound: a real local day is 23 to 25, and the stop exists so a future
+   tzdata row with an offset change this walk does not anticipate ends a loop
+   instead of hanging a frame. A day that ever hits it is a bug, not a zone.
+
 9. **Offsets carry minutes.** Every offset is a `Duration` and may be
    `+05:30`, `+05:45`, `+12:45` or `-09:30`. Any API returning `int hours` is
    forbidden. Formatting goes through `offsetLabel(duration)`.
@@ -232,9 +276,22 @@ lands inside the season and the other outside it.
 
 12. **The tzdata version is pinned and visible.** *Pinned, not yet visible: the
     surfacing is pending.* `timezone: ^0.11.1` resolves to 0.11.1, which embeds
-    tzdata 2025c. Showing that in Settings → About is still to build. When a user
-    reports a wrong hour, the first question is which tzdata release they are
-    running.
+    tzdata **2025c**. Showing that in Settings → About is still to build. When a
+    user reports a wrong hour, the first question is which tzdata release they
+    are running.
+
+    **Where 2025c comes from, checked rather than assumed.** The package states
+    it on line 2 of `lib/data/latest_all.dart` (and of `latest.dart`) as a
+    plain `// Timezone data version: 2025c` comment, written by its generator.
+    So the claim "the package does not expose the release it embeds" is still
+    true *at runtime* — there is no exported constant, and a `//` comment is
+    not reachable from Dart — but the value is now present in the source,
+    which makes the upstream ask a one-line change rather than a feature
+    request. Until it lands, anything this app displays would be a literal
+    retyped from that comment, which goes stale silently on the next `pub
+    upgrade`: exactly the failure the About line exists to prevent. That is why
+    the second half of this rule is still open rather than shipped with a
+    hardcoded string.
 
 ---
 
@@ -246,11 +303,10 @@ lands inside the season and the other outside it.
 // only want to validate a stored id should not have to hold an engine.
 
 /// Resolves an IANA id, applying the alias map of rule 4. `null` when unknown.
+/// The one sanctioned lookup: see rule 3 for why there is no non-null
+/// counterpart. Trims surrounding whitespace, and reports the trim through
+/// `wasAliased` — a stored value with stray spaces is still worth rewriting.
 ZoneRef? zoneOrNull(String zoneId);
-
-/// Resolves an IANA id, falling back to [homeZoneId] and then to [utcZoneId].
-/// Never returns `null`.
-ZoneRef zoneOrHome(String zoneId, String homeZoneId);
 
 /// The tz location behind an id. Engine-internal: only `lib/core/time/` may
 /// hold a `tz` type, features ask `TimeZoneEngine` instead.
@@ -314,7 +370,7 @@ abstract class TimeZoneEngine {
 
 `ZoneRef` carries `{ id, requestedId }` plus `wasAliased`, which is exactly
 `id != requestedId`. A caller that sees it set knows its stored value is stale
-and worth rewriting.
+and worth rewriting — no caller reads it yet; see rule 4.
 
 `wallTimeAt` returns a `DateTime` whose `isUtc` flag is a **carrier, not a
 claim**: its fields are the zone's wall clock and its epoch value means nothing.
@@ -377,9 +433,16 @@ user-visible failure is warranted. Nothing in the engine surface returns
 - **A leap second**: the tz database and Dart both ignore them. Documented as out
   of scope.
 - **The device zone changes while the app is running** (traveling, or a manual
-  change): the engine does not poll. `AppLifecycleState.resumed` triggers one
-  re-read of `deviceZone()`; if it changed and the home location was set
-  automatically, the app offers to update it rather than changing it silently.
+  change): the engine does not poll, and **nothing re-reads it either — this
+  case is unbuilt.** `app_widget.dart`'s `didChangeAppLifecycleState` resumes
+  the ticker and flushes pending writes on `AppLifecycleState.resumed`; it does
+  not call `deviceZone()`. The intended behaviour stands as written: one
+  re-read on resume, and if it changed and the home location was set
+  automatically, the app *offers* to update it rather than changing it
+  silently. The offer is the part that matters — a home zone the user picked
+  must never move under them, and `BoardRepositoryImpl` freezes the seeded home
+  on first launch for exactly that reason ([locations.md](locations.md) rule
+  3).
 
 ---
 
@@ -388,6 +451,9 @@ user-visible failure is warranted. Nothing in the engine surface returns
 `test/core/time/timezone_engine_test.dart` must cover, with real zones and real
 dates:
 
+- `initialize()` being idempotent and leaving the harness's already-loaded
+  database intact (rule 1). The static guard is what this pins: a second engine
+  instance must not clear and rebuild tzdata out from under the first.
 - Offset for `America/Sao_Paulo` on a 2018 DST date and on the same date in 2024
   (rule 2 and the abolition case).
 - `Asia/Kolkata` returning `+05:30` and `Pacific/Chatham` returning `+12:45`
@@ -417,6 +483,12 @@ dates:
   2024-10-06 returning 24 slots for a 23.5-hour day, 2024-04-07 returning 25 for
   a 24.5-hour day, each with its transition attached, plus 02:00 shifting to
   02:30 and 01:45 resolving to the earlier of its two occurrences.
+- `nextTransition`: New York from 2024-01-01 finding the 2024-03-10 spring
+  forward; a transition sitting exactly on the queried instant still counting;
+  London from 2024-07-01 finding the 2024-10-27 fall back; `Lord_Howe` finding
+  a 30-minute jump; and the two `null` cases that are `null` for different
+  reasons — `America/Sao_Paulo`, which *had* transitions and has none scheduled
+  since abolition, and `Asia/Kolkata`, which has never had one.
 - `deviceZone()` with the `flutter_timezone` channel mocked: a zone adopted, a
   legacy id canonicalised, and the three fallback paths (an id the tzdata
   rejects, a channel error, no plugin registered at all). Mocking the channel is
@@ -424,12 +496,35 @@ dates:
 
 `test/core/time/zone_lookup_test.dart` covers the resolution layer on its own:
 every alias resolving to its canonical id **and** that canonical id loading from
-the shipped database, the short `UTC` id resolving, a raw id winning over the
-alias map, case sensitivity, whitespace trimming, and `zoneOrHome` falling back
-through the home zone to UTC. Rule 4 is only ever as good as that file, so an
-alias added without a row there is an alias that has not been checked.
+the shipped database, the short `UTC` id resolving, case sensitivity, whitespace
+trimming reported as a rewrite, and — the one that guards canonicalise-first —
+**the alias map winning even when the raw id also resolves**, backed by a sweep
+over the *whole* database asserting that no alias moves a zone onto a different
+clock, probed at four instants a year apart. Four probes rather than one because
+a wrong target can agree in January and diverge in July, and a hand-copied
+sample cannot promise it: the entry nobody thought to list is exactly the one
+that would be wrong. Rule 4 is only ever as good as that file, so an alias added
+without a row there is an alias that has not been checked.
 
-Tests call `initTestTimeZones()` from `test/harness/helpers.dart` in `setUpAll`.
+**`test/core/time/tzdata_dataset_test.dart` is the one file in the suite that
+must NOT call `initTestTimeZones()`**, and that is the whole reason it exists.
+`TzTimeZoneEngine.initialize()` short-circuits on
+`tz.timeZoneDatabase.isInitialized`, and every other test file has already
+loaded the database through the harness's own `latest_all` import by the time
+the engine is asked — so the engine's import was dead code under test, and
+switching it to `data/latest.dart` left the whole suite green while shipping a
+dataset with 257 fewer names. `flutter test` gives each file its own isolate, so
+this one reaches `initialize()` with an empty database and runs the real import
+path. It asserts: the loaded database holds at least 598 locations (a floor, not
+an equality, so a release that *adds* zones does not fail the build); the `Link`
+names are in the raw database rather than only in the alias map; the short `UTC`
+resolves; and `Asia/Choibalsan` resolves, which is the single catalog id the
+alias map does not cover and therefore the one assertion that bites if the
+count check is somehow satisfied. Adding an `initTestTimeZones()` call to this
+file turns every assertion in it back into a tautology.
+
+Tests call `initTestTimeZones()` from `test/harness/helpers.dart` in `setUpAll`
+— every file except the one above.
 
 ---
 

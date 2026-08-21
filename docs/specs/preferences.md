@@ -165,18 +165,23 @@ the locale-derived defaults *and persists them in the same call* (rules 1 and
 device reports next launch, which is exactly what rule 2 forbids.
 `deviceLocale` is consulted on that first seeding only.
 
-There is no `userId` parameter yet: there is no auth until M3 (auth.md), so
-there is exactly one preferences document per install, and threading an id no
-caller can supply would be ceremony rather than a contract.
+There is no `userId` parameter, and it is no longer because there is no auth:
+sign-in shipped, and the account is *session* state. `SyncCoordinator`
+(`lib/core/sync/sync_coordinator.dart`) holds it and the repository
+implementation hands it the saved document, so neither this contract nor the
+cubit above it has to know who is signed in — which is also what keeps a guest
+and a signed-in user on one code path (guest_mode.md rule 1).
 
 `save` writes what it is given. Bumping `revision` and stamping `updatedAt` is
 the caller's job, so a re-save during sync reconciliation does not inflate the
 revision it is trying to reconcile.
 
-Same local-first, write-through, revision-based contract as the board. The
-current implementation is local only (`shared_preferences` is both the read path
-and the durability path); the Firestore mirror, the dirty flag and the passive
-indicator land with the sync layer. See [sync.md](sync.md).
+Same local-first, write-through, revision-based contract as the board, and all
+of it is wired now: `shared_preferences` is the read path and the local
+durability path, and `save` pushes to Firestore behind the answer it already
+gave. A failed remote write is never a `Left` — it sets the dirty flag and is
+retried on the next start, sync or resume, and the only place it surfaces is
+the passive indicator on `/profile`. See [sync.md](sync.md).
 
 ---
 
@@ -244,30 +249,68 @@ One page, grouped with `TimeBuddySection`:
 
 | Group | Controls |
 |---|---|
-| Appearance | Theme mode pill (System / Light / Dark), light palette row, dark palette row |
+| *(the identity card, above the first group)* | Name, email, photo, and a chevron to `/profile` |
+| Appearance | Theme mode pill (System / Light / Dark) |
 | Time | 12h / 24h pill toggle, show seconds switch, week starts on pill |
 | Working hours | Two hour dropdowns (inclusive start `0..23`, exclusive end `1..24`) with a live preview strip of the 24 bands |
-| Language | System / Portugues / English |
-| Account (planned, lands with auth in M3) | Name, email, photo, sign out, delete account |
-| About | App version, tzdata version (engine rule 12), licenses |
+| Language | System / Português / English pill toggle |
+| About | App version, tzdata version (engine rule 12) |
 
-The Account group is the one row of that table the page does not render. There
-is no authentication yet (auth.md), and the page omits the group rather than
-stubbing it: a "not signed in" row with a dead sign-out button promises a
-feature the build cannot deliver. Its copy keys already exist, so the group is
-one section widget away once sign-in lands.
+**There is no Account group, and the reason changed twice.** This table used to
+carry one marked *planned*, on the grounds that a "not signed in" row with a
+dead sign-out button promises a feature the build cannot deliver. Auth landed,
+the row went in — and then came out again, because the page grew an identity
+card at the top and a hero block plus a row two thirds down were two places
+answering one question. The card is the page's first element and is not a
+`TimeBuddySection`: it is who this document belongs to, not a setting in it.
+Signing out and deleting the account live on `/profile`, behind that card's
+chevron, so the session has one owner (guest_mode.md rule 10).
+
+**Language is one row and one pill, in the shape Theme uses.** It was three
+rows carrying a check mark, which is a radio group written out longhand: three
+times the height for a choice of three, and a row form the rest of the page
+uses for doors rather than for values. The segmented control also states the
+choice as three peers, which is the honest picture of `localeTag` — `null` is
+"follow the device", a value and not a missing one (rule 3), so it belongs in
+the same track as `pt-BR` and `en` rather than above them.
+
+The labels shortened with the shape: `languageSystem` is *System* / *Sistema*
+rather than *System language*, and `languagePortuguese` is *Português* rather
+than *Português (Brasil)*, because a third of a 420pt control ellipsises the
+longer ones. The autonyms stay autonyms in both locales — `languageEnglish` is
+*English* everywhere — since a language picker is read by someone who may not
+yet read the language it is written in.
+
+Two rows on this page can therefore both say *System*. That is the right word
+in both places, and the row titles are what tell them apart; only the tests
+have to care, and they scope their finders to the pill.
+
+**The show-seconds switch carries no hint line.** It said that clocks would
+tick every second instead of every minute, which is what "Show seconds" already
+says. What the hint was really guarding — that the switch changes the app-wide
+ticker rate rather than just the digits — is rule 10's job and is recorded
+there, where it cannot be deleted by a layout preference.
 
 The working-hours preview is not decoration: it is the only place a user can see
 what the bands will look like before committing, and it renders with the real
 `HourCell` widget.
 
-The two palette rows open a bottom sheet listing the whole catalog, each row
-previewing its *own* primary, background, surface and good-hour green rather
-than the active theme's, since the active theme is what the user is choosing to
-leave. Row labels come from the catalog entry
+**Appearance is one row.** The two palette rows came off it, and only the rows
+did: `PalettePickerSheet`, both ten-entry catalogs and the `lightPalette` /
+`darkPalette` fields are intact, still persisted and still synced. What they
+have is no entry point. That is deliberate rather than half-finished, but it
+has a cost worth naming here so it is not rediscovered as a bug — the fields go
+on round-tripping through Firestore holding a value no screen can change.
+
+The sheet's own design is recorded because re-wiring it should not have to
+re-derive it: each row previews its *own* primary, background, surface and
+good-hour green rather than the active theme's, since the active theme is what
+the user is choosing to leave. Row labels come from the catalog entry
 (`LightPaletteOption.label` / `DarkPaletteOption.label`), not from slang: a
 palette name is a product name, the same in every language, and routing it
 through translations invites ten translated names for one product.
+
+The About group lost its licenses link in the same pass.
 
 The tzdata row renders a dash until the engine can report its real release
 (timezone_engine.md rule 12). An honest dash beats a hardcoded release string
@@ -293,7 +336,18 @@ instead of coming back as a missing field (rule 3).
 or a millisecond epoch int, so one document copied between the local store and
 Firestore never needs a conversion pass. An unreadable stamp falls back to the
 epoch, never to "now": a timestamp nobody can read must lose every tie it enters
-(sync.md), not win them by looking freshly written.
+(sync.md), not win them by looking freshly written. That parse is
+`timestampFromJson` in `lib/core/utils/json_parse.dart`, shared with the board
+and the user profile — it used to be three copies, one of which had drifted.
+
+**String fields are trimmed on the way in, and that is a change.** Every
+untyped read now goes through `filledStringOrNull`, which trims and treats an
+all-whitespace value as absent. This model's own coercion did not, alone among
+the five: a stored `" dark "` degraded to the default theme here while parsing
+correctly everywhere else, and a `"   "` locale tag was handed to `Locale` as a
+blank. Both now behave the way the sibling documents always did. The direction
+is deliberate — at a boundary whose job is to degrade rather than throw, the
+value the user actually chose should survive a stray space.
 
 ---
 
@@ -325,7 +379,7 @@ epoch, never to "now": a timestamp nobody can read must lose every tie it enters
 Copy under `t.settings.*`: `title`, `groupAppearance`, `groupTime`,
 `groupWorkingHours`, `groupLanguage`, `groupAccount`, `groupAbout`, `themeMode`,
 `themeSystem`, `themeLight`, `themeDark`, `lightPalette`, `darkPalette`,
-`hourFormat`, `hourFormat12`, `hourFormat24`, `showSeconds`, `showSecondsHint`,
+`hourFormat`, `hourFormat12`, `hourFormat24`, `showSeconds`,
 `weekStartsOn`, `weekStartsMonday`, `weekStartsSunday`, `workingHoursStart`,
 `workingHoursEnd`, `workingHoursSummary`, `workingHoursPreview`,
 `workingHoursInvalid`, `languageSystem`, `languagePortuguese`,
@@ -336,9 +390,17 @@ Copy under `t.settings.*`: `title`, `groupAppearance`, `groupTime`,
 1 and 16, so the message cannot drift from `WorkingHours.minLength` /
 `maxLength` when the bounds move.
 
-The Account keys ship ahead of the group that renders them (Settings page
-above): they are finished copy for a section that lands with auth, and writing
-them in one pass is cheaper than sending the translator back for four strings.
+**Seven of those keys have no call site**, and listing them is cheaper than
+letting the next reader grep for each one: `groupAccount`, `accountRowHint`,
+`signOut` and `deleteAccount` were the Account group's, which the identity card
+replaced — the profile page says those last two through `t.auth.*`, so the
+`t.settings.*` pair is a second spelling of copy that already exists elsewhere;
+`lightPalette` and `darkPalette` belong to the picker sheet that kept its
+machinery and lost its rows; `licenses` belonged to the About link that went
+with them. They are kept rather than deleted because five of the seven are the
+copy a re-wiring would need, but `signOut` and `deleteAccount` are duplicates
+and should go with whichever change touches them next.
+
 Palette names are the deliberate exception to routing copy through slang: they
 live in the catalog, because a palette name is a product name.
 

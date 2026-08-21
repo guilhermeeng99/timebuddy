@@ -5,14 +5,17 @@ it is in every city you care about, and find an hour that works for all of them.
 
 **Live build: <https://guilhermeeng99.github.io/timebuddy/>**
 
-> Status: milestones 1, 2 and 3 are implemented. M1 shipped the theme layer, the
-> timezone engine, the core time utilities, local storage, preferences and the
-> settings page. M2 shipped the 500-city catalog and its search, the saved board
-> (add, remove with undo, reorder, set home, replace a zone), the comparison
-> grid and the shell chrome that carries them. M3 shipped the account: Google
-> sign-in, the Firestore documents behind it and the revision-based sync that
-> keeps them in step. The planning tools described below are still
-> documentation. See [docs/roadmap.md](docs/roadmap.md).
+> Status: milestones 1 through 4 are implemented. M1 shipped the theme layer,
+> the timezone engine, the core time utilities, local storage, preferences and
+> the settings page. M2 shipped the 500-city catalog and its search, the saved
+> board (add, remove with undo, reorder, set home, replace a zone), the
+> comparison grid and the shell chrome that carries them. M3 shipped the
+> account: Google sign-in, the Firestore documents behind it and the
+> revision-based sync that keeps them in step. M4 shipped the world clock and
+> the time converter. It also shipped a meeting planner, which was **deleted**
+> the next day at the owner's request: it had no entry point and a tested
+> feature nobody enters is a second answer to "what does this screen do".
+> What remains is M5, the release pass. See [docs/roadmap.md](docs/roadmap.md).
 >
 > **Sign-in is optional.** What a visitor meets is a splash while tzdata loads,
 > then a three-slide tour. Every slide carries *continue without an account*,
@@ -23,9 +26,10 @@ it is in every city you care about, and find an hour that works for all of them.
 > [docs/specs/guest_mode.md](docs/specs/guest_mode.md)). Once the Google popup
 > (or the redirect the browser falls back to) comes back, the app opens on the
 > grid. Anyone with a Google account can sign in; there is no
-> allowlist. Google sign-in currently works on the web build only:
-> the Android app has no signing fingerprint registered on the Firebase project
-> yet, which the roadmap records as unfinished rather than buried.
+> allowlist. Sign-in works on both builds: `android/app/google-services.json`
+> now carries the debug and release signing fingerprints, which is what the
+> Android flow checks and what its absence used to fail on with an error naming
+> neither.
 
 ## What it does
 
@@ -38,25 +42,26 @@ Shipped:
 - **Your cities**: search 500 cities by name, country or IANA id, accents
   optional, and keep up to 20 on the board. Reorder them, pick the one you
   measure everything else from, and undo a removal you did not mean.
-- **Theming**: light and dark, 10 selectable palettes each, shared with the
-  Financo project.
+- **World clock**: the glance view to the grid's compare view. Your home clock
+  as a hero block, then every saved city ticking live, each with its offset
+  from home, a day/night dot and a `Tomorrow` / `Yesterday` marker when the
+  calendar date differs from yours.
+- **Time converter**: "15:00 on 12 March in Lisbon" resolved across the whole
+  board, on dates far enough out that today's DST rules do not apply. A local
+  time that does not exist on a spring-forward date, or happens twice on a
+  fall-back one, is disclosed above the results rather than silently answered
+  as a different question.
+- **Theming**: light and dark. Ten palettes each ship and sync, but the picker
+  was taken out of Settings during the icon pass and `palette_picker_sheet.dart`
+  currently has no call site: Appearance is one theme toggle. The machinery is
+  intact, it just has no entry point.
 - **Your account**: sign in with Google and the same board and preferences show
   up on the phone and in the browser. Two documents per user in Firestore,
   reconciled by revision number. A write that cannot reach the server is never
   an error the user has to read: it is remembered and retried later, and the
   profile page carries a passive synced / syncing / offline indicator that says
-  so. That page lives at `/profile` and nothing links to it yet, see the
-  roadmap's list of what M3 left open.
-
-Specified, not built yet:
-
-- **World clock** (M4): a live list of your cities with the current time, the
-  offset from home, and whether it is tomorrow there.
-- **Meeting planner** (M4): select a range on the grid and get a pasteable
-  summary with the local time for every participant, plus a suggested better
-  slot when someone is stuck at 03:00.
-- **Time converter** (M4): "15:00 on 12 March in Lisbon" resolved everywhere,
-  including dates far enough out that today's DST rules do not apply.
+  so. That page lives at `/profile`, reached from the rail's profile tile or
+  the identity card at the top of Settings.
 
 ## Architecture
 
@@ -66,15 +71,18 @@ with feature-first organization:
 ```
 lib/
 ├── app/          # App shell: DI, routing, theme, widgets, city asset
-├── core/         # Time engine, storage, sync, errors, extensions, utils
-├── features/     # auth, locations, time_grid, preferences, profile,
-│                 #   settings, startup
+├── core/         # Time engine, storage, sync, session, platform, errors,
+│                 #   extensions, utils
+├── features/     # auth, locations, preferences, profile, settings, startup,
+│                 #   time_converter, time_grid, world_clock
 │                 #   (each: data / domain / presentation)
 └── gen/          # Generated code (slang i18n)
 
 docs/specs/       # Per-feature contracts (entities, business rules, state machines)
 scripts/          # build_city_catalog.dart + city_seeds.dart: regenerate the
-                  #   city asset. Build tooling, not shipped in the app
+                  #   city asset. check_glyphs.py: verify every icon glyph
+                  #   survived into the release bundle (CI runs it as a gate).
+                  #   Build tooling, not shipped in the app
 test/
 └── harness/      # Centralized mocks, factories, helpers, FakeClock
 ```
@@ -114,7 +122,7 @@ widgets is how apps end up an hour wrong twice a year.
 | i18n | `slang` (type-safe, generated), pt-BR and en |
 | Fonts | `google_fonts` (Poppins + Inter) |
 | Lints | `very_good_analysis` (strict) |
-| Testing | `flutter_test`, `bloc_test`, `mocktail`, plus `fake_cloud_firestore` and `firebase_auth_mocks` at the auth boundary |
+| Testing | `flutter_test`, `bloc_test`, `mocktail`, plus `fake_cloud_firestore` at the Firestore boundary |
 
 ### Why there is no local database
 
@@ -170,7 +178,17 @@ dart run slang
 # 2. Run
 flutter run -d chrome   # web
 flutter run             # connected Android device
+
+# 3. Or build the release web bundle
+flutter build web --release --no-tree-shake-icons
+python scripts/check_glyphs.py
 ```
+
+`--no-tree-shake-icons` is not a performance oversight and not optional: the
+icon shaker cannot see through `font_awesome_flutter`'s `FaIconData`, so a
+default release build drops most of the app's glyphs and renders them as empty
+boxes, without a build error. `check_glyphs.py` is what catches a regression.
+See the Commands section in [CLAUDE.md](CLAUDE.md).
 
 That is the whole setup for the project's own Firebase project: both
 `lib/firebase_options.dart` and `android/app/google-services.json` are
@@ -190,11 +208,14 @@ registered or it fails with `ApiException: 10`.
 ## Quality bar
 
 ```bash
-flutter analyze   # must be zero errors, warnings and info issues
-flutter test      # must be green
+flutter analyze              # must be zero errors, warnings and info issues
+flutter test                 # must be green
+python scripts/check_glyphs.py   # after any icon change, against a release build
 ```
 
-Both run before every commit, and again in CI: the Pages workflow
-(`.github/workflows/deploy-pages.yml`) analyses and tests before it builds, so a
-red `main` never reaches the published site. See the post-change checklist in
+The first two run before every commit, and all three run again in CI: the Pages
+workflow (`.github/workflows/deploy-pages.yml`) analyses and tests before it
+builds — with `--no-tree-shake-icons --base-href /timebuddy/` — and then runs
+the glyph check on the bundle, so neither a red `main` nor a page of empty boxes
+reaches the published site. See the post-change checklist in
 [CLAUDE.md](CLAUDE.md).

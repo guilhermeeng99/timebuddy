@@ -13,13 +13,15 @@ read whole. This spec exists to keep it that way.
 
 | Layer | Technology | Holds |
 |---|---|---|
-| Local | `shared_preferences` | Two JSON strings, `timebuddy.board.v1` and `timebuddy.preferences.v1`, plus the two dirty flags `timebuddy.dirty.board` and `timebuddy.dirty.preferences` |
+| Local | `shared_preferences` | Two JSON strings, `timebuddy.board.v1` and `timebuddy.preferences.v1`; the two dirty flags `timebuddy.dirty.board` and `timebuddy.dirty.preferences` (unversioned on purpose, rule 11); the guest marker `timebuddy.guest.v1` ([guest_mode.md](guest_mode.md)); and the web redirect note `timebuddy.auth.webRedirect.v1` ([auth.md](auth.md) rule 2) |
 | Remote | Firestore | `users/{userId}/settings/board` and `users/{userId}/settings/preferences`, under the profile document `users/{userId}` that [auth.md](auth.md) owns |
 
 The local keys are declared once in `StorageKeys` and the remote path segments
 once in `SyncKeys`, for one shared reason: a segment retyped at a second call
 site is how a build starts writing `users/{id}/setting/board` and reads an empty
-account forever.
+account forever. `timebuddy.auth.webRedirect.v1` is the one exception, declared
+on `AuthRepositoryImpl` so the note and the only code that reads it land
+together; it belongs in `StorageKeys` and moving it is a one-line change.
 
 **The JSON shape is identical on both sides.** One `BoardModel.toJson()` feeds
 both writers and one `fromJson` reads both; the same holds for
@@ -202,10 +204,18 @@ abstract class RemoteSettingsDataSource {
     version yet, so the two behave identically today; the moment a device-owned
     key exists, sign-out has to move to it.
 
-11. **The storage keys carry a version suffix** (`.v1`). A future breaking change
-    to the JSON shape writes `.v2` and leaves `.v1` untouched, so a downgrade
-    does not read a shape it cannot parse. The migration reads `.v1` once,
-    writes `.v2`, and never writes `.v1` again.
+11. **The storage keys that hold a parsed shape carry a version suffix**
+    (`.v1`). A future breaking change to the JSON shape writes `.v2` and leaves
+    `.v1` untouched, so a downgrade does not read a shape it cannot parse. The
+    migration reads `.v1` once, writes `.v2`, and never writes `.v1` again.
+
+    `timebuddy.board.v1`, `timebuddy.preferences.v1`, `timebuddy.guest.v1` and
+    `timebuddy.auth.webRedirect.v1` ([auth.md](auth.md) rule 2) all carry it.
+    **The two dirty flags deliberately do not**: `timebuddy.dirty.board` and
+    `timebuddy.dirty.preferences` hold no shape to version — the key's
+    *presence* is the whole fact, and the stored `'true'` exists so a developer
+    reading the store sees a word rather than an empty string. There is nothing
+    a `.v2` of a boolean could mean.
 
 12. **Revisions produced under two identities are not comparable.** The one
     call that reconciles a guest's documents into an account —
@@ -238,7 +248,15 @@ abstract class SyncService {
   /// Pulls both documents, reconciles them against local (rule 5), writes the
   /// winners to both sides, and flushes any dirty documents.
   /// Returns the reconciled board so callers do not re-read.
-  Future<Either<Failure, SyncOutcome>> sync({required String userId});
+  ///
+  /// [adoptGuestDocuments] switches the ladder off for this one call (rule 12
+  /// and guest_mode.md rules 6-8): an absent remote document is provisioned
+  /// from the guest's local copy, a present one wins outright. It is an
+  /// argument, not a mode: nothing on this service stays in it.
+  Future<Either<Failure, SyncOutcome>> sync({
+    required String userId,
+    bool adoptGuestDocuments = false,
+  });
 
   /// Flushes only the documents marked dirty. Called on resume.
   Future<void> flushDirty({required String userId});
@@ -257,7 +275,60 @@ class SyncOutcome extends Equatable {
   final ConflictWinner boardWinner;        // local | remote | none
   final ConflictWinner preferencesWinner;
 }
+
+/// Holds the signed-in account and performs the *background* half of an
+/// ordinary write (rule 2). The object rules 2 and 3 name, and the one both
+/// repositories take.
+class SyncCoordinator {
+  SyncCoordinator({
+    required RemoteSettingsDataSource remoteDataSource,
+    required LocalStore localStore,
+  });
+
+  /// Whether a push would reach an account at all. For a caller asserting the
+  /// session was attached; nothing in the write path asks.
+  bool get hasSession;
+
+  /// Attaches [userId]. Called wherever the session resolves — `AuthBloc`
+  /// reaching `Authenticated`, on a warm start as much as after a sign-in.
+  /// Repeating it with the same id is free, which is what lets the caller be
+  /// a state listener rather than a one-shot.
+  void startSession({required String userId});
+
+  /// Detaches it, on sign-out and account deletion (rule 10).
+  void endSession();
+
+  /// Uploads the document, or marks it dirty if that fails. Never throws.
+  Future<void> pushBoard(BoardEntity board);
+  Future<void> pushPreferences(PreferencesEntity preferences);
+}
 ```
+
+**Why the coordinator exists instead of a `userId` on the repository
+contracts.** The push needs an account id; the repositories do not. Threading
+one through `BoardRepository.save` would put it in the signature of every
+caller — `BoardCubit`, the settings page, `SyncServiceImpl`'s own reconciling
+re-save — and each would then resolve a session from `AuthBloc`, which is auth
+knowledge in layers with no business holding it. The account is session state,
+so exactly one session-scoped object holds it: set when auth resolves, cleared
+on sign-out, read only there. It is also what keeps a guest and a signed-in
+user on one code path ([guest_mode.md](guest_mode.md) rule 1) — signed out, a
+push simply does nothing and marks nothing.
+
+**Signed out is not dirty.** A document with no account to go to is not a write
+the server is owed, and a flag set then would be found by the *next* account's
+flush, pushing the previous user's data into it (rule 10).
+
+**Pushes are not queued behind each other.** Two quick edits fire two overwrites
+and the network may land them out of order, leaving the server briefly holding
+the older document. That is repaired, not lost: the newer copy carries the
+higher `revision`, so the next sync's ladder uploads it (rule 5). A per-document
+write queue would buy a shorter window at the price of an ordering mechanism
+this app has no other use for.
+
+Both `SyncCoordinator` and `SyncServiceImpl` read and write the two dirty flags
+through the same `SyncDirtyFlags` (`lib/core/sync/sync_keys.dart`), rather than
+each holding its own idea of what a dirty document is.
 
 `SyncServiceImpl` holds no `Clock`, and that is a rule rather than an omission:
 reconciliation never stamps a new `updatedAt` and never bumps a `revision`. The
@@ -265,7 +336,13 @@ winner is written to the losing side exactly as it was, so a sync cannot inflate
 the numbers it just compared and manufacture a conflict for the next one.
 
 `SyncOutcome` reports which side won so the UI can tell the user "your board was
-updated from another device" once, rather than silently swapping their list.
+updated from another device" once, rather than silently swapping their list —
+**contract, not yet wired**, the same standing as the resume block's second line
+below. Nothing reads `boardWinner` or `preferencesWinner` today, and the two
+strings written for it (`t.profile.boardUpdatedFromAnotherDevice` and
+`preferencesUpdatedFromAnotherDevice`) are orphaned. The fields are produced
+correctly and are cheap to carry; what is missing is the one call site that
+raises the notice.
 
 ---
 

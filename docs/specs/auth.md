@@ -22,7 +22,11 @@ UserEntity {
 }
 ```
 
-No computed properties. Equatable by all fields, plus `copyWith`.
+No computed properties. Equatable by all fields, plus
+`copyWith({..., bool clearPhotoUrl = false})`. The flag is the only way to
+*remove* a photo, because `photoUrl: null` cannot mean "clear it" and "leave it
+alone" at once; same shape as `CityEntity.clearAdmin1` and
+`PreferencesEntity.clearLocaleTag`.
 
 The user document carries **no app data**. The board and the preferences live in
 their own documents under `users/{userId}/settings/`, so a profile read is never
@@ -104,6 +108,22 @@ coupled to a board read. See [sync.md](sync.md).
    | closed the popup | `popup-closed-by-user`, `cancelled-popup-request`, `user-cancelled` | `GoogleSignInCancelled` | nothing: back to onboarding in silence (rule 5) |
    | would not open the popup | `popup-blocked`, `operation-not-supported-in-this-environment` | `GoogleSignInPopupUnavailable` | a redirect, automatically; nothing to do |
    | would not give Firebase storage | `web-storage-unsupported` | `GoogleSignInStorageBlocked` | `signInStorageBlockedFailure`, and **no** redirect: the round trip would only lose the state again, silently |
+   | failed in some fourth way | none — the throw is **not** a `FirebaseException` at all | `GoogleSignInPopupUnavailable` | a redirect, automatically |
+
+   The fourth row is a catch-all (`on Object catch` in `_authenticateWithPopup`)
+   and it is there because of a measured bug, not a hypothesis: in the deployed
+   web build a browser-blocked popup did not arrive as a `FirebaseException`,
+   so every branch of `_readPopupRefusal` was skipped and web sign-in
+   dead-ended with "didn't go through". Degrading to the documented flow beats
+   dead-ending, and `_redirectInstead` allows one attempt per session, so a
+   browser that cannot carry a redirect either still ends at a real message
+   rather than in a loop. The known cost, written down so nobody re-derives it:
+   **a network failure inside the popup also lands here** and silently spends a
+   full page load on a redirect before saying anything. The throw is logged to
+   `timebuddy.auth` (`_logPopupFallback`) precisely so a bug report can tell
+   the two apart. `on AuthException` is rethrown ahead of the catch-all — that
+   one is this class's own "the popup resolved with no user", a real failure
+   that a redirect would only hide behind a page load.
 
    Matched on `FirebaseException.code` rather than on `FirebaseAuthException`,
    whose constructor is `@protected` and cannot be built by a test. The code is
@@ -156,11 +176,31 @@ coupled to a board read. See [sync.md](sync.md).
    state *change* left for a listener to fire on: a snackbar raised from there
    would be shown to nobody, on precisely the failure this rule exists for.
 
-3. **First sign-in provisions everything.** A new user gets, in one flow: the
-   Firestore profile document, a board seeded with `homeZoneId` from
-   `deviceZoneId()` and an empty location list, and a preferences document with
-   defaults. Provisioning is idempotent, so a retry after a partial failure
-   completes rather than duplicating.
+3. **First sign-in provisions the profile document, and only that.**
+   `AuthRemoteDataSourceImpl.ensureProfile` reads `users/{userId}`, returns it
+   untouched when it exists, and merge-writes it when it does not. That read
+   before the write is what makes it idempotent: a retry after a partial
+   failure finds the document and stops, instead of writing a second one. The
+   merge, rather than an overwrite, is so two devices signing in at the same
+   moment cannot blank each other. An existing profile is deliberately *not*
+   refreshed from the Auth credentials, because a refresh here would silently
+   undo a rename on every sign-in.
+
+   **The board and the preferences documents are not written here.** This rule
+   used to claim they were — "a board seeded with `homeZoneId` from
+   `deviceZoneId()`, and a preferences document with defaults" — and neither
+   half was true: no such method exists (the engine exposes
+   `Future<DeviceZone> deviceZone()`), and provisioning those two documents
+   belongs to `SyncService`, which already treats a missing remote document as
+   `revision: -1` and uploads the local one. See [sync.md](sync.md),
+   Provisioning. A second writer with its own idea of the defaults is how two
+   devices end up disagreeing about an empty board, which is why the split is
+   deliberate rather than pending.
+
+   The home zone still comes from the device — it is the local board's default,
+   resolved through `deviceZone()` when the board document is first created —
+   but that happens whether or not anyone ever signs in. See
+   [locations.md](locations.md).
 
 4. **Sign-in is resilient to a Firestore outage.** If Firebase Auth succeeds and
    Firestore does not, the repository returns a minimal profile built from the
@@ -213,10 +253,13 @@ coupled to a board read. See [sync.md](sync.md).
 
 ## Repository Contract
 
+**Shipped.** `AuthRepositoryImpl` takes `remoteDataSource`, `localStore` and
+`guestSession`.
+
 ```dart
 abstract class AuthRepository {
-  /// Google-only sign-in. Provisions profile, board and preferences on first
-  /// use (rule 3). Degrades to a minimal profile if Firestore is down (rule 4).
+  /// Google-only sign-in. Provisions the profile document on first use
+  /// (rule 3). Degrades to a minimal profile if Firestore is down (rule 4).
   Future<Either<Failure, UserEntity>> signInWithGoogle();
 
   /// Signs out and clears the local cache (rule 7).
@@ -227,7 +270,32 @@ abstract class AuthRepository {
   /// Stream of session changes. Emits null when signed out.
   Stream<UserEntity?> get authStateChanges;
 }
+```
 
+**Behavior:**
+
+- `signInWithGoogle` → Auth, then `ensureProfile` (rule 3). On web it also owns
+  rule 2's flow policy: popup first, redirect only as a fallback, and only
+  while the redirect is still believed to work here.
+- `signOut` → remote sign-out, then `_clearLocalData()`, which is
+  `LocalStore.clearAll()` **followed by `GuestSession.enter()`**. The order is
+  load-bearing: `clearAll()` removes the guest marker too, so entering guest
+  mode has to come after the wipe, never before it
+  ([guest_mode.md](guest_mode.md) rule 9). A signed-out user lands in the app
+  on an empty board rather than back on an onboarding tour they have already
+  read. Both calls are inside one swallowing `try`: the remote session is
+  already gone by then, so failing the sign-out would strand the UI as signed
+  in against a Firebase that has signed out.
+- `getCurrentUser` → redirect note, Auth session check, profile fetch,
+  self-heal (rule 8). It is the only place the partitioned-storage case can be
+  seen, so it answers `Left(signInStorageBlockedFailure)` there rather than
+  `Right(null)`.
+- `authStateChanges` → delegates to the datasource stream, mapped defensively.
+
+### ProfileRepository — planned, not shipped
+
+```dart
+// Planned. No such class exists in lib/ today.
 abstract class ProfileRepository {
   Future<Either<Failure, UserEntity>> getProfile(String userId);
   Future<Either<Failure, UserEntity>> updateProfile(UserEntity user);
@@ -237,19 +305,17 @@ abstract class ProfileRepository {
 }
 ```
 
-**Behavior:**
+`deleteAccount` would delete `users/{userId}` and its `settings`
+subcollection, then the Auth user, idempotently.
 
-- `signInWithGoogle` → Auth, then provision (rule 3), then local cache write.
-  On web it also owns rule 2's flow policy: popup first, redirect only as a
-  fallback, and only while the redirect is still believed to work here.
-- `signOut` → remote sign-out, then `clearLocalData()`.
-- `getCurrentUser` → redirect note, Auth session check, profile fetch,
-  self-heal (rule 8). It is the only place the partitioned-storage case can be
-  seen, so it answers `Left(signInStorageBlockedFailure)` there rather than
-  `Right(null)`.
-- `authStateChanges` → delegates to the datasource stream, mapped defensively.
-- `deleteAccount` → deletes `users/{userId}` and its `settings` subcollection,
-  then the Auth user. Idempotent.
+This is a design decision already taken rather than a suggestion, and the code
+is shaped to receive it: `ProfilePage` takes an optional `deleteAccount`
+callback and the router passes `const ProfilePage()`, so the Delete account
+row is on screen with nothing behind it and falls through to
+`t.auth.deleteAccountFailed`. `ensureProfile` also names
+`ProfileRepository.updateProfile` as the future owner of `name`, which is why
+it returns an existing profile untouched instead of refreshing it from the Auth
+credentials — a rename must survive the next sign-in.
 
 **Failure markers.** `AuthFailure` is `final` and `Failure` is sealed, so a
 subtype cannot be declared for these; each marker travels in the
@@ -288,10 +354,41 @@ needs a memory that outlives the page and only the repository has one.
 | `name` | `name` | `String`, defaults to `'User'` when empty |
 | `email` | `email` | `String`, defaults to `''` |
 | `photoUrl` | `photoUrl` | `String?` |
-| `createdAt` | `createdAt` | `Timestamp` to UTC `DateTime` |
+| `createdAt` | `createdAt` | `Timestamp`, `int` millis or an ISO `String`, all to UTC `DateTime`; anything else to the epoch |
+
+`_createdAtFrom` accepts three encodings rather than one because the profile
+travels two ways: `Timestamp` is what this model writes to Firestore, and the
+`int` / `String` arms cover a document that came through the JSON path shared
+with `shared_preferences` ([sync.md](sync.md)), so a profile copied between the
+two sides never needs converting. An unreadable value becomes the **epoch**,
+not "now", for the same reason `timestampFromJson` does it: a timestamp nobody
+can read must not be able to pass itself off as freshly written.
+
+A snapshot that does not exist parses to an all-defaults profile rather than
+throwing; callers check `snapshot.exists` where the difference matters, which
+is what makes provisioning idempotent (rule 3).
+
+**Two other constructors**, both taking plain values so the model stays free of
+`firebase_auth`:
+
+- `UserModel.fromAuth({id, name, email, photoUrl, createdAt})` — the profile
+  Auth alone can vouch for. This is what a first sign-in writes and what rule 4
+  falls back to when Firestore is unreachable: every field came from the token
+  that was just verified, so it is accurate, merely not yet durable. It applies
+  the same `'User'` / `''` defaults and normalises `createdAt` to UTC.
+- `UserModel.fromEntity(UserEntity)` — a straight lift, for a caller holding a
+  domain object that has to be serialized.
 
 **Model to Firestore (`toJson`):** all fields except `id`; `createdAt` as a
 `Timestamp`; `photoUrl` written even when null.
+
+**`copyWith` carries `bool clearPhotoUrl = false`.** `photoUrl: null` cannot
+mean "clear it" and "leave it alone" at once, so removing a photo needs its own
+flag — the same shape as `CityEntity.clearAdmin1` and
+`PreferencesEntity.clearLocaleTag`. It pairs with `toJson` writing `photoUrl`
+even when null: every write to this document is a merge, so an omitted field is
+left untouched and a user who removed their Google picture would otherwise keep
+the stale URL forever.
 
 ---
 
@@ -300,6 +397,29 @@ needs a memory that outlives the page and only the repository has one.
 ### AuthBloc
 
 Singleton, provided app-wide.
+
+**Collaborators:** `AuthBloc({required AuthRepository repository, required
+SyncCoordinator syncCoordinator})`.
+
+The coordinator is not decoration. `onChange` attaches and detaches the account
+the background pushes write to: every `Authenticated` calls
+`syncCoordinator.startSession(userId:)` and every `Unauthenticated` calls
+`endSession()`, blocked diagnosis or not — a sign-in the browser blocked is
+still nobody signed in. Two states deliberately do **not** end the session:
+
+- `AuthError`, because a failed sign-out means the user is still signed in
+  (Edge Cases). Detaching there would strand pending writes while the account
+  is very much alive.
+- `AuthLoading`, because Firebase publishes a null user while the Google dialog
+  is open, and treating that as a sign-out would drop the session in the middle
+  of signing in.
+
+It lives in `onChange` rather than in a widget-tree listener because this is
+the one place that sees every terminal auth state, including the one a warm
+start produces before any widget has mounted. A listener would have to seed
+itself from the current state as well, and forgetting that is a silently
+signed-out coordinator: edits keep working, they just stop reaching the server
+([sync.md](sync.md) rules 2 and 3).
 
 **Events:** `AuthCheckRequested`, `AuthGoogleSignInRequested`,
 `AuthSignOutRequested`, `AuthUserChanged(user)` (internal, from the
@@ -362,11 +482,16 @@ say. Honouring it would erase the verdict a few frames before onboarding mounts
 to read it. The next attempt clears it instead: `AuthLoading` is the first
 thing a sign-in emits.
 
-### ProfileCubit
+### ProfileCubit — planned, not shipped
 
-Session-scoped.
+No such class exists in `lib/` today, and neither does the `ProfileRepository`
+it would read (see the Repository Contract). `ProfilePage` renders straight off
+`AuthBloc`'s `Authenticated.user`, which is enough for a page that only shows
+the name, address and photo the session already carries. The cubit is what a
+`getProfile` / `updateProfile` round trip would need, and it lands with them.
 
 ```dart
+// Planned.
 ProfileInitial
 ProfileLoading
 ProfileLoaded({ user: UserEntity })
@@ -461,10 +586,29 @@ under it if and only if `request.auth.uid == userId`.
 
 ## i18n
 
-Copy under `t.auth.*`: `onboardingTitle1..3`, `onboardingBody1..3`,
-`signInWithGoogle`, `signInFailed`, `signInStorageBlocked`,
-`signInPopupBlocked`, `signOut`, `signOutConfirm`, `deleteAccount`,
-`deleteAccountConfirm`, `deleteAccountWarning`.
+Copy under `t.auth.*`, complete: `onboardingTitle1..3`, `onboardingBody1..3`,
+`onboardingSkip`, `onboardingNext`, `onboardingSkipHint`, `signInWithGoogle`,
+`signInFailed`, `signInStorageBlocked`,
+`signInPopupBlocked`, `signOut`, `signOutConfirm`, `signOutConfirmBody`,
+`signOutFailed`, `deleteAccount`, `deleteAccountConfirm`,
+`deleteAccountWarning`, `deleteAccountFailed`, `continueAsGuest`,
+`continueAsGuestHint`, `guestTitle`, `guestBody`, `signInToSave`.
+
+`signInCancelled` was in this list and is **deleted**. Rule 5 makes a dismissed
+dialog a non-event — no snackbar, no state change, nothing said — so a string
+apologising for it could never be rendered without contradicting the rule
+above it. The `signInCancelledMarker` / `isSignInCancelled` pair in the
+datasource table is a different thing and stays: that is how the *code* names
+the condition, not something a user reads.
+
+Four of the last five belong to rule 1's guest path and are rendered:
+`continueAsGuest` / `continueAsGuestHint` on onboarding, `guestTitle` /
+`guestBody` on the profile page (and `guestBody` again as the settings identity
+subtitle when there is no session). See [guest_mode.md](guest_mode.md).
+**`signInToSave` has no call site** — it is dead copy, kept rather than deleted
+because the prompt it was written for is still wanted. `deleteAccountFailed` is the string
+`ProfilePage` shows today for **every** attempt, because nothing supplies the
+`deleteAccount` callback yet (Repository Contract).
 
 Rule 2's two strings must each say what to **do**. Saying only that something
 failed is `signInFailed`, and being told a thing failed with no next move is
@@ -498,6 +642,11 @@ a marker string.
 - `AuthRepository`: provisioning is idempotent (rule 3), Firestore outage yields
   a minimal profile (rule 4), sign-out clears local data (rule 7), self-heal on a
   missing profile (rule 8), stream error yields null (rule 9).
+- `OnboardingPage` (`presentation/pages/onboarding_page_test.dart`): the guest
+  escape is offered on the first slide *and* on the sign-in slide, the action
+  block does not grow the page past its box, a signing-in state replaces every
+  control with a spinner, and entering guest mode leaves onboarding for the
+  grid ([guest_mode.md](guest_mode.md)).
 - Platform branches (web vs mobile sign-out, rule 6; popup vs plugin, rule 2)
   are covered by injecting a platform flag rather than by `kIsWeb` at the call
   site, so both paths are testable. A test binary is never a browser, so
@@ -538,8 +687,15 @@ rather than imported. It is a persisted key: a rename is a storage change that
 strands the note a redirect already wrote, so it has to be a deliberate edit on
 both sides.
 
-Mocks in `test/harness/mocks.dart`: `MockFirebaseAuth`, `MockGoogleSignIn`,
-`FakeFirebaseFirestore` (via `fake_cloud_firestore`), `MockLocalStore`.
+**Mocks.** `test/harness/mocks.dart` carries only `MockLocalStore` of the ones
+this feature needs (plus `MockAuthBloc`, for widget tests of pages that read
+the session). The Firebase doubles are **private to
+`auth_repository_impl_test.dart`** — `_MockAuthRemoteDataSource`,
+`_MockFirebaseAuth`, `_MockFirebaseUser`, `_MockUserMetadata`,
+`_MockUserCredential`, `_MockGoogleSignIn`, `_MockGoogleSignInAccount`, and
+`_CountingFirestore` over `FakeFirebaseFirestore` (via `fake_cloud_firestore`)
+for the read-count assertions — because one file uses them and a shared mock
+for a boundary with a single consumer is a harness entry nobody can delete.
 `FirebaseAuthException` is never constructed in a test: its constructor is
 `@protected`: so browser refusals are staged as
 `FirebaseException(plugin: 'firebase_auth', code: …)`, which is what the data

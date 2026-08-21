@@ -1,6 +1,6 @@
 # Roadmap
 
-Last reviewed: 2026-08-20.
+Last reviewed: 2026-08-21.
 
 Three states: **Done**, **In progress**, **Planned**. Planned items are ordered
 by priority and each links to the spec that defines it. An item is only Done when
@@ -204,34 +204,30 @@ stays declined while one repair path is enough; the fourth still waits on a
   build deployed to <https://guilhermeeng99.github.io/timebuddy/>.
 
 Four M3 items did not ship. None of them is quietly folded into the list above,
-because each is a promise the specs still make:
+because each is a promise the specs still make. The fourth was **Android Google
+sign-in, which had no signing fingerprint on the Firebase project**; it was
+closed on 2026-08-20 by the keystore work recorded under Done below, so it has
+left this list rather than sitting here struck through — the entry that closed
+it says what it was.
 
-- **Android Google sign-in cannot work yet: no SHA-1 is registered on the
-  project.** `android/app/google-services.json` carries exactly one OAuth
-  client and it is `client_type: 3`, the web one; there is no `client_type: 1`
-  entry and no `certificate_hash` anywhere in the file, which is what Firebase
-  writes once a signing fingerprint exists. A real Android build therefore
-  fails the Google flow with `ApiException: 10 (DEVELOPER_ERROR)`, an error
-  that says nothing about fingerprints. Web sign-in does not check an app
-  signature, which is exactly why the deployed build works and this stayed
-  invisible. The fix is console-side and takes a minute:
-  `cd android && ./gradlew signingReport`, add the debug SHA-1 (and the release
-  keystore's before publishing) under Project settings → Your apps → Android,
-  then re-download the file ([firebase_setup.md](firebase_setup.md) step 5).
 - **The tzdata release in Settings → About is still a dash**
   ([specs/timezone_engine.md](specs/timezone_engine.md) rule 12), for the third
   milestone running and still for M1's reason: the `timezone` package does not
   expose the release it embeds, and features may not import it directly. The
-  constant in `settings_page.dart` carries the `TODO` and an honest `, ` rather
-  than a hardcoded `2026a` that goes stale without anyone noticing. It waits on
+  constant in `settings_page.dart` carries the `TODO` and an honest em dash
+  rather than a hardcoded `2026a` that goes stale without anyone noticing. It waits on
   a `TimeZoneEngine` that can report the release it loaded.
-- **The profile page has no in-app entry point.** `/profile` exists as a route
-  and renders correctly, but nothing navigates to it: `TimeBuddySidebar` takes
-  a `profile` slot and `AppShell` passes nothing into it, and the settings page
-  still carries an M2-era comment saying its Account group is absent "until
-  M3". So the identity block, the sign-out button and the passive sync
-  indicator are reachable only by typing the URL. One line in the shell and one
-  row in settings close it.
+- ~~**The profile page has no in-app entry point.**~~ **Closed** — see the
+  guest-mode entry below, which added the Account group in Settings, and the
+  Financo design pass, which turned the rail's foot into `SidebarProfileTile`
+  and the settings entry into an identity card. Both navigate to `/profile`.
+  The original wording is kept because it is what the milestone shipped
+  knowing: `/profile` existed as a route and rendered correctly, but nothing
+  navigated to it — `TimeBuddySidebar` took a `profile` slot and `AppShell`
+  passed nothing into it, and the settings page still carried an M2-era comment
+  saying its Account group was absent "until M3", so the identity block, the
+  sign-out button and the passive sync indicator were reachable only by typing
+  the URL.
 - **Account deletion is a confirmation dialog with nothing behind it.**
   `ProfilePage` takes an optional `deleteAccount` callback and the route builds
   the page without one, so a user who works through the deliberately harder
@@ -243,10 +239,97 @@ because each is a promise the specs still make:
 One more thing worth naming rather than rediscovering.
 [specs/sync.md](specs/sync.md) rules 2 and 3 describe a push after every
 *ordinary* local write, and rule 9 lists three trigger points for a full sync.
-What is verified in the tree at this entry is the startup sync and the
-`flushDirty` on resume; the write-through path that carries rules 2 and 3 lands
-with this milestone's integration, and there is no pull-to-refresh control on
-any page yet.
+The write-through path that carries rules 2 and 3 **is** in the tree:
+`SyncCoordinator` is a constructor argument of both `BoardRepositoryImpl` and
+`PreferencesRepositoryImpl`, so an ordinary local write pushes behind itself
+and marks the document dirty when it cannot. What is still open of rule 9's
+three trigger points is the narrower half, and both are about **pulling**. The
+`AppLifecycleState.resumed` hook in `app_widget` calls `flushDirty`, which
+pushes what a failed write left behind and reads nothing, so a resume does not
+notice a change another device made while the app was backgrounded. And there
+is **no pull-to-refresh control on any page** — no `RefreshIndicator` anywhere
+in `lib/` — so a user who suspects the other device has moved ahead can only
+relaunch.
+
+### M4: Planning tools
+
+- 2026-08-20 (`1ac4d32`): **The three pages the board and the grid were built
+  to feed.** The world clock, the time converter and a meeting planner all
+  shipped together, with the nav growing to five destinations to hold them.
+  → [specs/world_clock.md](specs/world_clock.md),
+  [specs/time_converter.md](specs/time_converter.md)
+
+  The **world clock** is the glance view to the grid's compare view: the home
+  clock as a hero block, then the board in board order, every tile carrying its
+  relative offset from home, a day/night dot off `hourBandFor` and a
+  `Tomorrow` / `Yesterday` marker when the local date differs from the user's.
+  It is the first screen `DayNightDot` has had since M2. The **converter**
+  answers one point-in-time question — "15:00 on 12 March in Lisbon" against
+  the whole board — and its value is entirely in the dates far from now, where
+  today's DST rules do not apply: a local time that does not exist on a
+  spring-forward date, or happens twice on a fall-back one, is disclosed above
+  the results with a toggle for the second occurrence, never silently answered
+  as a different question. The **meeting planner** is described in the entry
+  below that deletes it; it never gained an entry point that outlived the
+  milestone.
+
+  Shipped in the same commit and not a planning tool: the **web sign-in
+  banner**. A blocked popup and a browser that drops third-party storage both
+  used to fail silently; both are now named, because one is something the user
+  can allow and the other something they work around by switching browsers. A
+  deliberately cancelled dialog still says nothing (auth.md rule 5).
+
+  Two things found while doing it, and in both the spec was wrong and the code
+  won:
+
+  - `world_clock.md` asked for a `TickerService` subscriber count of **1**,
+    which contradicts its own Performance section: `ClockText` subscribes per
+    set of digits by design, so a hero over N tiles is N+1 subscribers. The
+    invariant that is actually true and worth pinning is that the app runs
+    exactly **one `Timer`** and `TickerService` owns it — which `flutter_test`'s
+    pending-timer check enforces for free, at no cost in test code.
+  - `design_system.md` still described a three-item bottom bar. Five was
+    *measured* to fit at 375px (327 for the pill, 176 collapsed, 151 expanded)
+    and a test now measures it rather than asserting a number someone typed.
+
+  723 tests passing, `flutter analyze` clean.
+
+### Android release signing
+
+- 2026-08-20 (`1ac4d32`, `f36fb77`, `10da8da`): **Android Google sign-in works,
+  and a release build is a shippable artifact.** This closes the first of M3's
+  four unshipped items, which said no SHA-1 was registered on the Firebase
+  project and that a real Android build therefore failed the Google flow with
+  `ApiException: 10 (DEVELOPER_ERROR)` — an error naming neither fingerprints
+  nor the file they live in.
+  → [android_release.md](android_release.md),
+  [firebase_setup.md](firebase_setup.md) step 5
+
+  It took three commits because it is three separate facts. The **debug**
+  keystore's SHA-1 was registered with M4, which is what unblocked sign-in on a
+  development build. Then the release build type turned out to still be signing
+  with the debug key — the `TODO` the Flutter scaffold leaves behind — so
+  `f36fb77` wired release signing to a gitignored `android/key.properties`,
+  falling back to debug only when that file is absent so a fresh clone and CI
+  still build; the fallback is documented as a convenience and never a shipping
+  path. Finally `10da8da` generated the release keystore and registered *its*
+  fingerprint, verified with `apksigner` against the built APK
+  (`CN=TimeBuddy`, SHA-1 `44e42a6d…`). `android/app/google-services.json` now
+  carries two `client_type: 1` entries with a `certificate_hash` each, which is
+  what Firebase writes once a fingerprint exists.
+
+  The keystore and its passphrase are deliberately not in this repository:
+  `android/.gitignore` excludes `*.jks` and `key.properties`, and only the
+  regenerated `google-services.json` is committed, which holds no secret.
+
+  **What is still outstanding is the step that matters most**, and it is in M5
+  rather than here: Play App Signing. Google re-signs uploaded apps with a key
+  it holds, so neither fingerprint above is what an installed app presents, and
+  sign-in works in a local release build while failing for everyone who installs
+  from the store. `android_release.md` leads with it for that reason.
+
+  726 tests passing, `flutter analyze` clean. This was also the project's first
+  end-to-end Android build.
 
 ### Guest mode
 
@@ -279,9 +362,18 @@ any page yet.
   replace time zone and remove-with-undo. The nav is four destinations again.
   → [specs/time_grid.md](specs/time_grid.md), [specs/locations.md](specs/locations.md)
 
-  This closes two M2 deferrals that had been carried for three milestones:
-  "row actions and reordering from the grid" and the strings `t.grid.rowAction*`
-  that shipped in both locales with no call site. M2 declined them because the
+  This closes the M2 deferral that had been carried for three milestones: "row
+  actions and reordering from the grid". It did **not** close the other half
+  of that entry at the time — `t.grid.rowActionSetHome`, `rowActionRemove` and
+  `rowActionReplaceZone` went on shipping in both locales with no call site,
+  while the sheet that finally does the job renders `t.locations.setAsHome`,
+  `t.locations.replaceZone` and `t.common.remove` instead. The audit of
+  2026-08-21 deleted the three orphans. The reason they were never wired is
+  recorded on `row_actions_sheet.dart` itself: the copy is the board's
+  whichever screen opened the sheet, because one sheet that renamed its own
+  actions depending on its caller would be two vocabularies for three
+  operations. The three `t.grid.*` strings are therefore dead and should be
+  deleted from both locale files. M2 declined the feature because the
   label column is 96px on a phone and the vertical drag belonged to the row
   list; what changed is that the lift is a **long press** on touch (a mouse
   drags immediately), so it costs no pixels and resolves on a criterion the
@@ -453,17 +545,118 @@ any page yet.
   The three directions are kept as a design canvas rather than in the tree.
   759 tests passing, `flutter analyze` clean.
 
+### The cells scroll, the ruler points
+
+- 2026-08-21: **A horizontal drag over the grid pans the hour track, and the
+  cursor moved onto the header's columns**, at the owner's request: the drag
+  was the gesture a timeline most needs and it was being spent on a marker
+  nobody had asked to move, so the hours past the right edge were reachable
+  only by widening the window.
+  -> [specs/time_grid.md](specs/time_grid.md) rule 16
+
+  The rows are still not `Scrollable`s — each would get its own
+  `ScrollPosition` and the board would tear into N independently scrolled
+  timelines, which is the bug the single-controller design exists to prevent.
+  The page hands its drag to the header's position through
+  `ScrollPosition.drag`, the same call `Scrollable` makes internally, so the
+  cells inherit the platform's physics whole: the fling after the finger
+  lifts, the clamp at both ends, the overscroll indicator. A `jumpTo` loop
+  would have been four lines shorter and would have stopped dead on release.
+
+  Two things found while doing it, neither of them the feature:
+
+  - `dragCancelCallback` is not a place to cancel the drag. It runs from
+    inside `ScrollDragController.dispose`, so ending the drag there re-enters
+    the disposal it was called from; the first run of the new tests died on a
+    `StackOverflowError` twenty frames deep. It only forgets the reference,
+    exactly as `Scrollable._disposeDrag` does.
+  - Making the ruler's columns tappable put a tap in the header's gesture
+    arena, so its drag recognizer now waits out the touch slop and — being
+    `DragStartBehavior.start` — discards it. Ordinary Flutter behaviour for a
+    scrollable with tappable children, but it silently shortened every
+    `tester.drag` on the strip by 20px, which the resize test noticed because
+    it was written to land on a *fractional* column and suddenly landed on a
+    different one.
+
+  `GridLayout.columnAt` went with the change: mapping a pointer to an hour was
+  the cursor drag's, and nothing in `lib/` asked for it afterwards. The
+  cells carry no tap handler at all now, which also means no ink response —
+  an affordance that splashes and does nothing is worse than one that does
+  not splash. 732 tests passing, `flutter analyze` clean.
+
+  **What this does not fix, and it is worth being precise.** The window is the
+  reference day plus three hours either side (rule 3), so on a 1920pt screen
+  all thirty columns already fit and there is nothing to pan to. Panning is
+  what a narrower window needed; reaching *further into tomorrow* on a wide
+  one is `flankSlots`, and that number has not moved.
+
+### The audit
+
+- 2026-08-21: **A full-project audit in four parallel passes** — documentation
+  freshness, test health, code cleanliness, and dependency status. It is
+  recorded here because most of what it found was in the documents rather than
+  in the code, and a log that only notes code changes would leave the reader
+  wondering why three files moved at once.
+
+  The documents had drifted a milestone behind the tree. `CLAUDE.md` still said
+  Firebase was not in `pubspec.yaml`, still predicted `AuthBloc` and
+  `StartupCubit` "joining the singletons in M3" and `WorldClockCubit` and
+  `TimeConverterCubit` "joining the page-scoped cubits in M4", and still
+  described a `main` that warmed the city catalog it does not touch. Its
+  architecture tree listed four of the nine feature modules. `README.md` still
+  called the world clock and the converter unbuilt and still carried the
+  Android sign-in caveat that had been closed the day before. This file still
+  named the meeting planner as in-flight work a hundred lines after recording
+  its deletion. All three are now reconciled against the tree, and the one
+  genuinely new thing in `CLAUDE.md` is the **web build command**: the
+  mandatory `--no-tree-shake-icons` existed only inside a comment in the CI
+  workflow, so a local release build silently rendered empty boxes with nothing
+  to read about why.
+
+  Four changes in code came out of it, all small and all recorded so the
+  reasoning survives the diff:
+
+  - **`zoneOrHome(id, home)` is deleted.** It silently substituted the home zone
+    for an id that did not resolve, which [specs/locations.md](specs/locations.md)
+    rule 11 forbids: an unresolved row is kept and flagged, never quietly
+    replaced. A board row showing someone else's clock and no sign of it is
+    exactly the plausible-looking wrong answer the timezone rules exist to
+    prevent. `zoneOrNull(id)` stays and is the one sanctioned lookup.
+  - **`context.popOrGo` is wired up.** It had been written, documented and
+    tested with zero call sites since M1. `TimeBuddyLargeAppBar` now takes an
+    optional `fallbackRoute`, and with one set it renders the back chevron even
+    on an empty navigator stack and closes through `popOrGo` — which is the
+    deep-linked case the helper was written for and the case that had no user.
+  - **`formatGridHour` is extracted**, and with it the grid's 24-hour rule
+    stops being an accident of where the code sits and becomes something
+    written down. The grid's cells and its header ruler are **always 24h**: a
+    24-column ruler in 12h prints `03` twice and a 48-60pt column has nowhere
+    to put the am/pm that would tell them apart. Everywhere else the user's
+    preference still wins through `formatClock`.
+  - `ZoneRef.requestedId` and `wasAliased` are **kept and re-documented
+    honestly**. The intent was that a caller rewrite a stale stored id instead
+    of paying for the same alias lookup every launch. No caller does. They stay
+    because the information is free where it is known and unrecoverable later,
+    but `CLAUDE.md` no longer implies anyone uses them.
+
+  **The one thing the audit could not fix is the tzdata gap**, which has a date
+  on it and is now recorded under Open risks below rather than in a report
+  nobody re-reads.
+
 ---
 
 ## In progress
 
-- **M4: planning tools.** M3 is done and deployed, so the next milestone is the
-  three pages the board and the grid were built to feed: the world clock, the
-  meeting planner and the converter. Two of M2's deferred grid details belong
-  here rather than to a polish pass: row actions and reordering from the grid,
-  and the DST explanation sheet behind `DstBadge`'s waiting `onTap`: because
-  the planner reopens the grid's interaction surface anyway, and `DayNightDot`
-  has been waiting for the world clock since M2.
+- **M5: release.** M4 is done and deployed and the planner is deleted, so what
+  is left is the release pass: items 13 and 15 to 17 below, and the Play App
+  Signing step from [android_release.md](android_release.md) that item 14 now
+  reduces to.
+- **The DST explanation sheet** (`t.grid.dstExplainTitle` / `dstExplainBody`),
+  the last of M2's four deferred details still open. `DstBadge` has carried an
+  `onTap` with nothing behind it since M2 and the strings have shipped in both
+  locales just as long. Its original reason for waiting — that the planner
+  would reopen the grid's interaction surface anyway — is gone with the
+  planner, so it is now an ordinary piece of grid polish and belongs to item 15.
 
 ---
 
@@ -472,26 +665,84 @@ any page yet.
 Numbering continues from M2's and M3's items 1 to 9, which are now under Done,
 so an item number still points at the piece of work it always did.
 
-### M4: Planning tools (target: 2026-10-07)
+### M4: Planning tools — closed 2026-08-20, ten weeks early
 
-10. World clock page. → [specs/world_clock.md](specs/world_clock.md)
-11. Meeting planner mode, summary panel, best-slot suggestion, copy to clipboard.
-    → `specs/meeting_planner.md` (since deleted)
-12. Time converter page. → [specs/time_converter.md](specs/time_converter.md)
+10. ~~World clock page.~~ **Done**, see M4 under Done.
+11. ~~Meeting planner mode, summary panel, best-slot suggestion, copy to
+    clipboard.~~ **Dropped.** It shipped with the rest of M4 and was deleted the
+    next day; the two entries under Done say why. Marked rather than removed,
+    because the number is what older entries and commit messages cite.
+12. ~~Time converter page.~~ **Done**, see M4 under Done.
 
 ### M5: Release (target: 2026-10-21)
 
 13. PWA manifest, install prompt and offline shell, plus deep-link routes
     verified against the published site. The hosting itself is already done
     (see Done), so what remains here is the app-level polish.
-14. Android release build, adaptive icon, Play Store listing assets. The release
-    keystore's SHA-1 has to reach the Firebase console with it, or the signed
-    build's Google sign-in fails the way the debug one does today (see M3).
+14. Adaptive icon and Play Store listing assets. The signing half of this item
+    is done — release signing is wired and both the debug and the release
+    fingerprints are registered on the Firebase project (see Android release
+    signing under Done) — so what is left of it is **Play App Signing**: Google
+    re-signs an uploaded app with a key it holds, so the fingerprint the
+    installed app presents is Google's and not the one registered today. Sign-in
+    then works in a local release build and fails for every store install, which
+    is the worst possible time to find out.
+    → [android_release.md](android_release.md) step 5
 15. Empty, loading and error states audited on every page.
 16. Light and dark checked against all 20 palettes.
 17. Accessibility pass: contrast on every hour band, screen-reader labels for the
     grid (a table of colored cells is the hardest part of this app to make
     accessible, and it needs its own decision before release).
+
+---
+
+## Open risks
+
+Unlike a deferred decision, an item here has a date attached and gets worse if
+it is left alone.
+
+### The shipped tzdata is 2025c, and Morocco breaks on 2026-09-20
+
+**This is the only finding in the repository with a deadline.** All of it is
+measured rather than assumed.
+
+`timezone: ^0.11.1` resolves to **0.11.1**, which is the latest published
+release (2026-06-29), and it embeds IANA tzdata **2025c** — the package's own
+`lib/data/latest_all.dart` says so on line 2. Upstream IANA is at **2026c**
+(2026-07-08). There is no upgrade to take: the newest version of the package
+carries the old data, so `flutter pub upgrade` changes nothing here.
+
+What the gap costs, in cities that are in the shipped catalog:
+
+| Zone | Change | Effect |
+|---|---|---|
+| `Africa/Casablanca`, `Africa/El_Aaiun` | Morocco goes to permanent UTC on **2026-09-20** | The app reads **one hour off, indefinitely**, from that date on |
+| `America/Vancouver` | British Columbia went permanent −07 (2026b) | Wrong across the transition dates 2025c still believes in |
+| `America/Edmonton` | Alberta went permanent −06 (2026c) | Same |
+| `Europe/Chisinau` | Moldova's transition times corrected (2026a) | Wrong at the transition |
+
+The Morocco one is the reason this is a risk rather than a chore: it is not a
+twice-a-year edge, it is a permanent one-hour error starting on a known date,
+and it looks entirely plausible on screen — which is the same failure mode rule
+4 of [specs/timezone_engine.md](specs/timezone_engine.md) exists to prevent, one
+layer further up.
+
+Two options, and only two:
+
+1. **Wait for a `timezone` release carrying 2026c.** Free, and it may well
+   arrive before September. It is a bet on someone else's release cadence, with
+   no fallback if it does not land.
+2. **Stop depending on the embedded dataset.** The package ships the tooling to
+   build one: `tool/get.dart` fetches a release and `tool/encode_tzf.dart`
+   encodes it, and the result is a `.tzf` shipped as an ordinary asset and
+   loaded through the **public** `initializeDatabase(Uint8List)` instead of
+   `latest_all.dart`'s `initializeTimeZones()`. This is more work once and
+   removes the dependency permanently — and it also hands rule 12 the thing it
+   has been waiting on since M1, because a dataset we generate is a release we
+   know the name of and can print in Settings → About.
+
+Decide before **2026-09-20**. If option 1 has not paid off by early September,
+option 2 is the one that meets the date.
 
 ---
 
@@ -552,9 +803,17 @@ Recorded here so they are not re-litigated in every review.
   That is what stops the catalog offering cities whose clocks quietly fall back
   to UTC, which reads as a plausible time and is wrong by an hour for half the
   year.
-- **Full vs trimmed tzdata on web.** Roughly 500 KB of bundle against pre-1970
-  historical accuracy. Must be decided before the M5 web deploy
-  ([specs/timezone_engine.md](specs/timezone_engine.md), Open questions).
+- **Full vs trimmed tzdata on web.** ~~Must be decided before the M5 web
+  deploy~~ — **decided, and the spec is where it lives now.**
+  [specs/timezone_engine.md](specs/timezone_engine.md), Open questions, opens
+  with "Decided, kept here for the record" and measures all three datasets:
+  `latest_10y.dart` (~65 KB) keeps about a decade of transitions and therefore
+  answers historical converter queries wrong, which rules it out for a tool
+  whose converter advertises dates far from now; `latest.dart` (~250 KB, 341
+  zones) drops the `Link` lines; the engine ships `latest_all.dart` (~435 KB,
+  598 names). Revisit only if the web bundle becomes a real constraint, and
+  measure before touching it. What is *not* settled is which **release** that
+  dataset carries — see Open risks below.
 - **Widgets / complications** (home-screen clock on Android). Different runtime,
   different design system, its own project phase.
 - **RTK tooling.** The Financo repo carries an RTK instructions block in its

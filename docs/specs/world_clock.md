@@ -41,8 +41,15 @@ engine, different question.
    sleeping city should look asleep.
 
 8. **A tile flags active DST.** `DstBadge` renders when `stateAt().isDst` is
-   true, and tapping it explains when the zone next changes, from
-   `nextTransition`.
+   true.
+
+   **Tapping it opens the location detail sheet** — the same sheet rule 9
+   describes, which already carries `nextTransition`. There is no dedicated
+   "explain DST" sheet and this rule no longer asks for one: the badge is
+   handed the tile's own `onTap`, so a thumb landing on the badge and a thumb
+   landing anywhere else on the tile reach the same place. One sheet with the
+   fact in it beats two surfaces stating one fact, and the badge stays a
+   reporter that never navigates (design_system §6).
 
 9. **Tapping a tile opens the location detail sheet**: full date, zone id, offset
    from UTC, offset from home, next DST transition, and actions (set as home,
@@ -61,23 +68,56 @@ engine, different question.
 
 ```dart
 WorldClockTile {
-  location:     SavedLocationEntity (required)
-  localTime:    DateTime  (required, wall-clock in the row's zone at nowInstant)
-  offsetFromHome: Duration (required, may be negative and may carry minutes)
-  dayDelta:     int       (required, -1 | 0 | 1 relative to the home local date)
-  band:         HourBand  (required)
-  isDst:        bool      (required)
-  abbreviation: String    (required, e.g. "IST")
+  location:       SavedLocationEntity (required)
+  localTime:      DateTime  (required, wall-clock in the row's zone at nowInstant)
+  offsetFromUtc:  Duration  (required, e.g. +05:45; rendered by OffsetBadge)
+  offsetFromHome: Duration  (required, may be negative and may carry minutes)
+  dayDelta:       int       (required, relative to the home local date)
+  band:           HourBand  (required)
+  isDst:          bool      (required)
+  abbreviation:   String    (required, e.g. "IST")
+  isHome:         bool      (required, this row's zone is the reference zone)
+  isUnresolved:   bool      (required, the stored id matches no tzdata entry)
 }
 
 WorldClockViewModel {
-  nowInstant: DateTime               (required, UTC)
-  home:       WorldClockTile         (required)
-  tiles:      List<WorldClockTile>   (required, board order, may be empty)
+  nowInstant:         DateTime             (required, UTC)
+  home:               WorldClockTile       (required)
+  tiles:              List<WorldClockTile> (required, board order, may be empty)
+  homeHasBoardRow:    bool                 (required)
+  homeZoneUnresolved: bool                 (required)
 }
 ```
 
-`BuildWorldClockUseCase(board, nowInstant, preferences)` is pure and synchronous.
+`dayDelta` is **not** clamped to `-1 | 0 | 1`. Pacific/Kiritimati (`+14:00`) and
+Pacific/Niue (`-11:00`) are 25 hours apart and really do land two calendar days
+apart for one hour a day; the widget names only `±1` and shows the bare date
+otherwise, which is honest, where clamping would print "Yesterday" for a day
+before yesterday.
+
+`homeHasBoardRow` is `false` when the hero stands in for a zone the user never
+saved — home is a zone id, not a row (locations.md rule 3) — and the detail
+sheet then hides "remove", because there is nothing to remove.
+`homeZoneUnresolved` is what the page banners on, rather than quietly
+presenting UTC as the user's own city.
+
+```dart
+BuildWorldClockUseCase({required TimeZoneEngine engine}).call({
+  required BoardEntity board,
+  required WorkingHours workingHours,
+  required DateTime nowInstant,
+  required String homeFallbackLabel,
+});
+```
+
+Pure and synchronous, and it takes `nowInstant` rather than a `Clock` so every
+rule above is pinnable by a unit test at a real transition. It takes
+`WorkingHours` rather than the whole preferences document, because the band is
+the only preference it reads. `homeFallbackLabel` **arrives already localized**:
+it names the hero on a board whose home zone has no row of its own, and the
+domain has no catalog to look a city up in — `America/Sao_Paulo` is an
+identifier, not a label.
+
 Only `nowInstant` changes per tick, so the use case is cheap to re-run, but the
 cubit still recomputes only what changed (see Performance).
 
@@ -87,8 +127,11 @@ cubit still recomputes only what changed (see Performance).
 
 ### WorldClockCubit
 
-Page-scoped. Depends on `BoardCubit`, `PreferencesCubit`, `TimeZoneEngine`,
-`Clock`, `TickerService`.
+Page-scoped. Depends on `BoardCubit`, `PreferencesCubit`,
+`BuildWorldClockUseCase`, `TimeZoneEngine`, `Clock`, `TickerService` — all six
+required by the constructor. The use case is injected rather than constructed
+here for the usual reason: it is pure, so one instance serves the whole app and
+the cubit does not build one per rebuild.
 
 ```dart
 sealed class WorldClockState extends Equatable
@@ -147,10 +190,22 @@ There is no `WorldClockEmpty`: an empty board is a valid `Ready` with an empty
 
 ## i18n
 
-Copy under `t.worldClock.*`: `title`, `sameTime`, `tomorrow`, `yesterday`,
-`dstActive`, `nextTransition(date)`, `emptyCta`, `detailZoneId`,
-`detailOffsetUtc`, `detailOffsetHome`, `actionSetHome`, `actionRemove`,
-`actionOpenInGrid`.
+Copy under `t.worldClock.*`, complete: `title`, `sameTime`, `tomorrow`,
+`yesterday`, `dstActive`, `nextTransition(date)`, `emptyTitle`, `emptyMessage`,
+`emptyCta`, `detailZoneId`, `detailOffsetUtc`, `detailOffsetHome`,
+`actionRemove`, `actionOpenInGrid`.
+
+There is deliberately no `actionSetHome` here. It existed, held the same
+sentence as `t.locations.setAsHome` in both locales, and was deleted: setting
+the home city is a board mutation, so the detail sheet renders the board's own
+word for it. Two live screens reading two keys for one action is how the two
+drift, and the user learns two vocabularies for one gesture.
+
+The three `empty*` keys are one block on a board with no saved cities — a
+headline, a message and the CTA, not a CTA alone. It renders *under* the home
+hero rather than in place of it (rule 11), which is why it is a local column
+and not `FeatureEmptyState`: that widget owns a whole screen, and this page
+already has a clock on it.
 
 ---
 

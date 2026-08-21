@@ -1,8 +1,9 @@
 # Locations & Board Spec
 
 The board is the user's list of places. Every other feature reads it: the grid
-draws one row per location, the world clock one tile per location, the planner
-and converter use it as their target set.
+draws one row per location, the world clock one tile per location, and the
+converter uses it as its target set. (The meeting planner was a fourth reader;
+it has been deleted.)
 
 This spec owns the saved-location entity, the city catalog behind the search, and
 the `BoardCubit` that is the single source of truth for "which places is this
@@ -128,11 +129,17 @@ off the board at once.
 
 ## Business Rules
 
-1. **There is one board per install.** No shared board, no public board, and in
-   M2 no user id either: the document is local-only until M3 attaches the sync
-   layer, so nothing in this feature takes an id it could not resolve. There is
-   no `AuthBloc` to resolve one from yet, and a parameter no implementation can
-   fill is a lie the compiler cannot catch.
+1. **There is one board per install, and nothing in this feature takes a user
+   id.** No shared board and no public board. The document is written locally
+   and *mirrored* to the account, never addressed by account: the id that
+   mirroring needs is session state and lives in `SyncCoordinator`, so no
+   entity, repository method or cubit in this feature carries one. See the
+   Repository Contract.
+
+   This rule used to say "local-only until M3 attaches the sync layer… there is
+   no `AuthBloc` to resolve one from yet". The sync layer attached; the shape
+   did not change, which is why the rule now reads as a decision rather than as
+   a wait.
 
 2. **A location is identified by its zone, not by its city.** Adding "Sao Paulo"
    and then "Rio de Janeiro" (both `America/Sao_Paulo`) is **rejected** with a
@@ -243,28 +250,45 @@ abstract class CityCatalogRepository {
 }
 ```
 
-**No `userId`, and both signatures local-only.** M2 has one board per install
-(rule 1), and the read path and the durability path are both
-`shared_preferences`. The remote half arrives in M3, and it is what grows the
-parameters: both methods take a `userId`, `load` takes a `forceRefresh` for the
-reconciling read, and `save` keeps returning success on a failed remote write.
-Carrying those now would mean shipping a `userId` no implementation can use and
-a `forceRefresh` that refreshes nothing.
+**No `userId`, and the signatures did not grow when the remote half landed.**
+This spec used to predict that sync would add a `userId` to both methods and a
+`forceRefresh` to `load`. Sync shipped and neither happened, because the account
+is *session* state: `SyncCoordinator` (`lib/core/sync/sync_coordinator.dart`)
+holds it, `BoardRepositoryImpl` takes the coordinator and hands it the saved
+document, and no caller of this contract has to know who is signed in. A
+`userId` here would have travelled into every one of them — the cubit, the
+settings page, the sync service's own re-save — and made each resolve a session
+from `AuthBloc`. It is also what keeps a guest and a signed-in user on one code
+path ([guest_mode.md](guest_mode.md) rule 1).
+
+`forceRefresh` never arrived either, for a sharper reason: there is no
+reconciling read on this contract at all. `SyncService` owns the conflict
+ladder for both documents and writes the winner back into local storage, so a
+screen calling `load` after a sync already reads the reconciled copy. A `load`
+that pulled the remote copy itself would be a second owner of that ladder.
+[preferences.md](preferences.md) records the same decision for its own
+repository.
 
 **Bumping `revision` and stamping `updatedAt` is the caller's job**, not the
 repository's. `BoardCubit` does it in one place for every mutation. A repository
 that restamped would inflate the very revision a sync is trying to reconcile.
 
-**Cache strategy (M2):**
+**Cache strategy:**
 
 - `load` reads `shared_preferences` only, so the app opens with no network wait.
   Nothing written yet means an empty board seeded from `homeZoneIdFallback` and
   persisted at once (rule 3).
-- `save` writes `shared_preferences` and echoes the board back. A refused write
-  is a `StorageFailure` the caller must handle, because the state has already
-  moved (see State Machine).
-- The reconciling read, the dirty flag and the remote write are M3. See
-  [sync.md](sync.md).
+- `save` writes `shared_preferences` first and that write decides the answer. A
+  refused write is a `StorageFailure` the caller must handle, because the state
+  has already moved (see State Machine).
+- The remote write runs **behind** that answer: `save` hands the board to
+  `SyncCoordinator.pushBoard` without awaiting it, because a reorder that waited
+  on a Firestore round trip would freeze the list for as long as the network
+  felt like taking. A failed remote write is never a `Left` — the coordinator
+  swallows it and sets the dirty flag, and `SyncService` retries on the next
+  start, sync or resume. See [sync.md](sync.md) rules 2, 3 and 4.
+- A build with no signed-in account behaves exactly like a signed-out one: the
+  local write lands and nothing is marked dirty.
 
 ---
 
@@ -272,7 +296,8 @@ that restamped would inflate the very revision a sync is trying to reconcile.
 
 `BoardModel` extends `BoardEntity`. The same JSON shape is used for
 `shared_preferences` today and for Firestore from M3, so there is one
-serializer, not two. The stored document lives under the versioned key
+serializer, not two — `shared_preferences` locally and Firestore remotely. The
+stored document lives under the versioned key
 `timebuddy.board.v1`.
 
 | JSON field | Dart field | Notes |
@@ -323,9 +348,17 @@ BoardLoaded({ board: BoardEntity, unresolvedIds: Set<String>, isSyncing: bool })
 BoardError({ failure: Failure })
 ```
 
-`unresolvedIds` holds **zone ids**, not row ids (rule 11). `isSyncing` is always
-`false` in M2 and carried anyway, so the passive sync indicator can be wired
-without reshaping this state.
+`unresolvedIds` holds **zone ids**, not row ids (rule 11).
+
+**Nothing sets `isSyncing`.** It defaults to `false` and no code path in `lib/`
+ever passes anything else. It was carried in anticipation of the passive sync
+indicator, and the indicator arrived somewhere else: `SyncStatusRow` subscribes
+to `SyncService.status` directly, because the status belongs to the sync layer
+and a board state that mirrored it would be a second copy of one fact — one
+that goes stale for every screen not looking at the board. The field stays
+because the shape it reserves is still the right one if a board-local
+"uploading" affordance is ever wanted, and because removing it from `props` is
+a change to state equality; nothing in the app reads it today.
 
 **Transitions:**
 
@@ -436,7 +469,7 @@ rows and does so lazily.
   device zone and an empty `locations` list, and written to storage at once
   (rule 3). The empty state invites the first add.
 - **First launch, device zone detection failed** → `deviceZone()` answers `UTC`
-  with `isFallback: true`, and that is what seeds the board. M2 shows no
+  with `isFallback: true`, and that is what seeds the board. There is still no
   dedicated prompt: `UTC` resolves, so it is a working reference rather than a
   broken one, and the grid's home-zone banner is reserved for an id that does
   not resolve at all. The `pickHomeTitle` / `pickHomeMessage` copy is in place
@@ -469,21 +502,22 @@ rows and does so lazily.
   searchable. Finding 499 of 500 cities beats finding none.
 - **Search query is a raw zone id with wrong casing** (`asia/tokyo`) → normalized
   and matched, rule 10.
-- **Two devices reorder concurrently** → M3. Last write wins by `revision`; see
-  [sync.md](sync.md). The losing device's order is overwritten on its next sync.
+- **Two devices reorder concurrently** → last write wins by `revision`
+  ([sync.md](sync.md) rule 6). The losing device's order is overwritten on its
+  next sync. This is behaviour now, not a plan.
 
 ---
 
 ## Storage
 
-**M2, the only path that exists today:** one `shared_preferences` string under
-`timebuddy.board.v1`, holding `homeZoneId`, `locations[]`, `revision` and
-`updatedAt`. A document that is not even a JSON object is reported as a
-`StorageFailure` rather than silently replaced, so the repository decides
-whether to seed or to surface it; a malformed *row* inside a readable document
-never throws.
+**The read path**, and the one every screen depends on: one
+`shared_preferences` string under `timebuddy.board.v1`, holding `homeZoneId`,
+`locations[]`, `revision` and `updatedAt`. A document that is not even a JSON
+object is reported as a `StorageFailure` rather than silently replaced, so the
+repository decides whether to seed or to surface it; a malformed *row* inside a
+readable document never throws.
 
-**M3 adds the mirror,** in the same JSON shape so one serializer feeds both:
+**The remote mirror**, in the same JSON shape so one serializer feeds both:
 
 **Document:** `users/{userId}/settings/board`
 
@@ -496,17 +530,33 @@ Read and written by document id only. No composite indexes. See
 
 ## i18n
 
-All copy under `t.locations.*`:
+All copy under `t.locations.*`. Rendered today:
 
-- `t.locations.title` / `addTitle`
-- `t.locations.emptyTitle` / `emptyMessage` / `emptyCta`
-- `t.locations.countLabel(count, max)` / `reorderHint`
+- `t.locations.addTitle`
+- `t.locations.countLabel(count, max)`
 - `t.locations.searchHint` / `searchNoResults`
 - `t.locations.duplicateZone(city)` / `boardFull(max)`
 - `t.locations.removed(city)` / `undo`
 - `t.locations.unresolvedZone` / `replaceZone`
 - `t.locations.setAsHome` / `homeLabel`
-- `t.locations.pickHomeTitle` / `pickHomeMessage`
+
+**Dead copy**, kept in the JSON but with no call site anywhere in `lib/`:
+
+- `t.locations.title`, `emptyTitle`, `emptyMessage`, `emptyCta` and
+  `reorderHint` are **deleted**, along with `t.nav.locations`. All six belonged
+  to the **Cities page**, which was removed (see the top of this spec): the
+  grid and the world clock draw their own empty states from their own
+  namespaces, and reordering is a long-press on a grid row with no hint line
+  above it. Copy kept against a screen that is not coming back is copy every
+  future translator prices twice.
+- `t.locations.pickHomeTitle` / `pickHomeMessage` — reserved, not orphaned:
+  they are the copy for the "device zone was not detected" prompt described
+  under Edge Cases, written ahead of the screen that will show them.
+
+Neither group is deleted here. A translated string costs nothing to keep and
+the Cities set is the exact copy a future manage-board screen would ask for;
+what matters is that nobody reads this list and assumes a page exists behind
+it.
 
 The row actions sheet reuses `t.common.remove`, and a write that simply did not
 land falls back to `t.common.errorBody`: the board has already rolled back, so
@@ -552,12 +602,14 @@ horizontal drag over the hours that must move the cursor and **not** the row.
   cached, and for search: accent folding, alias match, raw and partial zone id
   match, rank ordering, the prominence tie-break, country and state matches,
   `limit`, and the curated default list.
-- `locations_page_test.dart` and `add_location_sheet_test.dart`: the rendered
-  board order and home badge, the placeholder and empty states, retry after a
-  failed load, reorder in final positions, remove with a working undo, an
-  unresolved row kept and repairable, and in the sheet the default list, accent
-  and alias search, a committed selection, and the duplicate and cap refusals
-  shown without closing it.
+- `add_location_sheet_test.dart`: the default list, accent and alias search, a
+  committed selection, and the duplicate and cap refusals shown without closing
+  the sheet. The board-rendering half of this bullet — order and home badge,
+  placeholder and empty states, retry after a failed load, reorder in final
+  positions, remove with a working undo, an unresolved row kept and repairable
+  — moved with the page, and is now in
+  `test/features/time_grid/presentation/pages/time_grid_page_test.dart` (see
+  the note above this list).
 
 Factories: `aSavedLocation()` and `aBoard()` in
 `test/harness/factories/board_factory.dart`. There is no city factory: a

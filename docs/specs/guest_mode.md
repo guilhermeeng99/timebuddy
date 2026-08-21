@@ -46,7 +46,7 @@ and on every deep link to `/#/clocks`.
 
 ## Business Rules
 
-1. **A guest uses the entire app.** Grid, world clock, converter, planner,
+1. **A guest uses the entire app.** Grid, world clock, converter,
    board mutations and every preference work exactly as they do for a signed-in
    user, because all of them already read and write the local documents and
    none of them takes a `userId`. Nothing is disabled, watermarked or
@@ -147,9 +147,22 @@ class GuestSession extends ChangeNotifier {
 forgotten. The first `_redirect` runs before the first frame, and a guest whose
 marker had not landed yet would be sent to onboarding.
 
-A `StorageException` on read is treated as "not a guest": a device that cannot
-read cannot be trusted to have stored consent, and onboarding is a recoverable
-place to be wrong.
+**A refused read keeps the value already in memory**, and does not notify.
+`restore()` catches `on Object` — not `StorageException` alone, because a
+platform channel can fail in ways the store never wrapped — and returns without
+touching `_isGuest`. On the path that matters, the one `configureDependencies()`
+runs before the first redirect, that value is still the initial `false`, so the
+effect is the documented "a device that cannot read cannot be trusted to have
+stored consent, and onboarding is a recoverable place to be wrong". Stated as
+"keeps the previous value" rather than "sets false" because a *second*
+`restore()` after `enter()` would not un-guest the visitor, and a reader
+building on the shorter sentence would get that wrong.
+
+`enter()` and `leave()` swallow a refused write for the mirror-image reason:
+the in-memory value is what the router reads, so a browser in private mode
+still gets to use the app — it just meets onboarding again next launch. Both
+await the store *before* notifying, so a listener that reacts by navigating
+cannot outrun the marker it depends on.
 
 ---
 
@@ -218,3 +231,55 @@ signed in --(sign-out: clearAll, then enter)--------> guest, empty board
 - **Two guests share a browser.** They share a board, because a guest has no
   identity to key one by. The only remedy is signing in, which is what the
   Account group in Settings offers.
+
+---
+
+## i18n
+
+Guest mode added four keys, all under `t.auth.*` rather than a namespace of its
+own — a guest is a state of the account offer, not a feature with copy of its
+own, and a `t.guest.*` namespace would put "continue without an account" one
+scroll away from the button it sits beside:
+
+| Key | Where |
+|---|---|
+| `continueAsGuest` | the "continue without an account" control on every onboarding slide (rule 3) |
+| `continueAsGuestHint` | the `Tooltip` wrapping that control, so the consequence of skipping the account is available without the button label having to carry it |
+| `guestTitle` | the identity block on `/profile` when there is no session (rule 10) |
+| `guestBody` | the line under it, and the same string again as the settings identity row's subtitle — one sentence, not two that drift |
+
+`t.auth.signInToSave` was written for a prompt that would offer the account at
+the moment a guest's data is most at risk. It has **no call site**: see
+[auth.md](auth.md), i18n.
+
+Nothing here is conditional on a *feature*: rule 1 means no screen renders
+different copy for a guest, so there are no `t.<feature>.guest*` strings and
+there must not be.
+
+---
+
+## Testing
+
+`test/core/session/guest_session_test.dart`, 11 tests over the whole object.
+`GuestSession` is tested directly against a `MockLocalStore` rather than
+through a repository, because there is no repository (see Repository Contract):
+
+- the initial value, before anything is read;
+- **`restore`**: the marker is read from the device; an absent key means no
+  guest session; a refused read leaves the visitor a non-guest; and an
+  unchanged value does not notify — a `ChangeNotifier` wired into
+  `AppRouter.refreshListenable` that notifies on every hydrate would re-run the
+  redirect for nothing on every boot;
+- **`enter`**: it writes the marker and notifies; it is idempotent; and it
+  still enters when the device refuses the write (private mode);
+- **`leave`**: it removes the marker and notifies, and does nothing when there
+  was no guest session;
+- `adoptionAttempted` does not survive a `restore`, which is rule 8's
+  loop-breaker being in-memory on purpose.
+
+The two rules that span objects are pinned where they act, not here:
+adoption's three behaviours in
+`test/features/startup/presentation/cubit/startup_cubit_test.dart`
+(`group('adopting a guest who signed in')`, rules 6-8), and the onboarding
+escape in
+`test/features/auth/presentation/pages/onboarding_page_test.dart` (rule 3).

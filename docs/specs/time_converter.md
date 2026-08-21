@@ -2,9 +2,10 @@
 
 "It is 15:00 on 12 March in Lisbon. What time is that everywhere else?"
 
-The converter answers one point-in-time question. Unlike the grid it is not
-anchored to today, and unlike the planner it has no range. Its whole value is
-correctness on dates far from now, where DST rules differ from the current ones.
+The converter answers one point-in-time question: one instant, not a range, and
+unlike the grid it is not anchored to today. Its whole value is correctness on
+dates far from now, where DST rules differ from the current ones. (The meeting
+planner, which this spec used to contrast itself with, has been deleted.)
 
 ---
 
@@ -43,13 +44,23 @@ correctness on dates far from now, where DST rules differ from the current ones.
    future projections are guesses and presenting them as answers is
    overconfident. The picker enforces the bound.
 
-9. **The result set is copyable** through the same
-   `FormatMeetingTextUseCase`-style path (a `FormatConversionTextUseCase`), so
-   the pasteable output looks consistent with the planner's.
+9. **The result set is copyable — unbuilt.** There is no
+   `FormatConversionTextUseCase`, no clipboard call in the page, and
+   `t.converter.copy` / `copied` are orphaned strings. The rule is kept because
+   the feature is still wanted; what is dropped is its old justification, which
+   pointed at the deleted planner's `FormatMeetingTextUseCase` for a house
+   style that no longer exists. Whoever builds this now sets the format rather
+   than matching one.
 
-10. **The converter holds no persisted state.** Its inputs live in the cubit and
-    die with the page. Only the last-used source zone is remembered, in
-    preferences, because retyping it every visit is friction.
+10. **The converter holds no persisted state, and that now includes the source
+    zone.** Its inputs live in the cubit and die with the page.
+
+    This rule used to promise that the last-used source zone was remembered in
+    preferences. It is not: `PreferencesEntity` has no such field, and the
+    cubit re-derives the source from the board's home zone on every visit
+    (rule 2). Unbuilt rather than abandoned — retyping it is still friction —
+    but a spec claiming a persisted field that does not exist is worse than one
+    that admits the default.
 
 ---
 
@@ -68,6 +79,7 @@ ConversionLine {
   localTime:  DateTime (required)
   dayDelta:   int      (required, relative to the source's local date)
   offsetFromSource: Duration (required)
+  offsetFromUtc:    Duration (required)
   band:       HourBand (required)
   isDst:      bool     (required)
   abbreviation: String (required)
@@ -81,6 +93,19 @@ ConversionResult {
   lines:      List<ConversionLine> (required, board order minus the source zone)
 }
 ```
+
+`offsetFromUtc` is carried so the copy path (rule 9) and any absolute badge do
+not re-ask the engine for something the result already holds. It is a snapshot
+of `(zone, instant)`, never an identity — nothing may cache it past this
+result.
+
+`ConversionResult` exposes two derived predicates rather than making the page
+re-read the enum: `isDisclosed` (`resolution != exact`, so the page owes a
+banner, rules 4 and 5) and `isAmbiguous` (`resolution == ambiguousFirst`, so
+the banner carries the toggle). `resolution` describes the *local time*, not
+which occurrence was picked: `input.ambiguousPick` says that. The engine's enum
+deliberately has no `ambiguousSecond`, because it would make every caller
+handle a value that answers a different question.
 
 ---
 
@@ -107,14 +132,25 @@ Page-scoped.
 
 ```dart
 sealed class TimeConverterState extends Equatable
+ConverterPreparing
 ConverterReady({ result: ConversionResult })
 ConverterError({ failure: Failure })
 ```
 
-There is no loading state: every input change recomputes synchronously from
-in-memory data. A spinner for a microsecond of arithmetic is worse than none.
+**There is no loading state for a conversion**: every input change recomputes
+synchronously from in-memory data, and a spinner for a microsecond of
+arithmetic is worse than none. `ConverterPreparing` is not that state and the
+distinction is worth keeping. It covers the frames before the *board* has
+resolved — a document that really may still be arriving — and the page renders
+a shimmer for it exactly as the grid and the world clock do. **No setter ever
+emits it**, which is what stops a later change quietly turning it into a
+spinner over a keystroke.
 
 ```
+(init) ──────────────────────────────────────→ ConverterPreparing
+ConverterPreparing ──board loaded─────────────→ ConverterReady(result)
+                   ──board failed─────────────→ ConverterError(failure)
+
 (init) ──defaults from home + next half hour──→ ConverterReady(result)
 
 ConverterReady ──setSourceZone(zoneId)──→ ConverterReady(recomputed)
@@ -124,8 +160,12 @@ ConverterReady ──setSourceZone(zoneId)──→ ConverterReady(recomputed)
                ──stepDay(±1)────────────→ ConverterReady(recomputed)
                ──resetToNow()───────────→ ConverterReady(defaults)
                ──board changed──────────→ ConverterReady(recomputed)
-               ──copy()─────────────────→ ConverterReady + clipboard + snack
+               ──copy()─────────────────→ unbuilt (rule 9); no such method
 ```
+
+`setDate` and `stepDay` return a `bool` rather than emitting: `false` is rule
+8's refusal, and the page turns it into the out-of-range snackbar. A refusal is
+not a state.
 
 `ConverterError` is reachable only if the board itself failed to load; the page
 then shows `ErrorView`.
@@ -134,15 +174,30 @@ then shows `ErrorView`.
 
 ## UI
 
-- Source block: `TimeBuddyPickerField` (zone), `TimeBuddyDateField`,
-  `TimeBuddyTimeField`, laid out in one `TimeBuddySection(card: true)`.
+Written against the shipped widgets. `TimeBuddyDateField`, `TimeBuddyTimeField`,
+`StaticTimeText` and `TimeBuddySubmitBar` are all still `planned` in
+[design_system.md](design_system.md) §6 and none of them exists; an earlier
+draft of this section named them as though they did.
+
+- Source block: **one `TimeBuddySection`** holding three
+  `TimeBuddyPickerField`s — zone, date and time. One widget for all three
+  because they are the same thing in a form: a tap-to-open row holding a value
+  the user picked. The date and time pickers are Material's own, opened from
+  the field's `onTap`.
+- Day stepper chevrons flank the date field, so "same time tomorrow" is one
+  tap. Stepping past rule 8's bound is a no-op with the `outOfRange` snackbar,
+  never a chevron that silently does nothing.
+- The section's `trailing` slot carries the `resetToNow` button.
 - A disclosure banner above the results when `resolution != exact` (rules 4 and
-  5), with the ambiguity toggle when applicable.
-- Results are a list of rows: `LocationRow` on the left, `StaticTimeText` plus
-  date and `OffsetBadge` on the right, band tint at 8% alpha as the row
-  background.
-- Day stepper chevrons flank the date field, so "same time tomorrow" is one tap.
-- Copy action in a `TimeBuddySubmitBar`.
+  5), carrying a `TimeBuddyPillToggle` between `ambiguousFirst` and
+  `ambiguousSecond` when the local time is ambiguous.
+- Results are `ConversionResultList`: one row per line, `LocationRow` on the
+  left, the wall clock through `formatClock` plus its date on the right, and
+  the row background tinted from `hourBandColor` — the same band-to-token table
+  the grid's cells use.
+- A board holding only the source renders the `needMoreCities` note instead of
+  an empty list.
+- No copy affordance: rule 9 is unbuilt.
 
 ---
 
@@ -169,10 +224,13 @@ then shows `ErrorView`.
 
 ## i18n
 
-Copy under `t.converter.*`: `title`, `sourceLabel`, `dateLabel`, `timeLabel`,
-`resultTitle`, `shiftedForwardNotice(requested, shown)`,
+Copy under `t.converter.*`, all rendered: `title`, `sourceLabel`, `dateLabel`,
+`timeLabel`, `resultTitle`, `shiftedForwardNotice(requested, shown)`,
 `ambiguousNotice(zone)`, `ambiguousFirst`, `ambiguousSecond`, `resetToNow`,
-`copy`, `copied`, `outOfRange(years)`, `needMoreCities`.
+`outOfRange(years)`, `needMoreCities`.
+
+`copy` and `copied` also exist in the JSON and are **orphaned**: they are rule
+9's copy, waiting for rule 9.
 
 ---
 

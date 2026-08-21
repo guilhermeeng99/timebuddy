@@ -23,11 +23,16 @@ user's last reference date, which is view state, not data.
    pinned          scrollable hour track, aligned to the reference row
 ```
 
-- **Pinned first column** (`GridMetrics.labelColumnWidth`): the `LocationRow`
-  identity block. Never scrolls horizontally.
-- **Hour track**: one `HourCell` per slot, `GridMetrics.hourColumnWidth` each.
+- **Pinned first column** (`GridLayout.labelColumnWidth`, resolved per surface:
+  `GridMetrics.labelColumnWidth` 180 normally, `denseLabelColumnWidth` 128 on a
+  phone): the `LocationRow` identity block. Never scrolls horizontally.
+- **Hour track**: one `HourCell` per slot, `GridLayout.hourColumnWidth` each —
+  resolved from the available track at layout time, *not* the constant
+  `GridMetrics.hourColumnWidth`, which the grid stopped reading (rule 12).
   Only the header strip is a horizontal `Scrollable`; every row draws its cells
   at the offset the header publishes, so header and rows cannot drift apart.
+  A drag over the cells still pans the track — it is handed to that same
+  `ScrollPosition` rather than to a second one (rule 16).
 - **Header strip**: the reference **zone's** hour numbers plus the date label.
   Read from the zone and not from the home row, because home is a zone and is
   not required to be a board row (locations rule 3): a header fed by a row would
@@ -78,10 +83,35 @@ user's last reference date, which is view state, not data.
    working window is a user preference ([preferences.md](preferences.md)),
    default 09:00 to 17:00. No hour color is decided in a widget.
 
-8. **The cursor is a single shared value.** Hovering or tapping any cell sets
-   `cursorInstant`; every row highlights the cell containing that instant. On
-   touch it follows drag; on pointer it follows hover; with a keyboard, left and
-   right arrows move it one slot and `Home` returns it to now.
+8. **The cursor is a single shared value, and the ruler is where a pointer
+   sets it.** Tapping a column of the header strip sets `cursorInstant`; every
+   row then highlights the cell containing that instant. With a keyboard, left
+   and right arrows move it one slot and `Home` returns it to now.
+
+   **The cells set nothing**, and that is the trade rule 16 pays for. Placing
+   the cursor by tapping or dragging a cell is the obvious design and it was
+   the one shipped first; it also spends the one gesture a horizontal timeline
+   most needs, and a user who could not reach hour 22 without resizing their
+   window was being charged for a cursor they had not asked to move. The ruler
+   is a real target — a full column, above the row it labels — and it is the
+   surface a user already reads to find an hour.
+
+   **The ruler's hours are always 24-hour, whatever the user's `ClockFormat`.**
+   Both surfaces route through `formatGridHour(localTime)` in
+   `lib/core/utils/time_formatter.dart` — `GridHeaderColumn` for the ruler,
+   `HourCell` for the cells below it — so the two can never pad their digits
+   differently. This is the **one sanctioned exception** to "every time goes
+   through `formatClock()`" (CLAUDE.md, UI & Formatting), and the reason is
+   width: a 24-column ruler in 12-hour form prints `03` twice a day with no
+   room for an am/pm marker in a 48–60pt column, so the honest choices were a
+   duplicated label or an unreadable one. `formatGridHour` also renders the
+   `14:30` form for a zone whose offset is not a whole hour (rule 5); the
+   minutes are per cell, not per row, because Lord Howe grows its `:30`
+   halfway through a row.
+
+   The user's 12h/24h preference is untouched by this and still governs every
+   *clock* in the app — the world clock's digits, the converter's result rows,
+   the settings preview.
 
 9. **"Now" is always visible as a distinct marker,** separate from the cursor: a
    `primary` vertical line at the exact fractional position of the current
@@ -135,9 +165,9 @@ user's last reference date, which is view state, not data.
     fixed hour the moment the column width became a function of the viewport.
 
     Numbered 15 rather than slotted in beside rule 12 on purpose: rules 13 and
-    14 are cited by name from six places in `lib/`, and renumbering a spec to
-    keep it tidy is how those citations quietly start pointing at the wrong
-    rule.
+    14 are cited by name from five places in `lib/` (the sixth went with
+    `GridLayout.columnAt`), and renumbering a spec to keep it tidy is how those
+    citations quietly start pointing at the wrong rule.
 
     The published offset is also re-broadcast unconditionally in that same
     post-frame callback, as a guard rather than as the main event: when a
@@ -147,6 +177,36 @@ user's last reference date, which is view state, not data.
     offset while the header painted at the corrected one. In practice the
     rescale gets there first and notifies for it; the guard costs an
     assignment and removes the need to reason about the ordering.
+
+16. **A drag over the cells pans the track.** The rows are not `Scrollable`s
+    and must not become them: each would get its own `ScrollPosition` and the
+    board would tear itself into N independently scrolled timelines, which is
+    the bug the single-controller design exists to prevent (Performance). So
+    the page's own horizontal drag recognizer hands its gesture to the
+    header's position through `ScrollPosition.drag`, the same call
+    `Scrollable` makes internally. The cells therefore inherit the platform's
+    physics whole — the fling after the finger lifts, the clamp at both ends,
+    the overscroll indicator — rather than a `jumpTo` scrub that would stop
+    dead on release and know nothing about either end of the content.
+
+    **The pan refuses a drag that starts left of `labelColumnWidth`.** That
+    strip is the row lift's, and the two would otherwise arrive in one arena.
+
+    Two consequences worth naming rather than rediscovering. The ruler's
+    columns became tap targets in the same change, so the header's drag
+    recognizer now shares an arena with a tap: it waits out the touch slop and
+    discards it, which is ordinary Flutter behaviour for a scrollable with
+    tappable children and is why `time_grid_responsive_test.dart` adds
+    `kDragSlopDefault` back when it drags to an exact column. And a cell that
+    answers no tap is a cell with no ink response, which is correct: an
+    affordance that splashes and does nothing is worse than one that does not
+    splash.
+
+    The ruler's own labels are **always 24-hour**, in both surfaces — see rule
+    8, which is where that lives.
+
+    (This rule was first written into the State Machine section by mistake and
+    has been moved here, keeping its number and its text.)
 
 ---
 
@@ -286,8 +346,9 @@ and `todayInHomeZone` (rule 11, never the device's date).
 
 | Input | Result |
 |---|---|
-| Tap a cell | Sets the cursor to that slot |
-| Drag horizontally on the cells area | Moves the cursor continuously |
+| Tap an hour in the header strip | Sets the cursor to that column |
+| Tap a cell | Nothing: the cells are a read surface (rule 8) |
+| Drag horizontally on the cells area | Scrolls the track (rule 16) |
 | Drag horizontally on the header strip | Scrolls the track |
 | Tap a row label | Opens row actions: set as home, replace zone, remove |
 | Long-press a row label (touch) | Lifts the row to reorder the board |
@@ -298,10 +359,10 @@ and `todayInHomeZone` (rule 11, never the device's date).
 
 **The pinned label column owns both row gestures, and the hour cells own
 none of them.** That split is the whole design, and it is what lets a row be
-draggable on a screen where a horizontal drag already means something:
-`_slotAt` answers `null` left of `labelWidth`, so the cursor drag and the row
-lift never compete for a pixel. Moving the lift onto the cells — or onto the
-whole row — would put it in the same arena as the cursor.
+draggable on a screen where a horizontal drag already means something: the pan
+refuses a drag that begins left of `labelColumnWidth`, so the track pan and the
+row lift never compete for a pixel. Moving the lift onto the cells — or onto
+the whole row — would put it in the same arena as the pan.
 
 **Which lift gesture depends on the pointer**, matching what
 `ReorderableListView`'s own default handles do: a mouse drags immediately,
@@ -333,8 +394,10 @@ drag-to-reorder were specified in M2, deferred, and listed in
 [roadmap.md](../roadmap.md) as shipped-elsewhere: they lived on a Cities page
 instead, and `t.grid.rowAction*` were strings with no call site. The Cities page
 is gone and the grid is where the board is edited, so the promise and the code
-finally agree. `t.grid.rowAction*` stay unused — the sheet is the board's, and
-speaks `t.locations.*`, so one gesture does not teach two vocabularies.
+finally agree. **`t.grid.rowAction*` are deleted**, after three milestones of
+shipping in both locales with no call site: the sheet is the board's and speaks
+`t.locations.*`, so one gesture does not teach two vocabularies, and copy kept
+against a future that already arrived is just copy nobody translates twice.
 
 ---
 
@@ -451,7 +514,9 @@ phone once the rail is 80pt, not narrower.
   grid's only horizontal `Scrollable`. Its offset is republished as a
   `ValueListenable<double>` that every row and the "now" marker read. One
   controller attached to several viewports would give each its own position and
-  sync nothing, which is the bug this removes rather than papers over.
+  sync nothing, which is the bug this removes rather than papers over — and it
+  is why a drag over the cells is forwarded to that position (rule 16) instead
+  of making each row scroll for itself.
 - Each row draws only the columns that offset puts inside the viewport, so a
   20-row board with a 30-slot window builds roughly the 8 visible columns per
   row instead of 600.
@@ -506,15 +571,32 @@ phone once the rail is 80pt, not narrower.
 
 ## i18n
 
-Copy under `t.grid.*`: `title`, `today`, `emptyTitle`, `emptyMessage`,
-`emptyCta`, `homeBadge`, `sameTime`, `dstOn`, `dstTransitionHere`,
-`dstExplainTitle`, `dstExplainBody`, `unresolvedRow`, `homeZoneBrokenBanner`,
-`rowActionSetHome`, `rowActionRemove`, `rowActionReplaceZone`, `cursorHint`.
+Copy under `t.grid.*` that is rendered: `title`, `today`, `emptyTitle`,
+`emptyMessage`, `emptyCta`, `homeBadge`, `sameTime`, `dstOn`,
+`dstTransitionHere`, `unresolvedRow`, `homeZoneBrokenBanner`.
+
+**Orphaned**, present in the JSON with no call site anywhere in `lib/`:
+
+- `dstExplainTitle`, `dstExplainBody` — there is no dedicated DST explanation
+  sheet. The world clock's DST badge opens the location detail sheet, which
+  already carries `nextTransition` ([world_clock.md](world_clock.md) rule 8),
+  and the grid's own transition mark is a dot with a tooltip
+  (`dstTransitionHere`);
+- `cursorHint` — written for a hint line telling the user to tap a cell to
+  place the cursor. Rule 8 moved that gesture to the ruler and the hint was
+  never redrawn for it.
+
+None of these are deleted here. They are a translated set that a future
+affordance would ask for; what matters is that the list above does not read as
+a description of the screen.
+
 Band names live under `t.bands.*`, because the day/night indicator and the grid
 read the same four words.
 
-Date labels (`Tue 24`) and hour labels go through `intl` with the app locale, not
-through hardcoded strings.
+Date labels (`Tue 24`) go through `formatDayMonth`, which is `intl` with the app
+locale, never a hardcoded weekday table. Hour labels go through
+`formatGridHour` and are locale-independent by construction: zero-padded
+24-hour digits, with `:mm` only where the offset is not a whole hour (rule 8).
 
 ---
 

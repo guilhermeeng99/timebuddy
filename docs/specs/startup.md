@@ -5,8 +5,8 @@ owns the splash route (`/startup`), initializes the timezone engine, waits for
 auth to settle, runs the first sync, and tells the router where to go.
 
 It has no domain or data layer: only `StartupCubit` and `StartupPage`. It
-composes four collaborators, plus one optional sink for the reconciled
-preferences.
+composes five required collaborators, plus one optional sink for the
+reconciled preferences.
 
 ---
 
@@ -19,6 +19,20 @@ preferences.
    `AuthLoading`).
 4. For authenticated users, run `SyncService.sync()` once, so the board and
    preferences are reconciled before any feature page mounts.
+
+   **Three things happen around that call when the session belongs to a guest
+   who has just signed in** ([guest_mode.md](guest_mode.md) rules 6-8), and all
+   three are ordered on purpose:
+
+   - `GuestSession.isGuest` is read **before** the sync, because a landed
+     adoption clears it and the flag still has to decide what happens after;
+   - `guestSession.adoptionAttempted` is set **before** the await, not after.
+     It is what stops `AppRouter`'s guest rule bouncing this same session back
+     to the splash while the sync it asked for is still in flight;
+   - the call becomes `sync(userId:, adoptGuestDocuments: true)`, and
+     `GuestSession.leave()` runs **only when that sync landed**. A failed
+     adoption leaves the marker in place so the next launch retries it, rather
+     than stranding a board that never reached the account.
 5. Decide where the app opens, and let `StartupPage` act on it:
    - `StartupAuthenticated` → `context.go(AppRoutes.grid)`, which is `/`
    - `StartupUnauthenticated` → the grid when `GuestSession.isGuest`, and
@@ -54,6 +68,7 @@ StartupCubit({
   required TimeZoneEngine engine,
   required CityCatalogRepository catalog,
   required SyncService syncService,
+  required GuestSession guestSession,
   PreferencesCubit? preferencesCubit,
 });
 ```
@@ -65,7 +80,11 @@ StartupCubit({
 - `TimeZoneEngine.initialize()` and `CityCatalogRepository.load()` are started
   together and **concurrently** with the auth wait, since neither depends on a
   user. The engine is still started first: rule 2 makes tzdata unconditional.
-- `PreferencesCubit` is the fifth collaborator and the only optional one. It is
+- `GuestSession` is required, unlike `PreferencesCubit`, and the difference is
+  the failure mode: without it the adopting sync would silently not happen, and
+  a guest who signed in would keep a local-only board while the app told them
+  they were synced ([guest_mode.md](guest_mode.md) rules 6-8).
+- `PreferencesCubit` is the sixth collaborator and the only optional one. It is
   a sink, not a state-machine input: the singleton is loaded by `TimeBuddyApp`
   *before* the router exists, so without `adoptFromSync` its in-memory copy
   would outlive the document the sync just replaced. The app always passes it
@@ -130,6 +149,14 @@ StartupCubit({
    adoption hangs off the sync itself rather than off the timed-out view of it,
    so a sync that lands late still reaches the cubit holding the stale copy
    instead of only replacing the document underneath it.
+
+   **One exemption: an adopting sync is not time-boxed**
+   ([guest_mode.md](guest_mode.md) rule 7). `_firstSync` awaits it without the
+   budget when `adoptGuestDocuments` is true. `AppShell` builds `BoardCubit`
+   the moment the router leaves `/startup`, so opening early here would load
+   the guest's document a heartbeat before the account's replaced it, and the
+   user would watch their own cities flash up and then vanish. Waiting is the
+   less broken of the two, and it happens at most once per account.
 
 9. **Progress sentinels are asserted by tests,** and they are the cubit's whole
    vocabulary. `StartupLoading` carries exactly three values, declared on the
@@ -292,6 +319,13 @@ The cubit carries no strings: `StartupLoading` exposes only `progress` and
 - **The unrecoverable case**: an engine throw and a catalog `Left` both stop at
   `StartupError` (rule 10), and a retry after one starts the sequence over
   (rule 1).
+- **Adopting a guest who signed in** (responsibility 4,
+  [guest_mode.md](guest_mode.md) rules 6-8): the sync is asked with
+  `adoptGuestDocuments: true` and the marker is cleared once it lands; a failed
+  adoption leaves the marker set and still opens the app with
+  `syncFailed: true`; and `adoptionAttempted` is set *before* the await, pinned
+  against a held `Completer` so the router cannot loop while the sync is in
+  flight.
 
 The time-box case is a `testWidgets` test rather than a plain one, so the fake
 async that `testWidgets` runs its body in owns the five second timer: the budget
@@ -301,7 +335,13 @@ body in the root zone and strands every microtask the fake async still owns.
 
 Mocks: `_MockAuthBloc extends MockBloc<AuthEvent, AuthState>`,
 `_MockSyncService` and `_MockCityCatalogRepository` are declared in the test
-file itself; only `MockTimeZoneEngine` comes from `test/harness/mocks.dart`. The
-cubit is built **without** `preferencesCubit`, which is exactly why that
-parameter is optional. No widget tests on the page: the routing side effects are
+file itself; `MockTimeZoneEngine` and `MockLocalStore` come from
+`test/harness/mocks.dart`. **`GuestSession` is the real object**, built over the
+mocked store rather than mocked itself: it is a `ChangeNotifier` over one
+boolean and one key, so a double would only restate the thing under test — and
+the adoption cases turn on `isGuest` actually changing when `leave()` runs. The
+store is stubbed to answer `null` for `StorageKeys.guest` in `setUp`, so every
+path is "not a guest" unless a case says otherwise. The cubit is built
+**without** `preferencesCubit`, which is exactly why that parameter is
+optional. No widget tests on the page: the routing side effects are
 exercised through the cubit's terminal states.

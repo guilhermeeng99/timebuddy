@@ -111,7 +111,7 @@ their whole shift as asleep, and shift workers are exactly the population this
 app must not get wrong. The shoulder check sits ahead of the night window for
 the same reason: 06:00 next to a 07:00 start is `fair`, not `night`.
 
-Cells are painted with the token at **12% alpha** for the fill and the full token
+Cells are painted with the token at **16% alpha** for the fill and the full token
 for the text when emphasis is needed. No screen hand-picks these colors: every
 hour surface goes through `HourCell`.
 
@@ -270,12 +270,31 @@ generic spacing (see [time_grid.md](time_grid.md)):
 
 ```dart
 abstract class GridMetrics {
-  static const double hourColumnWidth = 44;   // two digits plus a ':30' suffix
-  static const double labelColumnWidth = 132;
-  static const double rowHeight = 64;
-  static const double headerHeight = 40;
+  static const double hourColumnWidth = 60;   // reference only, see below
+  static const double labelColumnWidth = 180;
+  static const double rowHeight = 72;
+  static const double headerHeight = 48;
 }
 ```
+
+All four grew when the grid's type scale did: 44/132/64/40 was the first pass,
+and at 44 a half-hour zone's `05:45` had to shrink to 9pt to fit, which made
+Kolkata, Kathmandu and Chatham — the rows that most need explaining — the
+hardest ones on the screen to read. [time_grid.md](time_grid.md) carries the
+same table with the per-value reasoning; this block is the copy, not the
+source.
+
+**`hourColumnWidth` is a reference value, not the grid's column width.** The
+grid resolves its column at layout time through `GridLayout.resolve`
+(`lib/features/time_grid/presentation/grid_layout.dart`), which divides the
+available track into a whole number of equal columns bounded by
+`GridLayout.minColumnWidth` (48) and `maxColumnWidth` (96); `GridHeaderStrip`
+and `GridRowView` both take that resolved width as a required parameter. 60 is
+what a cell takes when nothing constrains it and the size the type scale was
+chosen against — `HourCell` still names it as its own unconstrained width — but
+no grid surface reads it to lay a column out, and a spec or a widget that
+treats it as the column width is describing the 44pt era
+([time_grid.md](time_grid.md) rule 12).
 
 **Hairlines and dividers:** `1px`, color `surfaceVariant` (or the theme
 `Divider`). The grid's day-boundary line is `1px` in `onBackgroundLight` at 40%
@@ -293,7 +312,7 @@ alpha.
 | **`AppIcon(...)`, never a bare `FaIcon` and never `Icon`** | `FaIcon` is Flutter's `Icon` with the `SizedBox` and the `Center` deliberately removed, so a glyph lays out at its own intrinsic width. That is right for the package — Font Awesome glyphs are often wider than they are tall and a fixed square clips them — but it means every icon inside a fixed-size parent sits wherever its advance width leaves it. It shipped once as a brand mark pinned to the corner of its disc and date-stepper chevrons drifting out of their tap targets. `AppIcon` puts the square and the centring back *around* the glyph. |
 | `FaIconData`, never `IconData`, on a widget's icon parameter | `FaIconData` **wraps** an `IconData` rather than extending it, precisely so the plain `Icon` widget cannot be handed a Font Awesome glyph. The type is the guard; do not reach for `.data` to get around it. `find.byIcon` in a test is the one legitimate `.data` call site. |
 | A widget's icon parameter is typed `FaIconData` | Same guard, one level up: it is what stops a Material glyph landing in a screen that is otherwise all Font Awesome. |
-| Row icons are 15pt on a 36pt disc; chevrons are 12pt; nav icons are 17–22pt | Font Awesome glyphs are optically lighter than Material's at the same nominal size. |
+| Row icons are 15pt on a 36pt disc; chevrons are 12pt; nav icons are 20pt on the rail's brand mark and 22pt on a destination, in both nav surfaces | Font Awesome glyphs are optically lighter than Material's at the same nominal size. |
 | Nav destinations carry **one** glyph, not an outline/fill pair | The free set has a regular weight for `clock` but none for `tableCells`, `rightLeft` or `gear`, so half the nav would swap shape on selection and half would not. Selection is carried by colour, by the tinted pill and by the accent bar — three signals that work for every destination. |
 
 **Icon tree-shaking has to be off, and this is not a performance oversight.**
@@ -367,12 +386,28 @@ exists.
 | Status | Widget | Purpose / contract |
 |--------|--------|--------------------|
 | shipped | `ClockText` | Ticking wall-clock digits for one zone. Subscribes to the app's single `TickerService` and converts each tick's UTC instant through `TimeZoneEngine`, never by adding a stored offset. Formats through `formatClock()` under the user's `ClockFormat`, watched from `PreferencesCubit` so a 12h/24h switch repaints between ticks. `zoneId` (required), `showSeconds`, `fontSize`, `color`, plus `ticker` / `engine` / `clock` test overrides that fall back to `GetIt`. `showSeconds` renders the seconds but does **not** speed the ticker up: that rate is global (preferences.md rule 10). **Always use for a live time.** Never build a `Timer.periodic` in a page. |
-| planned | `StaticTimeText` | The same visual for a non-ticking instant (converter result, planner summary). Same formatter, no stream subscription. |
+| planned | `StaticTimeText` | The same visual for a non-ticking instant, such as a converter result row. Same formatter, no stream subscription. (The planner that was the other caller has been deleted.) |
 | shipped | `OffsetBadge` | The `+05:30` / `-03:00` pill, plus an optional relative form (`+4h`). `offset`, `relativeToHome`, `dense`, and an assert that at least one of the two durations arrives. It takes `Duration`s and formats them through `offsetLabel()` / `relativeOffsetLabel()`; it never receives a pre-formatted string, because a call site interpolating `'${d.inHours}h'` drops the minutes for India, Nepal and Chatham. `relativeToHome: Duration.zero` is a real answer and renders `t.grid.sameTime`; `null` means no comparison was asked for. `dense` shows one chip instead of the pair, and the relative offset wins that slot. |
 | shipped | `DayNightDot` | The sun/moon indicator on a clock row. Takes the `HourBand` (`band`, `size`), never an hour, so the working-hours rule stays in `hourBandFor` and the colour in `hourBandColor`. It answers "is this person likely awake", not "is the sun up": a night-shift user's 23:00 is `good` and draws a sun. |
-| shipped | `HourCell` | One hour surface in the grid: band fill at 12% alpha, hour number, optional minute suffix for half-hour zones, optional cursor and selection overlays. Takes the band already computed by `hourBandFor`, so it decides nothing about time. **Every colored hour in the app goes through this widget**, including the settings working-hours preview. Ships with `hourBandColor(band, colors)`, the one band-to-token table. |
-| shipped | `DstBadge` | Two forms of one marker: `DstBadge` for a zone observing DST at the instant on screen, `DstBadge.transition` for the slot the clocks actually move in. `onTap`, `size`; `onTap: null` renders a non-interactive glyph for a context that already owns the gesture, such as an hour cell whose tap sets the cursor. It **never navigates**: it reports the tap and the page decides whether to open the explanation, so the same badge works in a grid, a sheet or a settings preview. |
-| shipped | `LocationRow` | A saved location's identity block: city label, country line, zone abbreviation, home chip or dense `OffsetBadge`. `location` (required), `abbreviation`, `relativeToHome`, `isHome`, `isUnresolved`, `dense`. Used as the pinned first column of the grid **and** as the identity half of a saved-cities row, because they state the same four facts and two widgets are how one screen ends up saying `Sao Paulo · BRT` while the other says `Sao Paulo (BR)`. Every value arrives resolved for the instant on screen; the widget decides nothing about time. `dense` drops the country line for the grid's 96px mobile column without shrinking the type. |
+| shipped | `HourCell` | One hour surface in the grid: band fill at 16% alpha, hour number, optional minute suffix for half-hour zones, optional cursor and selection overlays. `hour` and `band` (required), plus `minute`, `isCursor`, `isSelected`, `height` (defaults to `GridMetrics.rowHeight`) and `compact`. Takes the band already computed by `hourBandFor`, so it decides nothing about time. **It carries no `onTap`**: the grid's cells are a read surface so the horizontal drag over them can pan the track, and the one pointer path to the cursor is the ruler above ([time_grid.md](time_grid.md) rule 8). `compact` is the rounded 11pt chip form for the settings working-hours preview, whose 24 cells share whatever width the card can spare; the grid's own form is flat, edge to edge and 15pt, so a row of them reads as one timeline rather than as twenty pills. Both forms take their fill from the same `hourBandColor`, which is why this is one widget and not two. **Every colored hour in the app goes through it.** Ships with `hourBandColor(band, colors)`, the one band-to-token table. |
+| shipped | `DstBadge` | Two forms of one marker: `DstBadge` for a zone observing DST at the instant on screen, `DstBadge.transition` for the slot the clocks actually move in. `onTap`, `size`; `onTap: null` renders a non-interactive glyph for a context that already owns the gesture, which today is the location detail sheet — the grid's own DST mark is a dot painted by `GridRowView`, not this badge. It **never navigates**: it reports the tap and the page decides what to open, so the same badge works in a clock row, a sheet or a settings preview. |
+| shipped | `LocationRow` | A saved location's identity block: city label, country line, zone abbreviation, home chip or dense `OffsetBadge`. `location` (required), `abbreviation`, `relativeToHome`, `isHome`, `isUnresolved`, `dense`. Used as the pinned first column of the grid **and** as the identity half of a saved-cities row, because they state the same four facts and two widgets are how one screen ends up saying `Sao Paulo · BRT` while the other says `Sao Paulo (BR)`. Every value arrives resolved for the instant on screen; the widget decides nothing about time. `dense` drops the country line for the grid's `GridLayout.denseLabelColumnWidth` (128px) mobile column without shrinking the type. |
+
+**The formatters these widgets share** live in
+`lib/core/utils/time_formatter.dart` and all take a value that is *already*
+wall-clock time in the zone being shown: `formatClock(localTime, format,
+{showSeconds})`, `formatDayMonth(localTime, localeTag)`, `offsetLabel(offset)`
+and `relativeOffsetLabel(offset)`. No screen writes an inline `DateFormat`.
+
+`formatGridHour(localTime)` is the one sanctioned exception to "every time goes
+through `formatClock()`". It renders the grid's hour label — `14`, or `14:30`
+in a zone whose offset is not a whole hour — and is **always 24-hour,
+regardless of the user's `ClockFormat`**. A 24-column ruler in 12h prints `03`
+twice with no room for an am/pm marker in a 48–60pt column, so the honest
+choices were a duplicated label or an unreadable one. `HourCell` and
+`GridHeaderColumn` both route through it, which is what stops the ruler and the
+cells below it from padding their digits differently
+([time_grid.md](time_grid.md) rules 8 and 16).
 
 ### Forms & inputs
 
@@ -389,13 +424,14 @@ exists.
 | shipped | `TimeBuddyPillToggle<T>` | Segmented control (Grid / Clocks, 12h / 24h). `options` (a list of `PillOption<T>`, each carrying finished localized copy), `selected`, `onChanged`, `disabled`. |
 | planned | `TimeBuddySubmitBar` | Sticky bottom bar with the primary action. `label`, `isLoading`, `isEnabled`, `onSubmit`. |
 
-The settings palette sheet is the one remaining exception to this table: it
-still carries the local chrome it was written with before the shared sheet
-existed. That was the right call at the time, since a `TimeBuddyPickerSheet`
-designed against a single caller would have fixed the wrong shape. The second
-and third callers have now landed (the city picker and the row-actions sheet),
-so the shared chrome is settled and the palette sheet is queued to move onto it.
-Nothing new may copy its local chrome.
+`palette_picker_sheet.dart` is outside this table because it is **parked, not
+shipped**: the file still compiles and still carries the local chrome it was
+written with before `TimeBuddyPickerSheet` existed, but it has zero references
+anywhere in `lib/` — Appearance is one theme toggle now and nothing opens it.
+See [preferences.md](preferences.md) for why the picker was removed and why the
+machinery behind it was kept. It is a parked screen rather than a deleted one,
+so nothing new may copy its local chrome; a future entry point rebuilds it on
+the shared sheet.
 
 ### Structure & navigation
 
@@ -406,8 +442,8 @@ Nothing new may copy its local chrome.
 | shipped | `TimeBuddyRowGroup` | A surface card holding rows edge to edge, hairline-separated (0.5pt, inset 64 = `AppSpacing.lg` + 36 disc + `AppSpacing.md`, so the rule divides the labels rather than cutting the icon column). The counterpart to `TimeBuddySection`'s own card, not a replacement: that one pads its body, which is right for a field cluster; this one pads nothing, because a row has to reach both edges of the card for its pressed state to look like a row rather than a rectangle floating inside one. Use it as the body of a section with `card: false`. |
 | shipped | `TimeBuddySettingsRow` | One row of a `TimeBuddyRowGroup`: a 36pt tinted icon disc, title, optional `subtitle` and `value`, and a trailing widget defaulting to a chevron. `accent` tints the disc; `destructive` carries it into the title. `control` holds a toggle or switch — inline and capped at the end of the title's line above the breakpoint, stacked under it below. `onTap` and `control` are mutually exclusive (asserted): a row with a control is operated by the control. The disc is what makes twenty rows scannable — a bare leading icon disappears into the text beside it at these sizes. |
 | shipped | `SidebarProfileTile` | The settings destination at the foot of the rail, wearing the user's photo. Avatar 36pt at `AppRadius.sm`, name over the literal `t.nav.settings`, 11pt chevron. The fallback (initial, or a person glyph for a guest) is the avatar's **background** with the photo painted over it, because `Image.network` shows nothing while a request is in flight and a Google photo URL is refused cross-origin often enough to matter — the rail is on every screen, so a blank-then-pop there is the most-seen flicker in the app. A guest gets the glyph and not a `?`: a question mark reads as an avatar that failed to load. |
-| shipped | `TimeBuddySidebar` | Web/tablet navigation rail (>= 600px), `width` 240: brand, destinations, date stepper, profile. **The rail draws `settings` as the profile tile and skips it in the nav list**; the bottom bar still shows it as an ordinary item, because a floating pill has no bottom edge to pin anything to. `currentRoute` and `onSelect` (required), plus the `datePill` and `profile` slots. **Renders nothing below 600px**, so the shell places it unconditionally and the breakpoint is decided here instead of at the call site. The stepper arrives as a widget rather than as a date plus a callback, because the reference day belongs to the grid's cubit and screens without one have no date to hand over; the rail hides that slot while a `SubPageScope` is open. The destinations themselves are `TimeBuddyNavDestination`, declared here and imported by the bottom bar so the two surfaces cannot disagree on an icon, a label or the order. |
-| shipped | `TimeBuddyBottomBar` | Floating pill bottom nav for mobile (< 600px); the active item expands to a label, the other four carry no information their icons do not. **Five destinations fit a 375pt phone**, and the fit is measured rather than assumed: the four collapsed items take `4 x 44 = 176` of the pill's `327`, which leaves the expanded one `151` and its label `97` after its own chrome, and the only incompressible width in the row is `176 + 54 = 230` because the label is `Flexible` with an ellipsis. The arithmetic is written out at `TimeBuddyBottomBar.collapsedItemWidth`; `test/app/responsive_layout_test.dart` lays the five out at 375 and reads the rectangles back. A sixth destination is a "More" sheet, not a sixth icon. `currentRoute`, `onSelect`. **Renders nothing at >= 600px or on a sub-page**, so both halves of the §7 rule live in the widget. It floats over the page instead of taking a `bottomNavigationBar` slot so the grid keeps the full window height; the price is that scroll views pad for it, which is what `reservedHeight` (`16 + 64 + 16 = 96`) exists to be read from. |
+| shipped | `TimeBuddySidebar` | Web/tablet navigation rail (>= 600px): brand, destinations, date stepper, profile. It has **two widths and no `width` parameter** — `expandedWidth` 240 from 900px up, `collapsedWidth` 80 in the 600–900 band, and `TimeBuddySidebar.widthFor(context)` for anything that has to reason about the leftover content box (it returns `0` below 600). The narrow form exists for the grid: 240pt of chrome on a 700pt window was 34% of the screen, so widening a phone past the breakpoint used to show *fewer* hour columns than the phone did. Collapsed, the rail also hands the date stepper back to the page, because an 80pt strip cannot hold one. **The rail draws `settings` as the profile tile and skips it in the nav list**; the bottom bar still shows it as an ordinary item, because a floating pill has no bottom edge to pin anything to. `currentRoute` and `onSelect` (required), plus the `datePill` and `profile` slots. **Renders nothing below 600px**, so the shell places it unconditionally and the breakpoint is decided here instead of at the call site. The stepper arrives as a widget rather than as a date plus a callback, because the reference day belongs to the grid's cubit and screens without one have no date to hand over; the rail hides that slot while a `SubPageScope` is open. The destinations themselves are `TimeBuddyNavDestination`, declared here and imported by the bottom bar so the two surfaces cannot disagree on an icon, a label or the order. |
+| shipped | `TimeBuddyBottomBar` | Floating pill bottom nav for mobile (< 600px); the active item expands to a label, the other three carry no information their icons do not. **`TimeBuddyNavDestination` has four values** — grid, clocks, converter, settings — so three collapse: `3 x 44 = 132` of the pill's `327` on a 375pt phone, leaving the expanded item `195` and its label `141` after its own `54` of chrome. **Five is still the recorded ceiling**, and it is what the width was measured against before the Cities destination was removed: at five, the four collapsed items take `176`, the expanded one gets `151` and its label `97`, which is where pt-BR's `Configurações` (~94pt at `labelLarge`) stops fitting. The arithmetic is written out at `TimeBuddyBottomBar.collapsedItemWidth`; `test/app/responsive_layout_test.dart` counts the items off `TimeBuddyNavDestination.values` and reads their rectangles back at 375, so the next change to the nav is measured rather than argued. A sixth destination is a "More" sheet, not a sixth icon. `currentRoute`, `onSelect`. **Renders nothing at >= 600px or on a sub-page**, so both halves of the §7 rule live in the widget. It floats over the page instead of taking a `bottomNavigationBar` slot so the grid keeps the full window height; the price is that scroll views pad for it, which is what `reservedHeight` (`16 + 64 + 16 = 96`) exists to be read from. |
 | shipped | `TimeBuddyDatePill` | Compact day stepper for the grid's reference day: chevrons, the date, a horizontal swipe, and a Today reset that shows only when the day is not today. `value`, `today`, `todayLabel`, `onChanged` (required), plus `previousDayLabel`, `nextDayLabel` and `localeTag`. It does not own the date, and `today` is a parameter because "today" is a question about the home zone, not about the device. Steps are rebuilt from calendar fields, never by adding 24 hours. It takes the place Financo's month-filter pill held, stepping days rather than months. Lives in the sidebar at >= 600px and on the page itself below that, never both. |
 | shipped | `LiftedFab` | Wraps a FAB so it floats above the mobile bottom bar (see §7). `child` only: it reads `subPageDepth` itself, because the FAB's owner is the page *under* any pushed sub-page and has no way to know one is there. |
 | shipped | `SubPageScope` | Marks a pushed sub-page so the shell hides its bottom bar and date pill and `LiftedFab` stops lifting (see §7). Wrap the pushed page's body; it renders `child` unchanged and contributes only its lifetime. It publishes into the app-scoped `subPageDepth` (a `ValueListenable<int>`, not an `InheritedWidget`) because every consumer sits *above* the pushed route, and `preferredSize` has no `BuildContext` to look anything up with. A counter and not a bool, since sub-pages stack. Call `subPageDepth.reset()` in test teardown. |
@@ -457,12 +493,19 @@ number.
 ### Breakpoints (`ResponsiveLayout`)
 
 - **Mobile** `< 600` · **Tablet** `600–900` · **Desktop** `>= 900`.
-- `ResponsiveLayout.isMobile/isTablet/isDesktop(context)`.
-- `maxContentWidth = 600` for **form and list pages**: content is centered and
-  width-capped on large screens.
-- **The grid is the exception**: it consumes the full available width, because
-  its value is showing as many hour columns as the screen allows. It is the only
-  page allowed to ignore `maxContentWidth`.
+- `ResponsiveLayout.isMobile/isTablet/isDesktop(context)` answer "how wide is
+  the window". `ResponsiveLayout.showsSidebar(context)` and
+  `sidebarIsExpanded(context)` answer "which nav chrome is on screen", and they
+  stopped being the same question when the rail grew a collapsed form: a 700pt
+  tablet is *wider* than a phone once the rail is 80pt, not narrower. Anything
+  reasoning about chrome — the FAB lift, the two clearance helpers, who draws
+  the date pill — asks the second pair.
+- `maxContentWidth = 600` is the **prose cap**, and onboarding is the only
+  screen that applies it. See the Content width section above: pages that are
+  lists of rows are deliberately uncapped, and `settings_page.dart` says so at
+  its own call site. The grid is uncapped for a different reason than the rest
+  of them — its value *is* showing as many hour columns as the screen fits —
+  but it is no longer the exception, it is the majority.
 
 ### Shell chrome
 
@@ -472,11 +515,14 @@ number.
 - **>= 900px:** left `TimeBuddySidebar` (nav + date stepper + profile). No bottom
   bar; pages must not render their own date pill (the sidebar owns it).
 - **< 600px:** floating `TimeBuddyBottomBar` and the page surfaces its own
-  `TimeBuddyDatePill` since there is no sidebar. The bar carries all five
-  `TimeBuddyNavDestination` entries, and five is the ceiling, see §6 for the
-  width it is measured against.
-- **Sub-pages** (add location, settings, converter detail) wrap in
-  `SubPageScope`, which hides the bottom bar and date pill for their depth.
+  `TimeBuddyDatePill` since there is no sidebar. The bar carries all four
+  `TimeBuddyNavDestination` entries; five is the ceiling, see §6 for the width
+  it is measured against.
+- **Sub-pages** wrap in `SubPageScope`, which hides the bottom bar and date
+  pill for their depth. **The add-location route is the only one today**, and
+  the router applies the scope rather than the sheet doing it. Settings is a
+  shell branch, not a sub-page, so it keeps the bar; there is no converter
+  detail page.
 - `TimeBuddyLargeAppBar` renders its back chevron only when `showBack` **and**
   `Navigator.canPop()`. Pages reached with `go` replace the stack, so an
   unconditional chevron renders dead.
