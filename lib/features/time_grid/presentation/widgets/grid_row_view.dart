@@ -24,6 +24,7 @@ import 'package:timebuddy/gen/i18n/strings.g.dart';
 /// ```dart
 /// GridRowView(
 ///   row: model.rows[index],
+///   columnWidth: layout.hourColumnWidth,
 ///   cursorInstant: model.cursorInstant,
 ///   horizontalOffset: hourOffset,
 ///   onCellTap: context.read<TimeGridCubit>().setCursor,
@@ -32,6 +33,7 @@ import 'package:timebuddy/gen/i18n/strings.g.dart';
 class GridRowView extends StatelessWidget {
   const GridRowView({
     required this.row,
+    required this.columnWidth,
     required this.horizontalOffset,
     required this.onCellTap,
     this.cursorInstant,
@@ -39,6 +41,14 @@ class GridRowView extends StatelessWidget {
   });
 
   final GridRow row;
+
+  /// Width of one hour column, resolved from the surface by `GridLayout`.
+  ///
+  /// Required rather than defaulted to `GridMetrics.hourColumnWidth`: every
+  /// pixel-to-hour formula in the grid has to agree with the header strip's
+  /// `itemExtent`, and a default is how one caller ends up half a column out
+  /// of step with the ruler above it.
+  final double columnWidth;
 
   /// Scroll offset of the shared hour track, in pixels.
   final ValueListenable<double> horizontalOffset;
@@ -61,6 +71,7 @@ class GridRowView extends StatelessWidget {
         valueListenable: horizontalOffset,
         builder: (context, offset, _) => _CellWindow(
           cells: row.cells,
+          columnWidth: columnWidth,
           offset: offset,
           viewportWidth: constraints.maxWidth,
           cursorInstant: cursorInstant,
@@ -75,6 +86,7 @@ class GridRowView extends StatelessWidget {
 class _CellWindow extends StatelessWidget {
   const _CellWindow({
     required this.cells,
+    required this.columnWidth,
     required this.offset,
     required this.viewportWidth,
     required this.cursorInstant,
@@ -82,6 +94,7 @@ class _CellWindow extends StatelessWidget {
   });
 
   final List<GridCell> cells;
+  final double columnWidth;
   final double offset;
   final double viewportWidth;
   final DateTime? cursorInstant;
@@ -89,8 +102,13 @@ class _CellWindow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (cells.isEmpty || viewportWidth <= 0) return const SizedBox.shrink();
-    const columnWidth = GridMetrics.hourColumnWidth;
+    if (cells.isEmpty || viewportWidth <= 0 || columnWidth <= 0) {
+      return const SizedBox.shrink();
+    }
+    // Still a window rather than the whole row, even though a wide monitor now
+    // fits every slot: the moment it does, `first` is 0 and `last` is the last
+    // index, so the clamp costs two comparisons and keeps paying for itself on
+    // every narrower screen (docs/specs/time_grid.md, Performance).
     final first = math.max(0, (offset / columnWidth).floor());
     final last = math.min(
       cells.length - 1,

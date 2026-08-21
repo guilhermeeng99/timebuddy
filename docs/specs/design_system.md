@@ -117,6 +117,14 @@ hour surface goes through `HourCell`.
 
 ### Palette system (runtime-switchable)
 
+> **The settings page no longer offers a palette picker.** Both catalogs still
+> exist and `PreferencesEntity` still carries the two fields — the machinery is
+> intact and synced — but Appearance is one theme toggle now. Twenty options
+> behind two sheets was a decision the screen asked for and almost nobody has
+> a reason to make; `palette_picker_sheet.dart` stays for a future entry point
+> rather than being deleted.
+
+
 `AppColors.light` / `AppColors.dark` are **mutable** statics. The user picks a
 palette from `light_palettes.dart` / `dark_palettes.dart` at runtime, and the
 choice is a field of the preferences document rather than the state of a cubit
@@ -275,6 +283,53 @@ alpha.
 
 ---
 
+## 4b. Icons
+
+**Font Awesome, through `package:font_awesome_flutter`, rendered with
+`FaIcon`.** Ported from Financo, which is where the look came from.
+
+| Rule | Why |
+| --- | --- |
+| **`AppIcon(...)`, never a bare `FaIcon` and never `Icon`** | `FaIcon` is Flutter's `Icon` with the `SizedBox` and the `Center` deliberately removed, so a glyph lays out at its own intrinsic width. That is right for the package — Font Awesome glyphs are often wider than they are tall and a fixed square clips them — but it means every icon inside a fixed-size parent sits wherever its advance width leaves it. It shipped once as a brand mark pinned to the corner of its disc and date-stepper chevrons drifting out of their tap targets. `AppIcon` puts the square and the centring back *around* the glyph. |
+| `FaIconData`, never `IconData`, on a widget's icon parameter | `FaIconData` **wraps** an `IconData` rather than extending it, precisely so the plain `Icon` widget cannot be handed a Font Awesome glyph. The type is the guard; do not reach for `.data` to get around it. `find.byIcon` in a test is the one legitimate `.data` call site. |
+| A widget's icon parameter is typed `FaIconData` | Same guard, one level up: it is what stops a Material glyph landing in a screen that is otherwise all Font Awesome. |
+| Row icons are 15pt on a 36pt disc; chevrons are 12pt; nav icons are 17–22pt | Font Awesome glyphs are optically lighter than Material's at the same nominal size. |
+| Nav destinations carry **one** glyph, not an outline/fill pair | The free set has a regular weight for `clock` but none for `tableCells`, `rightLeft` or `gear`, so half the nav would swap shape on selection and half would not. Selection is carried by colour, by the tinted pill and by the accent bar — three signals that work for every destination. |
+
+**Icon tree-shaking has to be off, and this is not a performance oversight.**
+`flutter build` scans the compiled constants for `IconData` and rewrites each
+bundled font to hold only the code points it found. It does not see through
+`FaIconData`: a release build of this app kept **22** of the 38 icons it uses
+and silently dropped the other **16**, which then rendered as empty boxes. It
+is silent because a missing glyph is not a build error — the app compiles, runs
+and draws tofu.
+
+Every web build therefore passes `--no-tree-shake-icons`, and CI runs
+`scripts/check_glyphs.py` afterwards, which parses the `cmap` of each bundled
+`.otf` and fails if any icon the source references is absent. The cost is
+roughly 500 KB of font against a bundle whose CanvasKit alone is 7 MB.
+
+**A second, local-only trap worth naming.** `flutter build` copies the package
+fonts preserving their original mtime, so a dev server answering
+`If-Modified-Since` will send `304` and a browser will keep serving a
+*previously tree-shaken* copy for as long as its cache lives. Symptom: the
+glyph check passes, the file on disk is correct, and the page still shows tofu.
+`touch build/web/assets/**/*.otf` is the fix; it is not a defect in the app.
+
+Glyphs are also chosen for legibility at the size they are drawn, which is not
+the same as choosing them for meaning. The sun — in either weight — puts eight
+triangular rays around a disc that merge into it below roughly 20pt and read as
+a cog: `DayNightDot` uses a filled circle and `DstBadge` a circled up arrow for
+exactly that reason, both measured on screen rather than assumed.
+
+The Material set is gone from `lib/` apart from framework-supplied glyphs
+(`Switch`, `DropdownButton`, `showDatePicker`). It was not ugly so much as
+*generic*: at 15pt inside a tinted disc, Material's rounded variants lose their
+silhouette, and a settings screen becomes twenty grey blobs the eye cannot use
+as a column.
+
+---
+
 ## 5. Material theme defaults
 
 `AppTheme._buildTheme` (Material 3) sets these so you rarely style raw Material
@@ -347,7 +402,11 @@ Nothing new may copy its local chrome.
 | Status | Widget | Purpose |
 |--------|--------|---------|
 | shipped | `TimeBuddyLargeAppBar` | iOS-style large left-aligned title app bar (default page header). Left-aligned because city and feature names differ wildly in length, and a centered title truncates from both ends once an action sits beside it. |
-| shipped | `TimeBuddySidebar` | Web/tablet navigation rail (>= 600px), `width` 240: brand, destinations, date stepper, profile. `currentRoute` and `onSelect` (required), plus the `datePill` and `profile` slots. **Renders nothing below 600px**, so the shell places it unconditionally and the breakpoint is decided here instead of at the call site. The stepper arrives as a widget rather than as a date plus a callback, because the reference day belongs to the grid's cubit and screens without one have no date to hand over; the rail hides that slot while a `SubPageScope` is open. The destinations themselves are `TimeBuddyNavDestination`, declared here and imported by the bottom bar so the two surfaces cannot disagree on an icon, a label or the order. |
+| shipped | `AppIcon` | Every icon in the app: a Font Awesome glyph centred in a square of its own nominal size. The one icon widget; see §4b for why a bare `FaIcon` is not. |
+| shipped | `TimeBuddyRowGroup` | A surface card holding rows edge to edge, hairline-separated (0.5pt, inset 64 = `AppSpacing.lg` + 36 disc + `AppSpacing.md`, so the rule divides the labels rather than cutting the icon column). The counterpart to `TimeBuddySection`'s own card, not a replacement: that one pads its body, which is right for a field cluster; this one pads nothing, because a row has to reach both edges of the card for its pressed state to look like a row rather than a rectangle floating inside one. Use it as the body of a section with `card: false`. |
+| shipped | `TimeBuddySettingsRow` | One row of a `TimeBuddyRowGroup`: a 36pt tinted icon disc, title, optional `subtitle` and `value`, and a trailing widget defaulting to a chevron. `accent` tints the disc; `destructive` carries it into the title. `control` holds a toggle or switch — inline and capped at the end of the title's line above the breakpoint, stacked under it below. `onTap` and `control` are mutually exclusive (asserted): a row with a control is operated by the control. The disc is what makes twenty rows scannable — a bare leading icon disappears into the text beside it at these sizes. |
+| shipped | `SidebarProfileTile` | The settings destination at the foot of the rail, wearing the user's photo. Avatar 36pt at `AppRadius.sm`, name over the literal `t.nav.settings`, 11pt chevron. The fallback (initial, or a person glyph for a guest) is the avatar's **background** with the photo painted over it, because `Image.network` shows nothing while a request is in flight and a Google photo URL is refused cross-origin often enough to matter — the rail is on every screen, so a blank-then-pop there is the most-seen flicker in the app. A guest gets the glyph and not a `?`: a question mark reads as an avatar that failed to load. |
+| shipped | `TimeBuddySidebar` | Web/tablet navigation rail (>= 600px), `width` 240: brand, destinations, date stepper, profile. **The rail draws `settings` as the profile tile and skips it in the nav list**; the bottom bar still shows it as an ordinary item, because a floating pill has no bottom edge to pin anything to. `currentRoute` and `onSelect` (required), plus the `datePill` and `profile` slots. **Renders nothing below 600px**, so the shell places it unconditionally and the breakpoint is decided here instead of at the call site. The stepper arrives as a widget rather than as a date plus a callback, because the reference day belongs to the grid's cubit and screens without one have no date to hand over; the rail hides that slot while a `SubPageScope` is open. The destinations themselves are `TimeBuddyNavDestination`, declared here and imported by the bottom bar so the two surfaces cannot disagree on an icon, a label or the order. |
 | shipped | `TimeBuddyBottomBar` | Floating pill bottom nav for mobile (< 600px); the active item expands to a label, the other four carry no information their icons do not. **Five destinations fit a 375pt phone**, and the fit is measured rather than assumed: the four collapsed items take `4 x 44 = 176` of the pill's `327`, which leaves the expanded one `151` and its label `97` after its own chrome, and the only incompressible width in the row is `176 + 54 = 230` because the label is `Flexible` with an ellipsis. The arithmetic is written out at `TimeBuddyBottomBar.collapsedItemWidth`; `test/app/responsive_layout_test.dart` lays the five out at 375 and reads the rectangles back. A sixth destination is a "More" sheet, not a sixth icon. `currentRoute`, `onSelect`. **Renders nothing at >= 600px or on a sub-page**, so both halves of the §7 rule live in the widget. It floats over the page instead of taking a `bottomNavigationBar` slot so the grid keeps the full window height; the price is that scroll views pad for it, which is what `reservedHeight` (`16 + 64 + 16 = 96`) exists to be read from. |
 | shipped | `TimeBuddyDatePill` | Compact day stepper for the grid's reference day: chevrons, the date, a horizontal swipe, and a Today reset that shows only when the day is not today. `value`, `today`, `todayLabel`, `onChanged` (required), plus `previousDayLabel`, `nextDayLabel` and `localeTag`. It does not own the date, and `today` is a parameter because "today" is a question about the home zone, not about the device. Steps are rebuilt from calendar fields, never by adding 24 hours. It takes the place Financo's month-filter pill held, stepping days rather than months. Lives in the sidebar at >= 600px and on the page itself below that, never both. |
 | shipped | `LiftedFab` | Wraps a FAB so it floats above the mobile bottom bar (see §7). `child` only: it reads `subPageDepth` itself, because the FAB's owner is the page *under* any pushed sub-page and has no way to know one is there. |
@@ -369,6 +428,32 @@ Nothing new may copy its local chrome.
 
 ## 7. Layout & responsive rules
 
+### Content width
+
+`ResponsiveLayout.maxContentWidth` (600) is for **prose**, and after the
+Financo pass onboarding is the only screen still using it.
+
+Settings, the profile page, the world clock and the converter are
+**deliberately uncapped**: they are lists of rows, and a row is read from both
+ends — an icon and a label on the left, a value on the right. A 600pt column of
+them floating in the middle of a 1600pt window is what the user called "too
+narrow", and they were right: capping there does not shorten a line anyone
+reads, it just moves the value away from the edge the eye is already tracking.
+The time grid was never capped, for its own reason: its value *is* showing as
+many hour columns as the screen fits.
+
+What *is* capped is any **control** inside a row —
+`TimeBuddySettingsRow._controlMaxWidth` (420). Removing the page cap without
+this produces the opposite defect: a three-way segmented toggle 1300pt wide,
+which is a row of enormous buttons and no faster to read than a small one.
+Below the mobile breakpoint the control stacks under the title instead, because
+360pt has no room for two columns.
+
+Financo is the reference here but not the authority: its own `ResponsiveLayout`
+has **zero call sites**, so its pages are full-bleed by accident rather than by
+decision. What was worth copying is the card-of-rows, not the absence of a
+number.
+
 ### Breakpoints (`ResponsiveLayout`)
 
 - **Mobile** `< 600` · **Tablet** `600–900` · **Desktop** `>= 900`.
@@ -381,7 +466,10 @@ Nothing new may copy its local chrome.
 
 ### Shell chrome
 
-- **>= 600px:** left `TimeBuddySidebar` (nav + date stepper + profile). No bottom
+- **600-900px:** left `TimeBuddySidebar`, collapsed to 80px of icons. The page
+  keeps its own date pill, because an 80px strip cannot hold a stepper. No
+  bottom bar.
+- **>= 900px:** left `TimeBuddySidebar` (nav + date stepper + profile). No bottom
   bar; pages must not render their own date pill (the sidebar owns it).
 - **< 600px:** floating `TimeBuddyBottomBar` and the page surfaces its own
   `TimeBuddyDatePill` since there is no sidebar. The bar carries all five
@@ -476,7 +564,9 @@ a `TimeBuddyPickerField`. Empty and no-hit bodies render
 - Write a raw number for padding, gap or radius in feature code.
 - Start a `Timer` in a widget. Subscribe to `TickerService`.
 - Format a time with an inline `DateFormat` or string interpolation.
-- Render a date pill on a page when the sidebar is showing (>= 600px).
+- Render a date pill on a page when the sidebar is *expanded* (>= 900px). Below
+  that the page owns it, collapsed rail included — `ResponsiveLayout
+  .sidebarIsExpanded`, never `isMobile`.
 - Let a FAB crop the last list item.
 
 ---
@@ -510,7 +600,7 @@ needed they will have to diverge.
 - [ ] Strings via slang.
 - [ ] Spacing and radius from `AppSpacing` / `AppRadius`; page gutter `lg`, section gap `xl`.
 - [ ] Loading / error / empty states handled.
-- [ ] Responsive: works < 600 (bottom bar, own date pill) and >= 600 (sidebar, no pill); sub-pages wrap in `SubPageScope`.
+- [ ] Responsive: works < 600 (bottom bar, own date pill), 600-900 (collapsed rail, own date pill) and >= 900 (expanded rail, no pill); sub-pages wrap in `SubPageScope`.
 - [ ] If it has a scroll view, the list clears whatever floats over it: `bottomSafeForFab` with a FAB, `bottomSafeForBar` without one.
 - [ ] Looks right in **both** light and dark, and survives a palette switch.
 - [ ] Digits do not jitter while ticking (tabular figures).

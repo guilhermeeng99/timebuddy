@@ -4,6 +4,7 @@ import 'dart:developer' as developer;
 import 'package:bloc/bloc.dart';
 import 'package:dartz/dartz.dart';
 import 'package:timebuddy/core/errors/failures.dart';
+import 'package:timebuddy/core/session/guest_session.dart';
 import 'package:timebuddy/core/sync/sync_service.dart';
 import 'package:timebuddy/core/time/timezone_engine.dart';
 import 'package:timebuddy/features/auth/presentation/bloc/auth_bloc.dart';
@@ -44,11 +45,13 @@ class StartupCubit extends Cubit<StartupState> {
     required TimeZoneEngine engine,
     required CityCatalogRepository catalog,
     required SyncService syncService,
+    required GuestSession guestSession,
     PreferencesCubit? preferencesCubit,
   }) : _authBloc = authBloc,
        _engine = engine,
        _catalog = catalog,
        _syncService = syncService,
+       _guestSession = guestSession,
        _preferencesCubit = preferencesCubit,
        super(const StartupInitial());
 
@@ -68,6 +71,13 @@ class StartupCubit extends Cubit<StartupState> {
   final TimeZoneEngine _engine;
   final CityCatalogRepository _catalog;
   final SyncService _syncService;
+
+  /// The device's guest marker (docs/specs/guest_mode.md).
+  ///
+  /// Required rather than optional, unlike [_preferencesCubit]: without it the
+  /// adopting sync would silently not happen, and a guest who signed in would
+  /// quietly keep a local-only board while the app told them they were synced.
+  final GuestSession _guestSession;
 
   /// The sink for the reconciled preferences document.
   ///
@@ -127,7 +137,20 @@ class StartupCubit extends Cubit<StartupState> {
     }
 
     emit(const StartupLoading(progress: StartupLoading.syncingProgress));
-    final reconciled = await _firstSync(userId);
+    // Read before the sync, because a landed adoption clears it: the flag has
+    // to survive long enough to decide whether to call `leave()` below.
+    final adopting = _guestSession.isGuest;
+    // Set before the await, not after. It is what stops `AppRouter`'s guest
+    // rule bouncing this same session back to the splash while the sync it
+    // asked for is still in flight (guest_mode.md rule 8).
+    if (adopting) _guestSession.adoptionAttempted = true;
+
+    final reconciled = await _firstSync(userId, adopting: adopting);
+    if (isClosed) return;
+    // Only on a sync that landed (rule 8). A failed adoption leaves the marker
+    // in place so the next launch retries it, rather than stranding a board
+    // that never reached the account.
+    if (adopting && reconciled) await _guestSession.leave();
     if (isClosed) return;
     emit(StartupAuthenticated(userId: userId, syncFailed: !reconciled));
   }
@@ -225,14 +248,24 @@ class StartupCubit extends Cubit<StartupState> {
   /// A `false` is not an error: the local board is already usable, so the app
   /// opens either way and `SyncService.status` carries the news to the passive
   /// indicator (rule 7, sync.md rule 4).
-  Future<bool> _firstSync(String userId) async {
-    final pending = _syncService.sync(userId: userId);
+  Future<bool> _firstSync(String userId, {required bool adopting}) async {
+    final pending = _syncService.sync(
+      userId: userId,
+      adoptGuestDocuments: adopting,
+    );
     // Adoption hangs off the sync itself rather than off the timed-out view of
     // it, so a sync that lands after the budget still reaches the cubits
     // instead of quietly replacing the stored document underneath them.
     unawaited(_adoptWhenReconciled(pending));
     try {
-      final result = await pending.timeout(syncTimeBox);
+      // An adopting sync is exempt from rule 8's budget (guest_mode.md
+      // rule 7). `AppShell` builds `BoardCubit` the moment the router leaves
+      // `/startup`, so opening early here would load the guest's document a
+      // heartbeat before the account's replaced it — the user would watch
+      // their own cities flash up and then vanish.
+      final result = adopting
+          ? await pending
+          : await pending.timeout(syncTimeBox);
       return result.isRight();
     } on TimeoutException {
       // Rule 8: the app opens on local data and the sync finishes behind it.

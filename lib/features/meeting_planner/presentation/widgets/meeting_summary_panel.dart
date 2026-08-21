@@ -2,8 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:timebuddy/app/theme/app_spacing.dart';
 import 'package:timebuddy/app/theme/app_typography.dart';
+import 'package:timebuddy/app/widgets/app_icon.dart';
 import 'package:timebuddy/app/widgets/dst_badge.dart';
 import 'package:timebuddy/app/widgets/hour_cell.dart';
 import 'package:timebuddy/app/widgets/location_row.dart';
@@ -660,7 +662,7 @@ class _CopyBar extends StatelessWidget {
             flex: _buttonFlex,
             child: FilledButton.icon(
               onPressed: () => unawaited(_copy(context)),
-              icon: const Icon(Icons.content_copy_rounded),
+              icon: const AppIcon(FontAwesomeIcons.copy),
               label: Text(
                 t.converter.copy,
                 maxLines: 1,

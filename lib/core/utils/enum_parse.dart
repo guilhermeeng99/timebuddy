@@ -44,5 +44,4 @@ T enumByName<T extends Enum>(
   List<T> values,
   String? raw, {
   required T orElse,
-}) =>
-    enumByNameOrNull(values, raw) ?? orElse;
+}) => enumByNameOrNull(values, raw) ?? orElse;

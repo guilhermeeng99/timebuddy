@@ -2,6 +2,7 @@ import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:get_it/get_it.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:timebuddy/app/theme/app_theme.dart';
@@ -324,7 +325,7 @@ void main() {
     final atTheEdge = valueOf(tester, t.converter.dateLabel);
 
     await tester.tap(
-      find.widgetWithIcon(IconButton, Icons.chevron_right_rounded),
+      find.widgetWithIcon(IconButton, FontAwesomeIcons.chevronRight.data),
     );
     await tester.pump();
 
@@ -338,7 +339,7 @@ void main() {
 
     // The other chevron still works, so the bound is a wall and not a freeze.
     await tester.tap(
-      find.widgetWithIcon(IconButton, Icons.chevron_left_rounded),
+      find.widgetWithIcon(IconButton, FontAwesomeIcons.chevronLeft.data),
     );
     await tester.pump();
     expect(valueOf(tester, t.converter.dateLabel), isNot(atTheEdge));

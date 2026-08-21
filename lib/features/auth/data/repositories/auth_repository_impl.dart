@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:dartz/dartz.dart';
 import 'package:timebuddy/core/errors/exceptions.dart';
 import 'package:timebuddy/core/errors/failures.dart';
+import 'package:timebuddy/core/session/guest_session.dart';
 import 'package:timebuddy/core/storage/local_store.dart';
 import 'package:timebuddy/features/auth/data/datasources/auth_remote_datasource.dart';
 import 'package:timebuddy/features/auth/data/models/user_model.dart';
@@ -83,8 +84,10 @@ class AuthRepositoryImpl implements AuthRepository {
   const AuthRepositoryImpl({
     required AuthRemoteDataSource remoteDataSource,
     required LocalStore localStore,
+    required GuestSession guestSession,
   }) : _remoteDataSource = remoteDataSource,
-       _localStore = localStore;
+       _localStore = localStore,
+       _guestSession = guestSession;
 
   /// Where a web redirect leaves a note for the page that comes back.
   ///
@@ -111,6 +114,10 @@ class AuthRepositoryImpl implements AuthRepository {
 
   final AuthRemoteDataSource _remoteDataSource;
   final LocalStore _localStore;
+
+  /// Where sign-out leaves the user: in the app as a guest, not on the tour
+  /// (docs/specs/guest_mode.md rule 9).
+  final GuestSession _guestSession;
 
   @override
   Future<Either<Failure, UserEntity>> signInWithGoogle() async {
@@ -298,15 +305,21 @@ class AuthRepositoryImpl implements AuthRepository {
     }
   }
 
-  /// Wipes every local key on sign-out (rule 7).
+  /// Wipes every local key on sign-out (rule 7), then re-enters guest mode.
   ///
   /// Everything, not just the two documents: the dirty flags go with them, so
   /// a write still pending for the account that just signed out cannot be
   /// flushed into the next one (docs/specs/sync.md rule 10). Leaving another
   /// account's cities on a shared browser is a privacy leak, however mild.
+  ///
+  /// **The order is load-bearing.** `clearAll()` removes the guest marker
+  /// too, so entering guest mode has to come after the wipe, never before it
+  /// (docs/specs/guest_mode.md rule 9). What the user gets is the app on an
+  /// empty board rather than the onboarding tour they have already read.
   Future<void> _clearLocalData() async {
     try {
       await _localStore.clearAll();
+      await _guestSession.enter();
     } on Object catch (_) {
       // Swallowed on purpose, and only here. The remote session is already
       // gone by this point, so failing the sign-out would strand the UI as

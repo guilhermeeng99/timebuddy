@@ -102,8 +102,8 @@ class TimeBuddyPickerSheet extends StatelessWidget {
     this.minSize = _defaultMinSize,
     this.maxSize = _defaultMaxSize,
     super.key,
-  })  : _bodyBuilder = bodyBuilder,
-        _fixedChild = null;
+  }) : _bodyBuilder = bodyBuilder,
+       _fixedChild = null;
 
   /// A sheet only as tall as its content, up to 70% of the screen.
   ///
@@ -121,14 +121,14 @@ class TimeBuddyPickerSheet extends StatelessWidget {
     required Widget child,
     this.header,
     super.key,
-  })  : _fixedChild = child,
-        _bodyBuilder = null,
-        // Inert here: the fixed variant is sized by its content, never by an
-        // extent. They are still assigned so one field set serves both
-        // constructors.
-        initialSize = _defaultInitialSize,
-        minSize = _defaultMinSize,
-        maxSize = _defaultMaxSize;
+  }) : _fixedChild = child,
+       _bodyBuilder = null,
+       // Inert here: the fixed variant is sized by its content, never by an
+       // extent. They are still assigned so one field set serves both
+       // constructors.
+       initialSize = _defaultInitialSize,
+       minSize = _defaultMinSize,
+       maxSize = _defaultMaxSize;
 
   /// Sheet title, already localized, left-aligned under the handle.
   final String title;

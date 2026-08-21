@@ -68,27 +68,26 @@ abstract class AppRoutes {
   /// charge a tap for the app's second most common question.
   static const String converter = '/converter';
 
-  /// The saved board: add, reorder, remove (docs/specs/locations.md).
-  static const String locations = '/locations';
-
   /// The `add` segment on its own.
   ///
   /// go_router wants a *relative* path on a child route, so the nested
-  /// `GoRoute` under [locations] is declared with this instead of with the
-  /// full path. Deriving [addLocation] from it is what stops the two
-  /// spellings from drifting apart when either one is renamed.
+  /// `GoRoute` under [grid] is declared with this instead of with the full
+  /// path. Deriving [addLocation] from it is what stops the two spellings
+  /// from drifting apart when either one is renamed.
   static const String addLocationSegment = 'add';
 
   /// The add-location sub-page: the city picker, as a URL.
   ///
-  /// Nested under the board because that is where it reads as what it is, and
-  /// because `TimeBuddyNavDestination.matches` counts sub-routes. The route
-  /// renders the same `AddLocationSheet` the board page opens as a modal, over
-  /// a scrim rather than opaquely, so the two entry points look alike; see
-  /// `app_router.dart`. The router wraps it in a `SubPageScope`, which is what
-  /// stops `LiftedFab` lifting a FAB over a bar that is no longer on screen
+  /// **It used to be `/locations/add`, under a board page that no longer
+  /// exists.** Renaming a URL breaks a bookmark, which is why this file exists
+  /// at all — but a path whose first segment names a page the app does not
+  /// have is worse than a broken bookmark: it is a promise. The sheet hangs
+  /// off the grid now, which is the screen that owns the board.
+  ///
+  /// The router wraps it in a `SubPageScope`, which is what stops `LiftedFab`
+  /// lifting a FAB over a bar that is no longer on screen
   /// (design_system §7).
-  static const String addLocation = '$locations/$addLocationSegment';
+  static const String addLocation = '/$addLocationSegment';
 
   /// Preferences (docs/specs/preferences.md).
   ///

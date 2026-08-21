@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
-import 'package:timebuddy/app/theme/app_spacing.dart';
 import 'package:timebuddy/core/time/clock.dart';
 import 'package:timebuddy/core/time/ticker_service.dart';
 import 'package:timebuddy/features/time_grid/domain/usecases/build_grid_usecase.dart';
@@ -24,13 +23,14 @@ import 'package:timebuddy/features/time_grid/domain/usecases/build_grid_usecase.
 ///
 /// ```dart
 /// Positioned(
-///   left: GridMetrics.labelColumnWidth,
+///   left: layout.labelColumnWidth,
 ///   top: 0,
 ///   right: 0,
 ///   bottom: 0,
 ///   child: GridNowMarker(
 ///     firstSlot: model.slots.first,
 ///     slotCount: model.slots.length,
+///     columnWidth: layout.hourColumnWidth,
 ///     horizontalOffset: hourOffset,
 ///     color: context.appColors.primary,
 ///   ),
@@ -40,6 +40,7 @@ class GridNowMarker extends StatefulWidget {
   const GridNowMarker({
     required this.firstSlot,
     required this.slotCount,
+    required this.columnWidth,
     required this.horizontalOffset,
     required this.color,
     this.ticker,
@@ -53,6 +54,9 @@ class GridNowMarker extends StatefulWidget {
   /// How many columns the track holds. From the model, never from `24`:
   /// a DST reference day has 23 or 25 (rule 2).
   final int slotCount;
+
+  /// Width of one hour column, resolved from the surface by `GridLayout`.
+  final double columnWidth;
 
   /// Current scroll offset of the shared hour track, in pixels.
   final ValueListenable<double> horizontalOffset;
@@ -105,6 +109,7 @@ class _GridNowMarkerState extends State<GridNowMarker> {
           horizontalOffset: widget.horizontalOffset,
           firstSlot: widget.firstSlot,
           slotCount: widget.slotCount,
+          columnWidth: widget.columnWidth,
           color: widget.color,
         ),
       ),
@@ -118,6 +123,7 @@ class _NowMarkerPainter extends CustomPainter {
     required this.horizontalOffset,
     required this.firstSlot,
     required this.slotCount,
+    required this.columnWidth,
     required this.color,
   }) : super(repaint: Listenable.merge([nowInstant, horizontalOffset]));
 
@@ -125,6 +131,7 @@ class _NowMarkerPainter extends CustomPainter {
   final ValueListenable<double> horizontalOffset;
   final DateTime firstSlot;
   final int slotCount;
+  final double columnWidth;
   final Color color;
 
   static const double _lineWidth = 2;
@@ -140,7 +147,7 @@ class _NowMarkerPainter extends CustomPainter {
         elapsed.inMicroseconds / BuildGridUseCase.slotDuration.inMicroseconds;
     if (columns < 0 || columns > slotCount) return;
 
-    final dx = columns * GridMetrics.hourColumnWidth - horizontalOffset.value;
+    final dx = columns * columnWidth - horizontalOffset.value;
     if (dx < 0 || dx > size.width) return;
 
     final paint = Paint()
@@ -158,6 +165,11 @@ class _NowMarkerPainter extends CustomPainter {
   bool shouldRepaint(_NowMarkerPainter oldDelegate) =>
       oldDelegate.firstSlot != firstSlot ||
       oldDelegate.slotCount != slotCount ||
+      // Without this a resize rebuilds the painter and returns false, and the
+      // line stays on its pre-resize hour until the next tick — up to a full
+      // minute away at 1/60 Hz, which reads as a rendering glitch rather than
+      // as a bug.
+      oldDelegate.columnWidth != columnWidth ||
       oldDelegate.color != color ||
       oldDelegate.nowInstant != nowInstant ||
       oldDelegate.horizontalOffset != horizontalOffset;

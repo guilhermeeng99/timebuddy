@@ -191,8 +191,9 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     // its own idea of the defaults is how two devices end up disagreeing
     // about an empty board.
     try {
-      final reference =
-          _firestore.collection(_usersCollection).doc(authUser.id);
+      final reference = _firestore
+          .collection(_usersCollection)
+          .doc(authUser.id);
       final snapshot = await reference.get();
 
       // Read, then create only when absent. That is what makes provisioning

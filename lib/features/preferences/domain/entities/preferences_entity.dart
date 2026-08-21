@@ -50,8 +50,9 @@ class PreferencesEntity extends Equatable {
       darkPalette: DarkPalette.midnightIndigo,
       hourFormat: followsUsClockConventions ? ClockFormat.h12 : ClockFormat.h24,
       workingHours: WorkingHours.defaultHours,
-      weekStartsOn:
-          followsUsClockConventions ? WeekStart.sunday : WeekStart.monday,
+      weekStartsOn: followsUsClockConventions
+          ? WeekStart.sunday
+          : WeekStart.monday,
       showSeconds: false,
       revision: 0,
       updatedAt: now.toUtc(),
@@ -120,15 +121,15 @@ class PreferencesEntity extends Equatable {
 
   @override
   List<Object?> get props => [
-        themeMode,
-        lightPalette,
-        darkPalette,
-        hourFormat,
-        workingHours,
-        weekStartsOn,
-        showSeconds,
-        localeTag,
-        revision,
-        updatedAt,
-      ];
+    themeMode,
+    lightPalette,
+    darkPalette,
+    hourFormat,
+    workingHours,
+    weekStartsOn,
+    showSeconds,
+    localeTag,
+    revision,
+    updatedAt,
+  ];
 }

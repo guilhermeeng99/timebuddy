@@ -132,7 +132,10 @@ class SyncServiceImpl implements SyncService {
   }
 
   @override
-  Future<Either<Failure, SyncOutcome>> sync({required String userId}) async {
+  Future<Either<Failure, SyncOutcome>> sync({
+    required String userId,
+    bool adoptGuestDocuments = false,
+  }) async {
     _publish(SyncStatus.syncing);
 
     final deviceZone = await _engine.deviceZone();
@@ -155,6 +158,7 @@ class SyncServiceImpl implements SyncService {
           userId: userId,
           localBoard: localBoard,
           localPreferences: localPreferences,
+          adoptGuestDocuments: adoptGuestDocuments,
         ),
       ),
     );
@@ -206,6 +210,7 @@ class SyncServiceImpl implements SyncService {
     required String userId,
     required BoardEntity localBoard,
     required PreferencesEntity localPreferences,
+    required bool adoptGuestDocuments,
   }) async {
     final _RemoteDocuments remote;
     try {
@@ -219,11 +224,14 @@ class SyncServiceImpl implements SyncService {
       return _failed(ServerFailure(error.message), _statusFor(error));
     }
 
-    final boardWinner = _boardWinner(localBoard, remote.board);
-    final preferencesWinner = _preferencesWinner(
-      localPreferences,
-      remote.preferences,
-    );
+    // Two documents, decided independently either way (rule 7): an account
+    // that has preferences but no board still provisions the guest's board up.
+    final boardWinner = adoptGuestDocuments
+        ? _adoptionWinner(remote.board)
+        : _boardWinner(localBoard, remote.board);
+    final preferencesWinner = adoptGuestDocuments
+        ? _adoptionWinner(remote.preferences)
+        : _preferencesWinner(localPreferences, remote.preferences);
 
     return _writeWinners(
       userId: userId,
@@ -238,11 +246,13 @@ class SyncServiceImpl implements SyncService {
     );
   }
 
-  /// The copy the ladder picked.
+  /// The copy the ladder — or, on an adopting sync, [_adoptionWinner] — picked.
   ///
-  /// The `??` branch is unreachable: an absent remote document is revision -1
-  /// and cannot win. It falls back to the copy the user is already looking at
-  /// rather than asserting, because a sync is not worth a crash.
+  /// The `??` branch is unreachable under both rules: an absent remote
+  /// document is revision -1 and cannot win the ladder, and [_adoptionWinner]
+  /// answers `local` for exactly the same case. It falls back to the copy the
+  /// user is already looking at rather than asserting, because a sync is not
+  /// worth a crash.
   static T _chosen<T>(ConflictWinner winner, T local, T? remote) =>
       winner == ConflictWinner.remote ? remote ?? local : local;
 
@@ -422,6 +432,19 @@ class SyncServiceImpl implements SyncService {
       return error;
     }
   }
+
+  /// The adoption rule of guest_mode.md rule 6, which is not a ladder.
+  ///
+  /// Present remote wins outright; absent remote leaves the guest's copy to be
+  /// provisioned up. Deliberately blind to both revisions and to `updatedAt`:
+  /// the two documents were written by two different identities, so neither
+  /// number says anything about the other, and rung 2 of [_winnerFor] would
+  /// hand a guest at revision 6 an account at revision 3.
+  ///
+  /// Generic over the remote model because board and preferences ask the same
+  /// question and only "is there one" is being asked.
+  static ConflictWinner _adoptionWinner<T>(T? remote) =>
+      remote == null ? ConflictWinner.local : ConflictWinner.remote;
 
   ConflictWinner _boardWinner(BoardEntity local, BoardModel? remote) {
     return _winnerFor(

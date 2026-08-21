@@ -1,9 +1,12 @@
 import 'package:bloc_test/bloc_test.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:mocktail/mocktail.dart';
 import 'package:timebuddy/app/routes/app_shell.dart';
 import 'package:timebuddy/app/theme/app_spacing.dart';
 import 'package:timebuddy/app/theme/app_theme.dart';
@@ -11,6 +14,7 @@ import 'package:timebuddy/app/widgets/feature_empty_state.dart';
 import 'package:timebuddy/app/widgets/hour_cell.dart';
 import 'package:timebuddy/app/widgets/loading_shimmer.dart';
 import 'package:timebuddy/app/widgets/location_row.dart';
+import 'package:timebuddy/app/widgets/timebuddy_bottom_bar.dart';
 import 'package:timebuddy/app/widgets/timebuddy_date_pill.dart';
 import 'package:timebuddy/features/locations/domain/entities/board_entity.dart';
 import 'package:timebuddy/features/locations/domain/entities/saved_location_entity.dart';
@@ -53,13 +57,19 @@ const int _kolkataHoursFromHome = 8;
 /// Tokyo's offset from Sao Paulo is `+12:00`.
 const int _tokyoHoursFromHome = 12;
 
-/// Wide enough for the full label column plus roughly seventeen hour columns,
-/// and tall enough that all three rows are built.
+/// Wide enough for the full pinned column plus fifteen hour columns, and tall
+/// enough that all three rows are built.
 ///
-/// Above `ResponsiveLayout.mobileBreakpoint` on purpose, and now genuinely so:
-/// the geometry below is written against the full pinned column
-/// (`GridMetrics.labelColumnWidth`), which is the form the grid takes at a
-/// desktop width. The dense 96px form is what [_phoneSurface] reaches.
+/// Above `ResponsiveLayout.mobileBreakpoint` on purpose: the geometry below is
+/// written against the full pinned column (`GridMetrics.labelColumnWidth`),
+/// which is the form the grid takes at a desktop width. The dense 128px form
+/// is what [_phoneSurface] reaches.
+///
+/// **How many columns is no longer a constant.** `GridLayout` divides the
+/// 720pt track into the most whole columns that clear its floor, so this
+/// surface resolves to fifteen at 48pt rather than twelve at 60. Nothing below
+/// hardcodes either number — the tests read the width the page resolved, which
+/// is the only figure the header, the rows and the painters all agree on.
 const Size _wideSurface = Size(900, 700);
 
 /// A phone: below `ResponsiveLayout.mobileBreakpoint`, so the page renders its
@@ -172,7 +182,7 @@ void main() {
   /// reason to register, and building it needs the engine `pumpApp` has just
   /// made — hence a second `pumpWidget` here rather than a private copy of
   /// the harness.
-  Future<void> pumpGrid(
+  Future<_MockBoardCubit> pumpGrid(
     WidgetTester tester, {
     required BoardState boardState,
     Size surfaceSize = _wideSurface,
@@ -192,6 +202,11 @@ void main() {
       const Stream<BoardState>.empty(),
       initialState: boardState,
     );
+    // Accepted by default: the tests that care about a *refused* write are
+    // `board_cubit_test.dart`'s, and this page only has to ask.
+    when(
+      () => boardCubit.reorder(any(), any()),
+    ).thenAnswer((_) async => null);
 
     // The sidebar's stepper slot is app-scoped, so it would otherwise carry
     // one test's pill into the next.
@@ -212,6 +227,7 @@ void main() {
       ),
     );
     await tester.pump();
+    return boardCubit;
   }
 
   /// The grid's single horizontal `Scrollable`, which lives in the header.
@@ -230,6 +246,16 @@ void main() {
   int leftmostHour(WidgetTester tester, String zoneId) =>
       tester.widget<HourCell>(_cellsOf(zoneId).first).hour;
 
+  /// The hour column width this surface resolved to.
+  ///
+  /// Read off the header strip rather than recomputed, because the strip's
+  /// `itemExtent` *is* the grid's content extent: a test that derived the
+  /// number itself could agree with `GridLayout` and still disagree with what
+  /// the page actually laid out.
+  double resolvedColumnWidth(WidgetTester tester) => tester
+      .widget<GridHeaderStrip>(find.byType(GridHeaderStrip))
+      .columnWidth;
+
   HourCell cursorCell(WidgetTester tester, String zoneId) {
     final finder = _cursorCellOf(zoneId);
     expect(finder, findsOneWidget, reason: 'cursor cell of $zoneId');
@@ -242,16 +268,14 @@ void main() {
     await pumpGrid(tester, boardState: _loaded(threeZoneBoard));
 
     final labelBefore = tester.getRect(find.byType(LocationRow).first);
+    final columnWidth = resolvedColumnWidth(tester);
     final offsetBefore = trackOffset(tester);
     final homeHourBefore = leftmostHour(tester, _saoPaulo);
     final tokyoHourBefore = leftmostHour(tester, _tokyo);
 
     // Dragging the header is the only thing that scrolls the track; dragging
     // the cells moves the cursor instead (time_grid.md, Interaction).
-    await tester.drag(
-      hourTrack(),
-      const Offset(-4 * GridMetrics.hourColumnWidth, 0),
-    );
+    await tester.drag(hourTrack(), Offset(-4 * columnWidth, 0));
     await tester.pumpAndSettle();
 
     final offsetAfter = trackOffset(tester);
@@ -261,10 +285,13 @@ void main() {
       reason: 'the drag has to move the track for this to mean anything',
     );
 
-    // Every row followed the one controller by the same number of columns...
+    // Every row followed the one controller by the same number of columns,
+    // counted in the width the page resolved rather than in a literal 60 —
+    // dividing by a stale constant is how a green test starts describing a
+    // grid the app no longer draws.
     final columns =
-        (offsetAfter / GridMetrics.hourColumnWidth).floor() -
-        (offsetBefore / GridMetrics.hourColumnWidth).floor();
+        (offsetAfter / columnWidth).floor() -
+        (offsetBefore / columnWidth).floor();
     expect(columns, greaterThan(0));
     expect(leftmostHour(tester, _saoPaulo), (homeHourBefore + columns) % 24);
     expect(leftmostHour(tester, _tokyo), (tokyoHourBefore + columns) % 24);
@@ -441,5 +468,159 @@ void main() {
       tester.getRect(_trackOf(_lastZone)).bottom,
       lessThanOrEqualTo(tester.getRect(find.byType(FloatingActionButton)).top),
     );
+  });
+
+  group('the label column owns the row', () {
+    /// Lifts the row at [from] and drops it one row further down.
+    ///
+    /// Driven as a real gesture rather than by calling `onReorderItem`: what
+    /// is under test is precisely that the lift is reachable from the label
+    /// column at all, which a direct call would assume.
+    Future<void> dragRowDown(
+      WidgetTester tester, {
+      required int from,
+      required bool touch,
+    }) async {
+      final label = find.byType(LocationRow).at(from);
+      final gesture = await tester.startGesture(tester.getCenter(label));
+      if (touch) {
+        // A finger has to press and hold. An immediate lift here would steal
+        // every vertical scroll of the grid that began over a label.
+        await tester.pump(kLongPressTimeout + const Duration(milliseconds: 20));
+      }
+      // In steps, because one jump can land outside every drop target and the
+      // list then has nowhere to put the row.
+      for (var i = 0; i < 4; i++) {
+        await gesture.moveBy(const Offset(0, GridMetrics.rowHeight / 3));
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      await gesture.up();
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('a finger long-presses a label to move its row', (
+      tester,
+    ) async {
+      final boardCubit = await pumpGrid(
+        tester,
+        boardState: _loaded(threeZoneBoard),
+      );
+
+      await dragRowDown(tester, from: 0, touch: true);
+
+      // Both indices are final positions: `onReorderItem` has already
+      // adjusted the destination for the lifted row (locations.md rule 5).
+      verify(() => boardCubit.reorder(0, 1)).called(1);
+    });
+
+    testWidgets('a mouse drags it without the hold', (tester) async {
+      // Set before the pump: `Theme.platform` is read when the row builds, and
+      // it is what picks between the two drag-start listeners. Cleared inside
+      // the body rather than in a tear-down, which runs *after* the binding
+      // checks that no debug variable outlived the test.
+      debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+      try {
+        final boardCubit = await pumpGrid(
+          tester,
+          boardState: _loaded(threeZoneBoard),
+        );
+
+        await dragRowDown(tester, from: 0, touch: false);
+
+        // A long-press before a drag on a desktop reads as the app being slow.
+        verify(() => boardCubit.reorder(0, 1)).called(1);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
+
+    testWidgets('a drag over the hours moves the cursor, not the row', (
+      tester,
+    ) async {
+      final boardCubit = await pumpGrid(
+        tester,
+        boardState: _loaded(threeZoneBoard),
+      );
+
+      // The one gesture that would break if the row lift were attached to the
+      // whole row instead of to the pinned column.
+      await tester.drag(
+        _cellsOf(_saoPaulo).first,
+        const Offset(3 * GridMetrics.hourColumnWidth, 0),
+      );
+      await tester.pumpAndSettle();
+
+      verifyNever(() => boardCubit.reorder(any(), any()));
+    });
+
+    testWidgets("tapping a label opens that row's actions", (tester) async {
+      await pumpGrid(tester, boardState: _loaded(threeZoneBoard));
+
+      // `warnIfMissed: false`: the handle's `HitTestBehavior.opaque` answers
+      // the tap and stops the descent, so `LocationRow`'s own render object is
+      // deliberately not in the hit-test chain.
+      await tester.tap(find.byType(LocationRow).first, warnIfMissed: false);
+      await tester.pumpAndSettle();
+
+      // The sheet the board page used to be the only way to reach. Neither
+      // drag recognizer claims a pointer that never moved, so the tap
+      // survives on both platforms.
+      expect(find.text(t.locations.setAsHome), findsOneWidget);
+      expect(find.text(t.locations.replaceZone), findsOneWidget);
+      expect(find.text(t.common.remove), findsOneWidget);
+    });
+
+    testWidgets('the undo snackbar clears the floating bar on a phone', (
+      tester,
+    ) async {
+      final boardCubit = await pumpGrid(
+        tester,
+        boardState: _loaded(threeZoneBoard),
+        surfaceSize: _phoneSurface,
+      );
+      when(
+        () => boardCubit.removeLocation(any()),
+      ).thenAnswer((_) async => null);
+
+      await tester.tap(find.byType(LocationRow).first, warnIfMissed: false);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(t.common.remove));
+      await tester.pumpAndSettle();
+
+      // A default snackbar is fixed to the bottom of the *page's* Scaffold,
+      // and the bar is not in that Scaffold — it is an Align in `AppShell`'s
+      // Stack, painted above it. So an unlifted snackbar puts the Undo button
+      // underneath the pill, where it can be read and not pressed
+      // (design_system section 9).
+      final snack = tester.widget<SnackBar>(find.byType(SnackBar));
+      expect(snack.behavior, SnackBarBehavior.floating);
+      expect(
+        (snack.margin! as EdgeInsets).bottom,
+        greaterThanOrEqualTo(TimeBuddyBottomBar.reservedHeight),
+      );
+      expect(find.text(t.locations.undo), findsOneWidget);
+    });
+
+    testWidgets('and stays put where there is no bar', (tester) async {
+      final boardCubit = await pumpGrid(
+        tester,
+        boardState: _loaded(threeZoneBoard),
+      );
+      when(
+        () => boardCubit.removeLocation(any()),
+      ).thenAnswer((_) async => null);
+
+      await tester.tap(find.byType(LocationRow).first, warnIfMissed: false);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(t.common.remove));
+      await tester.pumpAndSettle();
+
+      // At and above 600px the rail replaces the bar, so a snackbar floating
+      // 96px off the floor would be hovering over nothing.
+      expect(
+        tester.widget<SnackBar>(find.byType(SnackBar)).behavior,
+        SnackBarBehavior.fixed,
+      );
+    });
   });
 }

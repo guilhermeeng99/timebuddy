@@ -54,8 +54,10 @@ class _LoadingShimmerState extends State<LoadingShimmer>
   // listenable that has to be disposed, and one more disposable here buys
   // nothing.
   late final Animation<double> _opacity = _controller.drive(
-    Tween<double>(begin: _minOpacity, end: _maxOpacity)
-        .chain(CurveTween(curve: Curves.easeInOut)),
+    Tween<double>(
+      begin: _minOpacity,
+      end: _maxOpacity,
+    ).chain(CurveTween(curve: Curves.easeInOut)),
   );
 
   @override

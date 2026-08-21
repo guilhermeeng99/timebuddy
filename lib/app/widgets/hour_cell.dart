@@ -46,6 +46,7 @@ class HourCell extends StatelessWidget {
     this.isSelected = false,
     this.onTap,
     this.height = GridMetrics.rowHeight,
+    this.compact = false,
     super.key,
   });
 
@@ -75,10 +76,41 @@ class HourCell extends StatelessWidget {
   /// Cell height. Defaults to one grid row.
   final double height;
 
-  static const double _fillAlpha = 0.12;
+  /// Renders the small chip form instead of the grid's own.
+  ///
+  /// The grid cell is a wide, flat, edge-to-edge segment of a timeline: 15pt
+  /// digits, no rounding, no gap, so twenty of them read as one continuous
+  /// day rather than as twenty floating pills. That form needs the full
+  /// `GridMetrics.hourColumnWidth` and has nowhere to go in the settings
+  /// preview, whose 24 cells share whatever width the card can spare — as
+  /// little as 26pt each. `compact` keeps that caller on the rounded 11pt chip
+  /// the grid used to draw everywhere.
+  ///
+  /// Both forms take their fill from the same `hourBandColor`, which is the
+  /// reason this is one widget: the preview is a legend for the grid, and a
+  /// legend drawn by a second widget stops matching the first time either is
+  /// restyled.
+  final bool compact;
+
+  /// Band tint under the digits.
+  ///
+  /// 0.16, up from 0.12: at the old value four bands were four shades of the
+  /// same murk on a dark palette, and the colour was carrying no information a
+  /// user could act on.
+  static const double _fillAlpha = 0.16;
   static const double _selectedAlpha = 0.18;
-  static const double _cursorBorderWidth = 2;
-  static const double _compactFontSize = 9;
+  static const double _compactFontSize = 11;
+  static const double _comfortableFontSize = 15;
+
+  /// How far the digits are pulled from their band colour toward the page's
+  /// foreground.
+  ///
+  /// The digits are tinted rather than plain, so a cell says which band it is
+  /// in even to someone reading one row out of the corner of their eye — and
+  /// lerping toward `onBackground` rather than hardcoding a light tint is what
+  /// keeps that legible on all twenty palettes, light ones included.
+  static const double _inkBlend = 0.55;
+  static const double _cursorInkBlend = 0.45;
 
   bool get _hasMinutes => minute != null && minute != 0;
 
@@ -98,27 +130,35 @@ class HourCell extends StatelessWidget {
         type: MaterialType.transparency,
         child: InkWell(
           onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.all(AppSpacing.xs),
-            child: _surface(context, colors),
-          ),
+          // The comfortable cell has no inset: its fill runs to the column's
+          // edges so neighbouring hours meet, which is what turns a row of
+          // cells into a timeline.
+          child: compact
+              ? Padding(
+                  padding: const EdgeInsets.all(AppSpacing.xs),
+                  child: _surface(context, colors),
+                )
+              : _surface(context, colors),
         ),
       ),
     );
   }
 
   Widget _surface(BuildContext context, AppColorsData colors) {
-    final radius = BorderRadius.circular(AppRadius.sm);
-    final isEmphasised = isCursor || isSelected;
+    final radius = compact
+        ? BorderRadius.circular(AppRadius.sm)
+        : BorderRadius.zero;
+    final bandColor = hourBandColor(band, colors);
     return DecoratedBox(
       decoration: BoxDecoration(
-        // The band token at 12%: enough to read the column as a block of
-        // colour, light enough that the digits stay legible on both palettes.
-        color: hourBandColor(band, colors).withValues(alpha: _fillAlpha),
+        // The cursor is a wash of the accent rather than a 2pt ring around the
+        // cell. A ring is a fifth box drawn on a screen that already has
+        // eighty; a filled column reads as "here" from across the row and
+        // costs no extra edge.
+        color: isCursor
+            ? colors.primary.withValues(alpha: _selectedAlpha)
+            : bandColor.withValues(alpha: _fillAlpha),
         borderRadius: radius,
-        border: isCursor
-            ? Border.all(color: colors.primary, width: _cursorBorderWidth)
-            : null,
       ),
       child: DecoratedBox(
         // Selection is a wash *over* the band rather than a replacement of it,
@@ -134,14 +174,34 @@ class HourCell extends StatelessWidget {
             _label,
             maxLines: 1,
             style: context.textTheme.labelSmall?.copyWith(
-              // Half-hour rows carry two extra glyphs in the same 44px column.
-              fontSize: _hasMinutes ? _compactFontSize : null,
-              fontWeight: isEmphasised ? FontWeight.w600 : FontWeight.w500,
-              color: isEmphasised ? colors.primary : colors.onBackground,
+              // One size for every cell, minutes or not. The old 9pt
+              // fallback made exactly the rows that need explaining —
+              // Kolkata, Kathmandu, Chatham — the hardest ones to read.
+              fontSize: compact ? _compactFontSize : _comfortableFontSize,
+              fontWeight: isCursor || isSelected
+                  ? FontWeight.w700
+                  : FontWeight.w500,
+              color: _inkFor(colors, bandColor),
             ),
           ),
         ),
       ),
     );
+  }
+
+  /// The digit colour: the band pulled toward the page's foreground, or the
+  /// accent pulled the same way on the cursor.
+  Color _inkFor(AppColorsData colors, Color bandColor) {
+    if (isCursor || isSelected) {
+      return Color.lerp(
+        colors.primary,
+        colors.onBackground,
+        _cursorInkBlend,
+      )!;
+    }
+    // The compact chip is small enough that a tinted digit loses contrast
+    // before it gains meaning, so it keeps the plain foreground.
+    if (compact) return colors.onBackground;
+    return Color.lerp(bandColor, colors.onBackground, _inkBlend)!;
   }
 }

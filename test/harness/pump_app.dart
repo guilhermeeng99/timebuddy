@@ -25,6 +25,7 @@
 /// ```
 library;
 
+import 'package:bloc_test/bloc_test.dart';
 import 'package:dartz/dartz.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -37,10 +38,12 @@ import 'package:intl/intl.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:timebuddy/app/theme/app_theme.dart';
 import 'package:timebuddy/core/errors/failures.dart';
+import 'package:timebuddy/core/session/guest_session.dart';
 import 'package:timebuddy/core/time/clock.dart';
 import 'package:timebuddy/core/time/ticker_service.dart';
 import 'package:timebuddy/core/time/timezone_engine.dart';
 import 'package:timebuddy/core/time/zone_lookup.dart';
+import 'package:timebuddy/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:timebuddy/features/preferences/domain/entities/preferences_entity.dart';
 import 'package:timebuddy/features/preferences/presentation/cubit/preferences_cubit.dart';
 import 'package:timebuddy/gen/i18n/strings.g.dart';
@@ -61,6 +64,8 @@ typedef PumpedApp = ({
   FakeClock clock,
   TickerService ticker,
   TimeZoneEngine engine,
+  MockAuthBloc authBloc,
+  GuestSession guestSession,
 });
 
 /// `flutter_timezone`'s channel, the one platform call the app makes.
@@ -140,6 +145,7 @@ Future<PumpedApp> pumpApp(
   TimeZoneEngine? engine,
   DateTime? nowUtc,
   Size? surfaceSize,
+  AuthState? authState,
 }) async {
   final app = await _install(
     tester,
@@ -147,9 +153,10 @@ Future<PumpedApp> pumpApp(
     engine: engine,
     nowUtc: nowUtc,
     surfaceSize: surfaceSize,
+    authState: authState,
   );
   await tester.pumpWidget(
-    _shell(app.cubit, MaterialApp(theme: AppTheme.light(), home: child)),
+    _shell(app, MaterialApp(theme: AppTheme.light(), home: child)),
   );
   return app;
 }
@@ -168,6 +175,7 @@ Future<PumpedApp> pumpAppRouter(
   TimeZoneEngine? engine,
   DateTime? nowUtc,
   Size? surfaceSize,
+  AuthState? authState,
 }) async {
   final app = await _install(
     tester,
@@ -175,10 +183,11 @@ Future<PumpedApp> pumpAppRouter(
     engine: engine,
     nowUtc: nowUtc,
     surfaceSize: surfaceSize,
+    authState: authState,
   );
   await tester.pumpWidget(
     _shell(
-      app.cubit,
+      app,
       MaterialApp.router(theme: AppTheme.light(), routerConfig: router),
     ),
   );
@@ -188,8 +197,20 @@ Future<PumpedApp> pumpAppRouter(
 /// `TranslationProvider` above everything, so the top-level `t` resolves the
 /// same way it does under `runApp`, and `BlocProvider` above `MaterialApp`, so
 /// a pushed route and a modal sheet read the same cubit the page does.
-Widget _shell(PreferencesCubit cubit, Widget app) => TranslationProvider(
-  child: BlocProvider<PreferencesCubit>.value(value: cubit, child: app),
+/// The providers `TimeBuddyApp` puts above every route, and only those.
+///
+/// `AuthBloc` is here because it is there (`app_widget.dart`): a page that
+/// mentions the session — settings' Account row, the profile page — reads it
+/// off the tree, and a harness that only provided preferences would make those
+/// pages untestable while the app itself works.
+Widget _shell(PumpedApp app, Widget child) => TranslationProvider(
+  child: MultiBlocProvider(
+    providers: [
+      BlocProvider<PreferencesCubit>.value(value: app.cubit),
+      BlocProvider<AuthBloc>.value(value: app.authBloc),
+    ],
+    child: child,
+  ),
 );
 
 Future<PumpedApp> _install(
@@ -198,6 +219,7 @@ Future<PumpedApp> _install(
   required TimeZoneEngine? engine,
   required DateTime? nowUtc,
   required Size? surfaceSize,
+  required AuthState? authState,
 }) async {
   registerCommonFallbacks();
 
@@ -260,11 +282,34 @@ Future<PumpedApp> _install(
 
   final resolvedEngine = engine ?? TzTimeZoneEngine();
 
+  // Signed out and quiet unless a test says otherwise, which is the state
+  // every page has to render correctly anyway now that sign-in is optional
+  // (docs/specs/guest_mode.md).
+  final authBloc = MockAuthBloc();
+  whenListen(
+    authBloc,
+    const Stream<AuthState>.empty(),
+    initialState: authState ?? const Unauthenticated(),
+  );
+  addTearDown(authBloc.close);
+
+  // The real `GuestSession` over a mocked store: it is a plain notifier with
+  // no logic worth faking, and `LocalStore` is the boundary (CLAUDE.md). Not a
+  // guest by default, so a test that wants one calls `enter()`.
+  final guestStore = MockLocalStore();
+  when(() => guestStore.readRaw(any())).thenAnswer((_) async => null);
+  when(() => guestStore.writeRaw(any(), any())).thenAnswer((_) async {});
+  when(() => guestStore.remove(any())).thenAnswer((_) async {});
+  final guestSession = GuestSession(localStore: guestStore);
+  addTearDown(guestSession.dispose);
+
   GetIt.I
     ..registerSingleton<Clock>(clock)
     ..registerSingleton<TickerService>(ticker)
     ..registerSingleton<TimeZoneEngine>(resolvedEngine)
-    ..registerSingleton<PreferencesCubit>(cubit);
+    ..registerSingleton<PreferencesCubit>(cubit)
+    ..registerSingleton<AuthBloc>(authBloc)
+    ..registerSingleton<GuestSession>(guestSession);
 
   return (
     cubit: cubit,
@@ -272,5 +317,7 @@ Future<PumpedApp> _install(
     clock: clock,
     ticker: ticker,
     engine: resolvedEngine,
+    authBloc: authBloc,
+    guestSession: guestSession,
   );
 }

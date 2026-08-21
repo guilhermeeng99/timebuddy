@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:timebuddy/app/widgets/app_icon.dart';
 import 'package:timebuddy/core/extensions/context_extensions.dart';
 
 /// The app's search-as-you-type input, used by every picker that filters a
@@ -103,7 +105,10 @@ class _TimeBuddySearchFieldState extends State<TimeBuddySearchField> {
         hintStyle: context.textTheme.bodyMedium?.copyWith(
           color: colors.onBackgroundLight,
         ),
-        prefixIcon: Icon(Icons.search_rounded, color: colors.onBackgroundLight),
+        prefixIcon: AppIcon(
+          FontAwesomeIcons.magnifyingGlass,
+          color: colors.onBackgroundLight,
+        ),
         suffixIcon: _ClearButton(
           controller: _controller,
           tooltip: widget.clearTooltip,
@@ -136,7 +141,7 @@ class _ClearButton extends StatelessWidget {
       builder: (context, value, _) {
         if (value.text.isEmpty) return const SizedBox.shrink();
         return IconButton(
-          icon: const Icon(Icons.close_rounded),
+          icon: const AppIcon(FontAwesomeIcons.xmark),
           color: context.appColors.onBackgroundLight,
           tooltip: tooltip,
           onPressed: onClear,

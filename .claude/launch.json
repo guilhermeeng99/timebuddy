@@ -11,9 +11,25 @@
         "--web-port",
         "5599",
         "--web-hostname",
-        "127.0.0.1"
+        "localhost"
       ],
-      "port": 5599
+      "port": 5599,
+      "url": "http://localhost:5599"
+    },
+    {
+      "name": "timebuddy-static",
+      "runtimeExecutable": "python",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "5600",
+        "--bind",
+        "localhost",
+        "--directory",
+        "build/web"
+      ],
+      "port": 5600,
+      "url": "http://localhost:5600"
     }
   ]
 }

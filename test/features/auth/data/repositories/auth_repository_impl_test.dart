@@ -10,6 +10,8 @@ import 'package:mocktail/mocktail.dart';
 import 'package:timebuddy/core/errors/exceptions.dart';
 import 'package:timebuddy/core/errors/failures.dart';
 import 'package:timebuddy/core/platform/app_platform.dart';
+import 'package:timebuddy/core/session/guest_session.dart';
+import 'package:timebuddy/core/storage/local_store.dart';
 import 'package:timebuddy/features/auth/data/datasources/auth_remote_datasource.dart';
 import 'package:timebuddy/features/auth/data/models/user_model.dart';
 import 'package:timebuddy/features/auth/data/repositories/auth_repository_impl.dart';
@@ -144,14 +146,17 @@ void main() {
   group('over a mocked data source', () {
     late _MockAuthRemoteDataSource remote;
     late MockLocalStore store;
+    late GuestSession guestSession;
     late AuthRepositoryImpl repository;
 
     setUp(() {
       remote = _MockAuthRemoteDataSource();
       store = MockLocalStore();
+      guestSession = GuestSession(localStore: store);
       repository = AuthRepositoryImpl(
         remoteDataSource: remote,
         localStore: store,
+        guestSession: guestSession,
       );
       when(store.clearAll).thenAnswer((_) async {});
       // The default browser: nothing was ever redirected here. Tests about
@@ -384,6 +389,31 @@ void main() {
         verify(store.clearAll).called(1);
       });
 
+      test('re-enters guest mode after the wipe, in that order', () async {
+        // Rule 9. `clearAll()` removes the guest marker too, so writing it
+        // before the wipe would erase the thing that keeps the user inside the
+        // app; the order here is the whole behaviour.
+        when(remote.signOut).thenAnswer((_) async {});
+
+        await repository.signOut();
+
+        expect(guestSession.isGuest, isTrue);
+        verifyInOrder([
+          store.clearAll,
+          () => store.writeRaw(StorageKeys.guest, any()),
+        ]);
+      });
+
+      test('does not enter guest mode when the sign-out failed', () async {
+        // Still signed in, so there is no guest session to start and the
+        // board they can still see is still theirs.
+        when(remote.signOut).thenThrow(const AuthException('no network'));
+
+        await repository.signOut();
+
+        expect(guestSession.isGuest, isFalse);
+      });
+
       test('keeps the local board when the remote sign-out failed', () async {
         // A user whose sign-out failed is still signed in; wiping their board
         // would hand them an empty app they did not ask for (Edge Cases).
@@ -586,6 +616,7 @@ void main() {
           clock: clock,
         ),
         localStore: store,
+        guestSession: GuestSession(localStore: store),
       );
     }
 
@@ -765,8 +796,8 @@ void main() {
         popupReturns(aFirebaseSession(creationTime: accountCreatedAt));
         await firestoreHoldsProfile();
 
-        final result =
-            await repositoryOn(const _WebPlatform()).signInWithGoogle();
+        final result = await repositoryOn(const _WebPlatform())
+            .signInWithGoogle();
 
         expect(valueOf(result).name, renamed);
         verify(() => firebaseAuth.signInWithPopup(any())).called(1);
@@ -780,8 +811,8 @@ void main() {
         // override a decision they just made.
         popupThrows('popup-closed-by-user');
 
-        final result =
-            await repositoryOn(const _WebPlatform()).signInWithGoogle();
+        final result = await repositoryOn(const _WebPlatform())
+            .signInWithGoogle();
 
         expect(isSignInCancelled(failureOf(result)), isTrue);
         verifyNever(() => firebaseAuth.signInWithRedirect(any()));
@@ -791,8 +822,8 @@ void main() {
         // What a double tap produces: the second request cancels the first.
         popupThrows('cancelled-popup-request');
 
-        final result =
-            await repositoryOn(const _WebPlatform()).signInWithGoogle();
+        final result = await repositoryOn(const _WebPlatform())
+            .signInWithGoogle();
 
         expect(isSignInCancelled(failureOf(result)), isTrue);
       });
@@ -800,8 +831,8 @@ void main() {
       test('a blocked popup falls back to the redirect', () async {
         popupThrows('popup-blocked');
 
-        final result =
-            await repositoryOn(const _WebPlatform()).signInWithGoogle();
+        final result = await repositoryOn(const _WebPlatform())
+            .signInWithGoogle();
 
         verify(() => firebaseAuth.signInWithRedirect(any())).called(1);
         verify(
@@ -822,8 +853,8 @@ void main() {
         // for exactly this case never ran.
         popupThrows('auth/popup-blocked');
 
-        final result =
-            await repositoryOn(const _WebPlatform()).signInWithGoogle();
+        final result = await repositoryOn(const _WebPlatform())
+            .signInWithGoogle();
 
         verify(() => firebaseAuth.signInWithRedirect(any())).called(1);
         expect(isSignInCancelled(failureOf(result)), isTrue);
@@ -832,8 +863,8 @@ void main() {
       test('the web spelling of a dismissal is still a dismissal', () async {
         popupThrows('auth/popup-closed-by-user');
 
-        final result =
-            await repositoryOn(const _WebPlatform()).signInWithGoogle();
+        final result = await repositoryOn(const _WebPlatform())
+            .signInWithGoogle();
 
         verifyNever(() => firebaseAuth.signInWithRedirect(any()));
         expect(isSignInCancelled(failureOf(result)), isTrue);
@@ -844,8 +875,8 @@ void main() {
         // as a blocker: the popup is not available, so try the other flow.
         popupThrows('operation-not-supported-in-this-environment');
 
-        final result =
-            await repositoryOn(const _WebPlatform()).signInWithGoogle();
+        final result = await repositoryOn(const _WebPlatform())
+            .signInWithGoogle();
 
         verify(() => firebaseAuth.signInWithRedirect(any())).called(1);
         expect(isSignInCancelled(failureOf(result)), isTrue);
@@ -856,8 +887,8 @@ void main() {
         // redirect's state, caught before the page is spent on it.
         popupThrows('web-storage-unsupported');
 
-        final result =
-            await repositoryOn(const _WebPlatform()).signInWithGoogle();
+        final result = await repositoryOn(const _WebPlatform())
+            .signInWithGoogle();
 
         expect(isSignInStorageBlocked(failureOf(result)), isTrue);
         verifyNever(() => firebaseAuth.signInWithRedirect(any()));
@@ -868,8 +899,8 @@ void main() {
         // nobody signs in past, and no other flow would help.
         popupThrows('unauthorized-domain');
 
-        final result =
-            await repositoryOn(const _WebPlatform()).signInWithGoogle();
+        final result = await repositoryOn(const _WebPlatform())
+            .signInWithGoogle();
 
         expect(failureOf(result), isA<AuthFailure>());
         expect(isSignInCancelled(failureOf(result)), isFalse);
@@ -880,8 +911,8 @@ void main() {
       test('a popup that returns no user is a failure', () async {
         popupReturns(null);
 
-        final result =
-            await repositoryOn(const _WebPlatform()).signInWithGoogle();
+        final result = await repositoryOn(const _WebPlatform())
+            .signInWithGoogle();
 
         expect(failureOf(result), isA<AuthFailure>());
         expect(isSignInCancelled(failureOf(result)), isFalse);
@@ -893,8 +924,8 @@ void main() {
           FirebaseException(plugin: 'firebase_auth', code: 'network-error'),
         );
 
-        final result =
-            await repositoryOn(const _WebPlatform()).signInWithGoogle();
+        final result = await repositoryOn(const _WebPlatform())
+            .signInWithGoogle();
 
         expect(failureOf(result), isA<AuthFailure>());
         expect(isSignInCancelled(failureOf(result)), isFalse);
@@ -913,8 +944,8 @@ void main() {
         redirectReturns(null);
         when(() => firebaseAuth.currentUser).thenReturn(null);
 
-        final result =
-            await repositoryOn(const _WebPlatform()).getCurrentUser();
+        final result = await repositoryOn(const _WebPlatform())
+            .getCurrentUser();
 
         expect(isSignInStorageBlocked(failureOf(result)), isTrue);
         verify(
@@ -937,23 +968,25 @@ void main() {
         firebaseAdopts(aFirebaseSession(creationTime: accountCreatedAt));
         await firestoreHoldsProfile();
 
-        final result =
-            await repositoryOn(const _MobilePlatform()).signInWithGoogle();
+        final result = await repositoryOn(const _MobilePlatform())
+            .signInWithGoogle();
 
         expect(valueOf(result).id, ada.id);
         expect(valueOf(result).name, renamed);
         verify(googleSignIn.initialize).called(1);
-        final credential = verify(
-          () => firebaseAuth.signInWithCredential(captureAny()),
-        ).captured.single as OAuthCredential;
+        final credential =
+            verify(
+                  () => firebaseAuth.signInWithCredential(captureAny()),
+                ).captured.single
+                as OAuthCredential;
         expect(credential.idToken, 'the-id-token');
       });
 
       test('a dismissed dialog is a cancellation (rule 5)', () async {
         googleThrows(GoogleSignInExceptionCode.canceled);
 
-        final result =
-            await repositoryOn(const _MobilePlatform()).signInWithGoogle();
+        final result = await repositoryOn(const _MobilePlatform())
+            .signInWithGoogle();
 
         expect(isSignInCancelled(failureOf(result)), isTrue);
         verifyNever(() => firebaseAuth.signInWithCredential(any()));
@@ -964,8 +997,8 @@ void main() {
         // backgrounded under the sheet.
         googleThrows(GoogleSignInExceptionCode.interrupted);
 
-        final result =
-            await repositoryOn(const _MobilePlatform()).signInWithGoogle();
+        final result = await repositoryOn(const _MobilePlatform())
+            .signInWithGoogle();
 
         expect(isSignInCancelled(failureOf(result)), isTrue);
       });
@@ -975,8 +1008,8 @@ void main() {
         // would hide it from every user and every bug report.
         googleThrows(GoogleSignInExceptionCode.uiUnavailable);
 
-        final result =
-            await repositoryOn(const _MobilePlatform()).signInWithGoogle();
+        final result = await repositoryOn(const _MobilePlatform())
+            .signInWithGoogle();
 
         expect(failureOf(result), isA<AuthFailure>());
         expect(isSignInCancelled(failureOf(result)), isFalse);
@@ -985,8 +1018,8 @@ void main() {
       test('an account with no ID token is a failure', () async {
         googleReturns(idToken: null);
 
-        final result =
-            await repositoryOn(const _MobilePlatform()).signInWithGoogle();
+        final result = await repositoryOn(const _MobilePlatform())
+            .signInWithGoogle();
 
         expect(failureOf(result), isA<AuthFailure>());
         verifyNever(() => firebaseAuth.signInWithCredential(any()));
@@ -1028,8 +1061,8 @@ void main() {
         firestore.removeSavedDocument(profileDocument().path);
         expect(await profileExists(), isFalse);
 
-        final result =
-            await repositoryOn(const _MobilePlatform()).signInWithGoogle();
+        final result = await repositoryOn(const _MobilePlatform())
+            .signInWithGoogle();
 
         expect(valueOf(result).name, ada.name);
         final document = await storedProfile();
@@ -1060,8 +1093,8 @@ void main() {
         googleReturns(idToken: 'the-id-token');
         firebaseAdopts(withoutPicture);
 
-        final result =
-            await repositoryOn(const _MobilePlatform()).signInWithGoogle();
+        final result = await repositoryOn(const _MobilePlatform())
+            .signInWithGoogle();
 
         expect(valueOf(result).photoUrl, isNull);
         final document = await storedProfile();
@@ -1095,8 +1128,8 @@ void main() {
         firebaseAdopts(aFirebaseSession(creationTime: accountCreatedAt));
         firestore = _UnreachableFirestore();
 
-        final result =
-            await repositoryOn(const _MobilePlatform()).signInWithGoogle();
+        final result = await repositoryOn(const _MobilePlatform())
+            .signInWithGoogle();
 
         final profile = valueOf(result);
         expect(profile.id, ada.id);
@@ -1112,8 +1145,8 @@ void main() {
         when(() => firebaseAuth.currentUser).thenReturn(signedIn);
         expect(await profileExists(), isFalse);
 
-        final result =
-            await repositoryOn(const _MobilePlatform()).getCurrentUser();
+        final result = await repositoryOn(const _MobilePlatform())
+            .getCurrentUser();
 
         expect(valueOf(result)?.id, ada.id);
         // Healed for good: the document is really in Firestore now, carrying
@@ -1130,8 +1163,8 @@ void main() {
       test('getCurrentUser answers null when nobody is signed in', () async {
         when(() => firebaseAuth.currentUser).thenReturn(null);
 
-        final result =
-            await repositoryOn(const _MobilePlatform()).getCurrentUser();
+        final result = await repositoryOn(const _MobilePlatform())
+            .getCurrentUser();
 
         expect(valueOf(result), isNull);
         // Firestore was never consulted at all: no read to fail, and nothing
@@ -1146,8 +1179,8 @@ void main() {
         redirectReturns(aFirebaseSession(creationTime: accountCreatedAt));
         await firestoreHoldsProfile();
 
-        final result =
-            await repositoryOn(const _WebPlatform()).getCurrentUser();
+        final result = await repositoryOn(const _WebPlatform())
+            .getCurrentUser();
 
         expect(valueOf(result)?.name, renamed);
         verifyNever(() => firebaseAuth.currentUser);
@@ -1159,8 +1192,8 @@ void main() {
         googleReturns(idToken: 'the-id-token');
         firebaseAdopts(aFirebaseSession(creationTime: null));
 
-        final result =
-            await repositoryOn(const _MobilePlatform()).signInWithGoogle();
+        final result = await repositoryOn(const _MobilePlatform())
+            .signInWithGoogle();
 
         expect(valueOf(result).createdAt, bootInstant);
         // And that is the instant that reached Firestore, rather than a
@@ -1176,8 +1209,8 @@ void main() {
         googleReturns(idToken: 'the-id-token');
         firebaseAdopts(null);
 
-        final result =
-            await repositoryOn(const _MobilePlatform()).signInWithGoogle();
+        final result = await repositoryOn(const _MobilePlatform())
+            .signInWithGoogle();
 
         expect(failureOf(result), isA<AuthFailure>());
         expect(isSignInCancelled(failureOf(result)), isFalse);

@@ -2,12 +2,13 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:timebuddy/app/di/injection_container.dart';
 import 'package:timebuddy/app/theme/app_colors.dart';
 import 'package:timebuddy/app/theme/app_spacing.dart';
+import 'package:timebuddy/app/widgets/app_icon.dart';
 import 'package:timebuddy/app/widgets/fab_safe_area.dart';
 import 'package:timebuddy/app/widgets/loading_shimmer.dart';
-import 'package:timebuddy/app/widgets/responsive_layout.dart';
 import 'package:timebuddy/app/widgets/timebuddy_large_app_bar.dart';
 import 'package:timebuddy/app/widgets/timebuddy_section.dart';
 import 'package:timebuddy/core/errors/failures.dart';
@@ -27,10 +28,11 @@ typedef DeleteAccountAction = Future<Failure?> Function(String userId);
 
 /// Who is signed in, whether their data is synced, and the two ways out.
 ///
-/// **There is no signed-out variant of this page.** Sign-in is required
-/// (docs/specs/auth.md rule 1), so an unauthenticated visitor is a routing
-/// mistake rather than a state to design for; the page shows a placeholder for
-/// the frame it takes the router to send them to onboarding.
+/// **There is a signed-out variant, and it is the offer to sign in.** Since
+/// guest mode (docs/specs/guest_mode.md rule 10) an unauthenticated visitor is
+/// an ordinary one rather than a routing mistake, and this is the page that
+/// tells them where their cities actually live. It used to render a
+/// placeholder here on the theory that sign-in was required; it no longer is.
 ///
 /// The sync indicator here is passive and stays passive (docs/specs/sync.md
 /// rule 4): it is the only place a failed background write is ever mentioned,
@@ -66,17 +68,24 @@ class ProfilePage extends StatelessWidget {
             user: user,
             deleteAccount: deleteAccount,
           ),
-          // Sign-out and deletion both end here for the frame between the
-          // session ending and the router's redirect landing, and a deep link
-          // to /profile before the startup check resolves lands here too. A
-          // shimmer says "a moment" without promising a signed-out page that
-          // does not exist. The states are spelled out rather than left to a
-          // `_`, so a state added later has to be looked at instead of
-          // silently rendering as a placeholder.
-          AuthInitial() ||
-          AuthLoading() ||
-          Unauthenticated() ||
-          AuthError() => const Padding(
+          // A real screen now, not a placeholder: a guest is a legitimate
+          // visitor to this page and this is where the offer to sign in lives
+          // (docs/specs/guest_mode.md rule 10). No `SyncStatusRow` — there is
+          // nothing syncing to report on, and an "offline" chip would read as
+          // a fault rather than as a choice.
+          Unauthenticated() => const _GuestBody(),
+          // The frame between a session ending and the router's redirect
+          // landing, and a deep link to /profile before the startup check
+          // resolves. A shimmer says "a moment"; the states are spelled out
+          // rather than left to a `_`, so a state added later has to be
+          // looked at instead of silently rendering as a placeholder.
+          //
+          // `AuthError` stays here rather than joining the guest body, and
+          // that is not an oversight: on this page it means the *sign-out*
+          // failed, so the user is still signed in (auth.md, Edge Cases). A
+          // "you're not signed in" panel would be the one thing they must not
+          // be told. The snackbar in [_onAuthState] is what speaks.
+          AuthInitial() || AuthLoading() || AuthError() => const Padding(
             padding: EdgeInsets.all(AppSpacing.lg),
             child: LoadingShimmer(),
           ),
@@ -90,12 +99,72 @@ class ProfilePage extends StatelessWidget {
   /// sign-out deliberately leaves the local board in place (auth.md, Edge
   /// Cases), so they are still signed in and would not otherwise know.
   ///
-  /// A *successful* sign-out says nothing and navigates nowhere. `AppRouter`
-  /// watches the session and moves an unauthenticated user to onboarding
-  /// (auth.md rule 1); a `context.go` here would be a second owner of that.
+  /// A *successful* sign-out says nothing and navigates nowhere. Sign-out
+  /// re-enters guest mode (guest_mode.md rule 9), so the page simply swaps to
+  /// [_GuestBody] under the user and the app stays open behind it; a
+  /// `context.go` here would be a second owner of where a session ends up.
   void _onAuthState(BuildContext context, AuthState state) {
     if (state is! AuthError) return;
     context.showSnack(t.auth.signOutFailed);
+  }
+}
+
+/// What this page says to someone using the app without an account
+/// (docs/specs/guest_mode.md rule 10).
+///
+/// Framed as an offer, not as a defect. A guest has not failed to do
+/// something; they chose a thing the app offers, and the only new information
+/// here is where their data lives and what signing in would change about that.
+///
+/// No [SyncStatusRow]: there is nothing syncing, and the indicator's "offline"
+/// leg would read as a fault rather than as the absence of a request.
+class _GuestBody extends StatelessWidget {
+  const _GuestBody();
+
+  static const double _glyphSize = 44;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return ListView(
+      padding: EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        AppSpacing.lg,
+        AppSpacing.lg,
+        bottomSafeForBar(context, isSubPage: true),
+      ),
+      children: [
+        AppIcon(
+          FontAwesomeIcons.linkSlash,
+          size: _glyphSize,
+          color: colors.onBackgroundLight,
+        ),
+        const SizedBox(height: AppSpacing.md),
+        Text(
+          t.auth.guestTitle,
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        Text(
+          t.auth.guestBody,
+          textAlign: TextAlign.center,
+          style: Theme.of(
+            context,
+          ).textTheme.bodyMedium?.copyWith(color: colors.onBackgroundLight),
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        Center(
+          child: ElevatedButton.icon(
+            onPressed: () => context.read<AuthBloc>().add(
+              const AuthGoogleSignInRequested(),
+            ),
+            icon: const AppIcon(FontAwesomeIcons.rightToBracket),
+            label: Text(t.auth.signInWithGoogle),
+          ),
+        ),
+      ],
+    );
   }
 }
 
@@ -107,56 +176,49 @@ class _ProfileBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(
-          maxWidth: ResponsiveLayout.maxContentWidth,
-        ),
-        child: ListView(
-          padding: EdgeInsets.fromLTRB(
-            AppSpacing.lg,
-            AppSpacing.lg,
-            AppSpacing.lg,
-            // A pushed page, not one of the three primary destinations: it is
-            // opened from the sidebar's profile slot, so no floating bar hangs
-            // over its last row.
-            bottomSafeForBar(context, isSubPage: true),
-          ),
-          children: [
-            TimeBuddySection(
-              label: t.profile.signedInAs,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _Identity(user: user),
-                  const Divider(height: AppSpacing.xxl),
-                  // Resolved from the locator rather than passed down: the row
-                  // is a leaf that subscribes to a stream, and threading a
-                  // service through every page that shows one is how two of
-                  // them end up watching different services.
-                  SyncStatusRow(syncService: sl<SyncService>()),
-                ],
-              ),
-            ),
-            const SizedBox(height: AppSpacing.xl),
-            OutlinedButton.icon(
-              onPressed: () => unawaited(_confirmSignOut(context)),
-              icon: const Icon(Icons.logout_rounded),
-              label: Text(t.auth.signOut),
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            Center(
-              child: TextButton(
-                style: TextButton.styleFrom(
-                  foregroundColor: context.appColors.error,
-                ),
-                onPressed: () => unawaited(_confirmDeleteAccount(context)),
-                child: Text(t.auth.deleteAccount),
-              ),
-            ),
-          ],
-        ),
+    return ListView(
+      padding: EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        AppSpacing.lg,
+        AppSpacing.lg,
+        // A pushed page, not one of the three primary destinations: it is
+        // opened from the sidebar's profile slot, so no floating bar hangs
+        // over its last row.
+        bottomSafeForBar(context, isSubPage: true),
       ),
+      children: [
+        TimeBuddySection(
+          label: t.profile.signedInAs,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _Identity(user: user),
+              const Divider(height: AppSpacing.xxl),
+              // Resolved from the locator rather than passed down: the row
+              // is a leaf that subscribes to a stream, and threading a
+              // service through every page that shows one is how two of
+              // them end up watching different services.
+              SyncStatusRow(syncService: sl<SyncService>()),
+            ],
+          ),
+        ),
+        const SizedBox(height: AppSpacing.xl),
+        OutlinedButton.icon(
+          onPressed: () => unawaited(_confirmSignOut(context)),
+          icon: const AppIcon(FontAwesomeIcons.rightFromBracket),
+          label: Text(t.auth.signOut),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        Center(
+          child: TextButton(
+            style: TextButton.styleFrom(
+              foregroundColor: context.appColors.error,
+            ),
+            onPressed: () => unawaited(_confirmDeleteAccount(context)),
+            child: Text(t.auth.deleteAccount),
+          ),
+        ),
+      ],
     );
   }
 
@@ -171,7 +233,7 @@ class _ProfileBody extends StatelessWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        icon: const Icon(Icons.logout_rounded),
+        icon: const AppIcon(FontAwesomeIcons.rightFromBracket),
         title: Text(t.auth.signOutConfirm),
         content: Text(t.auth.signOutConfirmBody),
         actions: [
@@ -200,7 +262,10 @@ class _ProfileBody extends StatelessWidget {
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) => AlertDialog(
-        icon: Icon(Icons.warning_amber_rounded, color: colors.error),
+        icon: AppIcon(
+          FontAwesomeIcons.triangleExclamation,
+          color: colors.error,
+        ),
         title: Text(t.auth.deleteAccountConfirm),
         content: Text(t.auth.deleteAccountWarning),
         actions: [
@@ -332,7 +397,7 @@ class _InitialAvatar extends StatelessWidget {
             // A nameless account gets a glyph rather than a hardcoded letter:
             // any letter chosen here would be one the user never typed, in a
             // language nobody localized.
-            ? Icon(Icons.person_outline, color: colors.primary)
+            ? AppIcon(FontAwesomeIcons.solidUser, color: colors.primary)
             : Text(
                 _initialOf(trimmed),
                 style: context.textTheme.titleLarge?.copyWith(

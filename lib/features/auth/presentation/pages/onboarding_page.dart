@@ -1,9 +1,16 @@
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:go_router/go_router.dart';
+import 'package:timebuddy/app/di/injection_container.dart';
+import 'package:timebuddy/app/routes/app_routes.dart';
 import 'package:timebuddy/app/theme/app_spacing.dart';
+import 'package:timebuddy/app/widgets/app_icon.dart';
 import 'package:timebuddy/app/widgets/responsive_layout.dart';
 import 'package:timebuddy/core/extensions/context_extensions.dart';
+import 'package:timebuddy/core/session/guest_session.dart';
 import 'package:timebuddy/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:timebuddy/gen/i18n/strings.g.dart';
 
@@ -17,8 +24,14 @@ import 'package:timebuddy/gen/i18n/strings.g.dart';
 /// phone to the browser (rule 1).
 ///
 /// The tour is skippable, and the skip goes *to the sign-in slide* rather than
-/// past it. Sign-in is required, so there is nothing behind this page to skip
-/// to.
+/// past it: skipping the tour and declining an account are two different
+/// intentions, and they get two different controls.
+///
+/// The second of them, "continue without an account", is on **every** slide
+/// and starts a guest session (docs/specs/guest_mode.md rule 3). Sign-in is an
+/// offer here, not a gate — this page is the only place that offer is made
+/// before the app opens, so it is also the only place the offer can be
+/// declined.
 ///
 /// ```dart
 /// GoRoute(
@@ -41,10 +54,15 @@ class _OnboardingPageState extends State<OnboardingPage> {
 
   /// Height the action block always occupies, whichever slide is showing.
   ///
-  /// Fixed because that block swaps between two buttons, one button and a
-  /// spinner: without it the dots and the copy above them would step up and
-  /// down as the user pages through the tour.
-  static const double _actionsHeight = 112;
+  /// Fixed because that block swaps between three controls, two and a spinner:
+  /// without it the dots and the copy above them would step up and down as the
+  /// user pages through the tour.
+  ///
+  /// Raised from 112 when "continue without an account" was added to every
+  /// slide (docs/specs/guest_mode.md rule 3): the tallest arrangement is now
+  /// Next plus Skip plus that, and a constant left at the two-control height
+  /// clips the third.
+  static const double _actionsHeight = 152;
 
   /// How many slides [_buildSlides] returns.
   ///
@@ -89,6 +107,25 @@ class _OnboardingPageState extends State<OnboardingPage> {
       duration: _slideDuration,
       curve: _slideCurve,
     );
+  }
+
+  /// Starts a guest session and opens the app (docs/specs/guest_mode.md
+  /// rule 3).
+  ///
+  /// **It has to navigate, unlike the sign-in path below.** The redirect is a
+  /// *guard*: it says which routes a visitor may not be on, and a guest may be
+  /// on this one — the tour stays readable for someone still deciding. So
+  /// writing the marker alone leaves them exactly where they were, looking at
+  /// the button they just pressed. This is the same division `StartupPage`
+  /// works under: the page that knows a decision was made is the page that
+  /// acts on it.
+  ///
+  /// `go`, not `push`: onboarding must not stay under the app as a back
+  /// destination.
+  Future<void> _continueAsGuest() async {
+    await sl<GuestSession>().enter();
+    if (!mounted) return;
+    context.go(AppRoutes.grid);
   }
 
   /// Says the one thing about a sign-in that the router cannot.
@@ -174,6 +211,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                         isSigningIn: state is AuthLoading,
                         onNext: () => _goToSlide(_index + 1),
                         onSkip: () => _goToSlide(slides.length - 1),
+                        onContinueAsGuest: () => unawaited(_continueAsGuest()),
                       ),
                     ),
                   ),
@@ -191,17 +229,17 @@ class _OnboardingPageState extends State<OnboardingPage> {
   /// that from settings while the app is running.
   List<_Slide> _buildSlides() => [
     _Slide(
-      icon: Icons.grid_view_rounded,
+      icon: FontAwesomeIcons.tableCells,
       title: t.auth.onboardingTitle1,
       body: t.auth.onboardingBody1,
     ),
     _Slide(
-      icon: Icons.schedule_rounded,
+      icon: FontAwesomeIcons.clock,
       title: t.auth.onboardingTitle2,
       body: t.auth.onboardingBody2,
     ),
     _Slide(
-      icon: Icons.devices_rounded,
+      icon: FontAwesomeIcons.laptop,
       title: t.auth.onboardingTitle3,
       body: t.auth.onboardingBody3,
     ),
@@ -212,7 +250,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
 class _Slide {
   const _Slide({required this.icon, required this.title, required this.body});
 
-  final IconData icon;
+  final FaIconData icon;
   final String title;
   final String body;
 }
@@ -251,7 +289,11 @@ class _OnboardingSlide extends StatelessWidget {
                 color: colors.primary.withValues(alpha: _discAlpha),
                 shape: BoxShape.circle,
               ),
-              child: Icon(slide.icon, size: _iconSize, color: colors.primary),
+              child: AppIcon(
+                slide.icon,
+                size: _iconSize,
+                color: colors.primary,
+              ),
             ),
             const SizedBox(height: AppSpacing.xxl),
             Text(
@@ -318,14 +360,16 @@ class _SlideDots extends StatelessWidget {
   }
 }
 
-/// Next and Skip on the first two slides, the Google button on the last, and
-/// a spinner in place of either while the sign-in is away.
+/// Next and Skip on the first two slides, the Google button on the last, the
+/// way past both on every slide, and a spinner in place of all of it while the
+/// sign-in is away.
 class _Actions extends StatelessWidget {
   const _Actions({
     required this.isSignInSlide,
     required this.isSigningIn,
     required this.onNext,
     required this.onSkip,
+    required this.onContinueAsGuest,
   });
 
   final bool isSignInSlide;
@@ -339,35 +383,47 @@ class _Actions extends StatelessWidget {
   final VoidCallback onNext;
   final VoidCallback onSkip;
 
+  /// Enters guest mode (docs/specs/guest_mode.md rule 3).
+  final VoidCallback onContinueAsGuest;
+
   @override
   Widget build(BuildContext context) {
     if (isSigningIn) return const Center(child: CircularProgressIndicator());
-    if (isSignInSlide) {
-      return Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        if (isSignInSlide)
           ElevatedButton.icon(
             onPressed: () =>
                 context.read<AuthBloc>().add(const AuthGoogleSignInRequested()),
             // A glyph rather than the Google mark: the brand asset carries
             // usage rules of its own and this app bundles no images, so the
             // provider is named by the label instead of drawn badly.
-            icon: const Icon(Icons.login_rounded),
+            icon: const AppIcon(FontAwesomeIcons.rightToBracket),
             label: Text(t.auth.signInWithGoogle),
+          )
+        else ...[
+          ElevatedButton(onPressed: onNext, child: Text(t.auth.onboardingNext)),
+          const SizedBox(height: AppSpacing.xs),
+          Tooltip(
+            message: t.auth.onboardingSkipHint,
+            child: TextButton(
+              onPressed: onSkip,
+              child: Text(t.auth.onboardingSkip),
+            ),
           ),
         ],
-      );
-    }
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        ElevatedButton(onPressed: onNext, child: Text(t.auth.onboardingNext)),
-        const SizedBox(height: AppSpacing.xs),
+        // On **every** slide, including the last (guest_mode.md rule 3). A
+        // visitor whose browser blocked the Google popup opens straight on
+        // that slide, and they are precisely the person who most needs a way
+        // past it — a control that only appeared on slides 1 and 2 would be
+        // three swipes behind the notice explaining why they are stuck.
+        if (isSignInSlide) const SizedBox(height: AppSpacing.xs),
         Tooltip(
-          message: t.auth.onboardingSkipHint,
+          message: t.auth.continueAsGuestHint,
           child: TextButton(
-            onPressed: onSkip,
-            child: Text(t.auth.onboardingSkip),
+            onPressed: onContinueAsGuest,
+            child: Text(t.auth.continueAsGuest),
           ),
         ),
       ],
@@ -413,8 +469,8 @@ class _SignInBlockedNotice extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(
-                Icons.warning_amber_rounded,
+              AppIcon(
+                FontAwesomeIcons.triangleExclamation,
                 size: _iconSize,
                 color: colors.warning,
               ),

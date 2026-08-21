@@ -202,8 +202,8 @@ class Translations$auth$en {
 	/// en: 'The same board everywhere'
 	String get onboardingTitle3 => 'The same board everywhere';
 
-	/// en: 'Sign in with Google and your cities follow you from the phone to the browser.'
-	String get onboardingBody3 => 'Sign in with Google and your cities follow you from the phone to the browser.';
+	/// en: 'Sign in with Google and your cities follow you from the phone to the browser. You can also just start using it.'
+	String get onboardingBody3 => 'Sign in with Google and your cities follow you from the phone to the browser. You can also just start using it.';
 
 	/// en: 'Skip'
 	String get onboardingSkip => 'Skip';
@@ -235,8 +235,8 @@ class Translations$auth$en {
 	/// en: 'Sign out?'
 	String get signOutConfirm => 'Sign out?';
 
-	/// en: 'Your cities stay in your account. The copy kept on this device is cleared until you sign in again.'
-	String get signOutConfirmBody => 'Your cities stay in your account. The copy kept on this device is cleared until you sign in again.';
+	/// en: 'Your cities stay in your account. The copy kept on this device is cleared, and you carry on without an account.'
+	String get signOutConfirmBody => 'Your cities stay in your account. The copy kept on this device is cleared, and you carry on without an account.';
 
 	/// en: 'We couldn't sign you out. Try again.'
 	String get signOutFailed => 'We couldn\'t sign you out. Try again.';
@@ -252,6 +252,21 @@ class Translations$auth$en {
 
 	/// en: 'We couldn't delete your account. Try again.'
 	String get deleteAccountFailed => 'We couldn\'t delete your account. Try again.';
+
+	/// en: 'Continue without an account'
+	String get continueAsGuest => 'Continue without an account';
+
+	/// en: 'Use TimeBuddy right away. Your cities stay on this device until you sign in.'
+	String get continueAsGuestHint => 'Use TimeBuddy right away. Your cities stay on this device until you sign in.';
+
+	/// en: 'You're not signed in'
+	String get guestTitle => 'You\'re not signed in';
+
+	/// en: 'Your cities and settings live only on this device. Sign in and they follow you to your phone and back.'
+	String get guestBody => 'Your cities and settings live only on this device. Sign in and they follow you to your phone and back.';
+
+	/// en: 'Sign in to save'
+	String get signInToSave => 'Sign in to save';
 }
 
 // Path: profile
@@ -408,6 +423,9 @@ class Translations$settings$en {
 
 	/// en: 'Licenses'
 	String get licenses => 'Licenses';
+
+	/// en: 'Your board and preferences, and the way out.'
+	String get accountRowHint => 'Your board and preferences, and the way out.';
 }
 
 // Path: bands
@@ -579,12 +597,6 @@ class Translations$planner$en {
 	final Translations _root; // ignore: unused_field
 
 	// Translations
-
-	/// en: 'Compare'
-	String get modeCompare => 'Compare';
-
-	/// en: 'Plan'
-	String get modePlan => 'Plan';
 
 	/// en: 'Drag across the hours to pick a window, and every city's local time shows up below.'
 	String get selectHint => 'Drag across the hours to pick a window, and every city\'s local time shows up below.';
@@ -791,7 +803,7 @@ extension on Translations {
 			'auth.onboardingTitle2' => 'Know when to call',
 			'auth.onboardingBody2' => 'Working hours are shaded on the grid, so a time that suits everyone is something you see instead of something you calculate.',
 			'auth.onboardingTitle3' => 'The same board everywhere',
-			'auth.onboardingBody3' => 'Sign in with Google and your cities follow you from the phone to the browser.',
+			'auth.onboardingBody3' => 'Sign in with Google and your cities follow you from the phone to the browser. You can also just start using it.',
 			'auth.onboardingSkip' => 'Skip',
 			'auth.onboardingNext' => 'Next',
 			'auth.onboardingSkipHint' => 'Skip the tour and go straight to signing in.',
@@ -802,12 +814,17 @@ extension on Translations {
 			'auth.signInPopupBlocked' => 'The sign-in window was blocked. Allow pop-ups for this site and press the button again.',
 			'auth.signOut' => 'Sign out',
 			'auth.signOutConfirm' => 'Sign out?',
-			'auth.signOutConfirmBody' => 'Your cities stay in your account. The copy kept on this device is cleared until you sign in again.',
+			'auth.signOutConfirmBody' => 'Your cities stay in your account. The copy kept on this device is cleared, and you carry on without an account.',
 			'auth.signOutFailed' => 'We couldn\'t sign you out. Try again.',
 			'auth.deleteAccount' => 'Delete account',
 			'auth.deleteAccountConfirm' => 'Delete your account?',
 			'auth.deleteAccountWarning' => 'This removes your board, your preferences and your profile from every device. It cannot be undone.',
 			'auth.deleteAccountFailed' => 'We couldn\'t delete your account. Try again.',
+			'auth.continueAsGuest' => 'Continue without an account',
+			'auth.continueAsGuestHint' => 'Use TimeBuddy right away. Your cities stay on this device until you sign in.',
+			'auth.guestTitle' => 'You\'re not signed in',
+			'auth.guestBody' => 'Your cities and settings live only on this device. Sign in and they follow you to your phone and back.',
+			'auth.signInToSave' => 'Sign in to save',
 			'profile.title' => 'Account',
 			'profile.signedInAs' => 'Signed in as',
 			'profile.syncStatusIdle' => 'Everything is synced',
@@ -854,6 +871,7 @@ extension on Translations {
 			'settings.appVersion' => 'App version',
 			'settings.tzDataVersion' => 'Time zone data',
 			'settings.licenses' => 'Licenses',
+			'settings.accountRowHint' => 'Your board and preferences, and the way out.',
 			'bands.good' => 'Good',
 			'bands.fair' => 'Borderline',
 			'bands.poor' => 'Off hours',
@@ -896,8 +914,6 @@ extension on Translations {
 			'worldClock.actionSetHome' => 'Set as home',
 			'worldClock.actionRemove' => 'Remove from board',
 			'worldClock.actionOpenInGrid' => 'Open in the grid',
-			'planner.modeCompare' => 'Compare',
-			'planner.modePlan' => 'Plan',
 			'planner.selectHint' => 'Drag across the hours to pick a window, and every city\'s local time shows up below.',
 			'planner.durationLabel' => ({required Object duration}) => 'Lasts ${duration}',
 			'planner.verdictGood' => 'Works well',

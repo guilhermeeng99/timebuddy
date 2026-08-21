@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:timebuddy/app/theme/app_spacing.dart';
+import 'package:timebuddy/app/widgets/app_icon.dart';
 import 'package:timebuddy/core/extensions/context_extensions.dart';
 
 /// The default page header: a large, left-aligned title in the iOS manner.
@@ -12,7 +14,12 @@ import 'package:timebuddy/core/extensions/context_extensions.dart';
 /// Scaffold(
 ///   appBar: TimeBuddyLargeAppBar(
 ///     title: t.settings.title,
-///     actions: [TimeBuddyAppBarIconButton(icon: Icons.check, onTap: save)],
+///     actions: [
+///       TimeBuddyAppBarIconButton(
+///         icon: FontAwesomeIcons.check,
+///         onTap: save,
+///       ),
+///     ],
 ///   ),
 ///   body: body,
 /// );
@@ -61,8 +68,8 @@ class TimeBuddyLargeAppBar extends StatelessWidget
       titleSpacing: canGoBack ? 0 : AppSpacing.lg,
       leading: canGoBack
           ? IconButton(
-              icon: const Icon(
-                Icons.arrow_back_ios_new,
+              icon: const AppIcon(
+                FontAwesomeIcons.chevronLeft,
                 size: _chevronSize,
               ),
               color: colors.onBackground,

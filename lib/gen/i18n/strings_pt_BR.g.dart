@@ -130,7 +130,7 @@ class _Translations$auth$pt_BR implements Translations$auth$en {
 	@override String get onboardingTitle2 => 'Saiba a hora certa de chamar';
 	@override String get onboardingBody2 => 'O horário de trabalho fica destacado na grade, então achar um horário bom para todo mundo é questão de olhar, não de calcular.';
 	@override String get onboardingTitle3 => 'O mesmo painel em qualquer lugar';
-	@override String get onboardingBody3 => 'Entre com o Google e suas cidades vão junto do celular para o navegador.';
+	@override String get onboardingBody3 => 'Entre com o Google e suas cidades te acompanham do celular ao navegador. Você também pode simplesmente começar a usar.';
 	@override String get onboardingSkip => 'Pular';
 	@override String get onboardingNext => 'Avançar';
 	@override String get onboardingSkipHint => 'Pule a apresentação e vá direto para a entrada.';
@@ -141,12 +141,17 @@ class _Translations$auth$pt_BR implements Translations$auth$en {
 	@override String get signInPopupBlocked => 'A janela de entrada foi bloqueada. Permita pop-ups para este site e tente entrar de novo.';
 	@override String get signOut => 'Sair da conta';
 	@override String get signOutConfirm => 'Sair da conta?';
-	@override String get signOutConfirmBody => 'Suas cidades continuam na sua conta. A cópia guardada neste aparelho é apagada até você entrar de novo.';
+	@override String get signOutConfirmBody => 'Suas cidades continuam na sua conta. A cópia guardada neste dispositivo é apagada, e você segue sem conta.';
 	@override String get signOutFailed => 'Não conseguimos sair da conta. Tente de novo.';
 	@override String get deleteAccount => 'Excluir conta';
 	@override String get deleteAccountConfirm => 'Excluir sua conta?';
 	@override String get deleteAccountWarning => 'Isso apaga seu painel, suas preferências e seu perfil de todos os aparelhos. Não dá para desfazer.';
 	@override String get deleteAccountFailed => 'Não conseguimos excluir sua conta. Tente de novo.';
+	@override String get continueAsGuest => 'Continuar sem conta';
+	@override String get continueAsGuestHint => 'Use o TimeBuddy agora. Suas cidades ficam neste dispositivo até você entrar.';
+	@override String get guestTitle => 'Você não está conectado';
+	@override String get guestBody => 'Suas cidades e ajustes existem só neste dispositivo. Entre e eles te acompanham até o celular e de volta.';
+	@override String get signInToSave => 'Entrar para salvar';
 }
 
 // Path: profile
@@ -211,6 +216,7 @@ class _Translations$settings$pt_BR implements Translations$settings$en {
 	@override String get appVersion => 'Versão do app';
 	@override String get tzDataVersion => 'Base de fusos horários';
 	@override String get licenses => 'Licenças';
+	@override String get accountRowHint => 'Seu board, suas preferências e a saída.';
 }
 
 // Path: bands
@@ -298,8 +304,6 @@ class _Translations$planner$pt_BR implements Translations$planner$en {
 	final TranslationsPtBr _root; // ignore: unused_field
 
 	// Translations
-	@override String get modeCompare => 'Comparar';
-	@override String get modePlan => 'Planejar';
 	@override String get selectHint => 'Arraste sobre as horas para escolher uma janela, e o horário local de cada cidade aparece abaixo.';
 	@override String durationLabel({required Object duration}) => 'Dura ${duration}';
 	@override String get verdictGood => 'Funciona bem';
@@ -410,7 +414,7 @@ extension on TranslationsPtBr {
 			'auth.onboardingTitle2' => 'Saiba a hora certa de chamar',
 			'auth.onboardingBody2' => 'O horário de trabalho fica destacado na grade, então achar um horário bom para todo mundo é questão de olhar, não de calcular.',
 			'auth.onboardingTitle3' => 'O mesmo painel em qualquer lugar',
-			'auth.onboardingBody3' => 'Entre com o Google e suas cidades vão junto do celular para o navegador.',
+			'auth.onboardingBody3' => 'Entre com o Google e suas cidades te acompanham do celular ao navegador. Você também pode simplesmente começar a usar.',
 			'auth.onboardingSkip' => 'Pular',
 			'auth.onboardingNext' => 'Avançar',
 			'auth.onboardingSkipHint' => 'Pule a apresentação e vá direto para a entrada.',
@@ -421,12 +425,17 @@ extension on TranslationsPtBr {
 			'auth.signInPopupBlocked' => 'A janela de entrada foi bloqueada. Permita pop-ups para este site e tente entrar de novo.',
 			'auth.signOut' => 'Sair da conta',
 			'auth.signOutConfirm' => 'Sair da conta?',
-			'auth.signOutConfirmBody' => 'Suas cidades continuam na sua conta. A cópia guardada neste aparelho é apagada até você entrar de novo.',
+			'auth.signOutConfirmBody' => 'Suas cidades continuam na sua conta. A cópia guardada neste dispositivo é apagada, e você segue sem conta.',
 			'auth.signOutFailed' => 'Não conseguimos sair da conta. Tente de novo.',
 			'auth.deleteAccount' => 'Excluir conta',
 			'auth.deleteAccountConfirm' => 'Excluir sua conta?',
 			'auth.deleteAccountWarning' => 'Isso apaga seu painel, suas preferências e seu perfil de todos os aparelhos. Não dá para desfazer.',
 			'auth.deleteAccountFailed' => 'Não conseguimos excluir sua conta. Tente de novo.',
+			'auth.continueAsGuest' => 'Continuar sem conta',
+			'auth.continueAsGuestHint' => 'Use o TimeBuddy agora. Suas cidades ficam neste dispositivo até você entrar.',
+			'auth.guestTitle' => 'Você não está conectado',
+			'auth.guestBody' => 'Suas cidades e ajustes existem só neste dispositivo. Entre e eles te acompanham até o celular e de volta.',
+			'auth.signInToSave' => 'Entrar para salvar',
 			'profile.title' => 'Conta',
 			'profile.signedInAs' => 'Você entrou como',
 			'profile.syncStatusIdle' => 'Tudo sincronizado',
@@ -473,6 +482,7 @@ extension on TranslationsPtBr {
 			'settings.appVersion' => 'Versão do app',
 			'settings.tzDataVersion' => 'Base de fusos horários',
 			'settings.licenses' => 'Licenças',
+			'settings.accountRowHint' => 'Seu board, suas preferências e a saída.',
 			'bands.good' => 'Bom',
 			'bands.fair' => 'No limite',
 			'bands.poor' => 'Fora do expediente',
@@ -515,8 +525,6 @@ extension on TranslationsPtBr {
 			'worldClock.actionSetHome' => 'Definir como base',
 			'worldClock.actionRemove' => 'Remover do painel',
 			'worldClock.actionOpenInGrid' => 'Abrir na grade',
-			'planner.modeCompare' => 'Comparar',
-			'planner.modePlan' => 'Planejar',
 			'planner.selectHint' => 'Arraste sobre as horas para escolher uma janela, e o horário local de cada cidade aparece abaixo.',
 			'planner.durationLabel' => ({required Object duration}) => 'Dura ${duration}',
 			'planner.verdictGood' => 'Funciona bem',

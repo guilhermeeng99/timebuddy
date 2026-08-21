@@ -207,6 +207,21 @@ abstract class RemoteSettingsDataSource {
     does not read a shape it cannot parse. The migration reads `.v1` once,
     writes `.v2`, and never writes `.v1` again.
 
+12. **Revisions produced under two identities are not comparable.** The one
+    call that reconciles a guest's documents into an account —
+    `sync(userId:, adoptGuestDocuments: true)` — **bypasses rule 5's ladder
+    entirely**: an absent remote document is provisioned from the local copy,
+    and a present one wins outright. See
+    [guest_mode.md](guest_mode.md) rule 6.
+
+    The ladder itself is untouched, and adoption is not a mode the service
+    stays in — it is one argument on one call, on one transition. The reason it
+    cannot use the ladder is rung 2: a guest who added six cities carries
+    revision 6 and would beat a real account at revision 3, replacing a board
+    that other devices also hold and that nothing can recover. `revision`
+    counts writes, which is a fact about a document; comparing the write counts
+    of two documents nobody wrote in the same sequence is comparing nothing.
+
 ---
 
 ## Contract

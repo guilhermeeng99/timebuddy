@@ -8,6 +8,21 @@ It is a mode of the grid, not a separate page. Same rows, same columns, same
 engine; what changes is that the cursor becomes a selectable range and a summary
 panel appears.
 
+> **It has no entry point.** The Compare / Plan toggle that turned it on was
+> removed from the grid's app bar on 2026-08-20, at the owner's request: the
+> planner was not something they were reaching for, and a switch offering a mode
+> nobody enters costs an app-bar action and a decision on every visit.
+>
+> Everything under `lib/features/meeting_planner/` is intact and still tested —
+> the two use cases, `MeetingPlannerCubit`, the summary panel and the selection
+> overlay, 47 tests. What is gone is `_GridMode` and the wiring in
+> `time_grid_page.dart`. Restoring it means putting an affordance back and
+> re-adding that wiring; the rules below are what it would still have to obey.
+>
+> The two strings the toggle used (`t.planner.modeCompare` / `modePlan`) were
+> deleted rather than left as dead copy — a new entry point will want its own
+> words. Every other `t.planner.*` key is still in use by the panel.
+
 ---
 
 ## Business Rules

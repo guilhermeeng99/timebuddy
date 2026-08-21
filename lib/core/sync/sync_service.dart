@@ -127,6 +127,18 @@ abstract class SyncService {
   /// outcome still comes back, the document is marked dirty, and [status]
   /// carries the bad news.
   ///
+  /// [adoptGuestDocuments] switches the ladder off for this one call, for the
+  /// sign-in that turns a guest into an account holder
+  /// (docs/specs/guest_mode.md rule 6). The rule becomes: an absent remote
+  /// document is provisioned from the guest's local copy, and a **present**
+  /// remote document wins outright, whatever either revision says.
+  ///
+  /// It has to bypass the ladder rather than lean on it. Two revision counters
+  /// produced under two identities are not comparable: a guest who added six
+  /// cities carries revision 6 and would beat a real account at revision 3 on
+  /// rung 2, replacing a board that other devices also hold and that nothing
+  /// can recover.
+  ///
   /// ```dart
   /// final result = await syncService.sync(userId: userId);
   /// result.fold(
@@ -136,7 +148,10 @@ abstract class SyncService {
   ///   (outcome) => boardCubit.adoptFromSync(outcome.board),
   /// );
   /// ```
-  Future<Either<Failure, SyncOutcome>> sync({required String userId});
+  Future<Either<Failure, SyncOutcome>> sync({
+    required String userId,
+    bool adoptGuestDocuments = false,
+  });
 
   /// Uploads only the documents whose last remote write failed, and clears
   /// their flag when it lands. Called on `AppLifecycleState.resumed`.

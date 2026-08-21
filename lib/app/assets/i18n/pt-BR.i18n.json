@@ -42,7 +42,7 @@
     "onboardingTitle2": "Saiba a hora certa de chamar",
     "onboardingBody2": "O horário de trabalho fica destacado na grade, então achar um horário bom para todo mundo é questão de olhar, não de calcular.",
     "onboardingTitle3": "O mesmo painel em qualquer lugar",
-    "onboardingBody3": "Entre com o Google e suas cidades vão junto do celular para o navegador.",
+    "onboardingBody3": "Entre com o Google e suas cidades te acompanham do celular ao navegador. Você também pode simplesmente começar a usar.",
     "onboardingSkip": "Pular",
     "onboardingNext": "Avançar",
     "onboardingSkipHint": "Pule a apresentação e vá direto para a entrada.",
@@ -53,12 +53,17 @@
     "signInPopupBlocked": "A janela de entrada foi bloqueada. Permita pop-ups para este site e tente entrar de novo.",
     "signOut": "Sair da conta",
     "signOutConfirm": "Sair da conta?",
-    "signOutConfirmBody": "Suas cidades continuam na sua conta. A cópia guardada neste aparelho é apagada até você entrar de novo.",
+    "signOutConfirmBody": "Suas cidades continuam na sua conta. A cópia guardada neste dispositivo é apagada, e você segue sem conta.",
     "signOutFailed": "Não conseguimos sair da conta. Tente de novo.",
     "deleteAccount": "Excluir conta",
     "deleteAccountConfirm": "Excluir sua conta?",
     "deleteAccountWarning": "Isso apaga seu painel, suas preferências e seu perfil de todos os aparelhos. Não dá para desfazer.",
-    "deleteAccountFailed": "Não conseguimos excluir sua conta. Tente de novo."
+    "deleteAccountFailed": "Não conseguimos excluir sua conta. Tente de novo.",
+    "continueAsGuest": "Continuar sem conta",
+    "continueAsGuestHint": "Use o TimeBuddy agora. Suas cidades ficam neste dispositivo até você entrar.",
+    "guestTitle": "Você não está conectado",
+    "guestBody": "Suas cidades e ajustes existem só neste dispositivo. Entre e eles te acompanham até o celular e de volta.",
+    "signInToSave": "Entrar para salvar"
   },
   "profile": {
     "title": "Conta",
@@ -108,7 +113,8 @@
     "deleteAccount": "Excluir conta",
     "appVersion": "Versão do app",
     "tzDataVersion": "Base de fusos horários",
-    "licenses": "Licenças"
+    "licenses": "Licenças",
+    "accountRowHint": "Seu board, suas preferências e a saída."
   },
   "bands": {
     "good": "Bom",
@@ -161,8 +167,6 @@
     "actionOpenInGrid": "Abrir na grade"
   },
   "planner": {
-    "modeCompare": "Comparar",
-    "modePlan": "Planejar",
     "selectHint": "Arraste sobre as horas para escolher uma janela, e o horário local de cada cidade aparece abaixo.",
     "durationLabel": "Dura ${duration}",
     "verdictGood": "Funciona bem",

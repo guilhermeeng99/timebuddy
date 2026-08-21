@@ -161,10 +161,11 @@ class BuildWorldClockUseCase {
   /// Both sides are UTC-flagged midnight field carriers, so the subtraction is
   /// exact calendar arithmetic and never the 23-or-25-hour local kind
   /// CLAUDE.md rule 3 forbids.
-  int _dayDeltaFrom(DateTime homeLocalDate, DateTime localTime) =>
-      DateTime.utc(localTime.year, localTime.month, localTime.day)
-          .difference(homeLocalDate)
-          .inDays;
+  int _dayDeltaFrom(DateTime homeLocalDate, DateTime localTime) => DateTime.utc(
+    localTime.year,
+    localTime.month,
+    localTime.day,
+  ).difference(homeLocalDate).inDays;
 
   /// [instant] as a calendar date in [zoneId], date fields only.
   DateTime _localDateIn(String zoneId, DateTime instant) {

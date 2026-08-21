@@ -24,6 +24,7 @@ import 'package:timebuddy/core/utils/time_formatter.dart';
 /// GridHeaderStrip(
 ///   slots: model.slots,
 ///   referenceZoneId: cubit.referenceZoneId,
+///   columnWidth: layout.hourColumnWidth,
 ///   controller: hourScroll,
 ///   cursorInstant: model.cursorInstant,
 /// );
@@ -32,6 +33,7 @@ class GridHeaderStrip extends StatelessWidget {
   const GridHeaderStrip({
     required this.slots,
     required this.referenceZoneId,
+    required this.columnWidth,
     required this.controller,
     this.cursorInstant,
     this.localeTag,
@@ -45,6 +47,14 @@ class GridHeaderStrip extends StatelessWidget {
   /// The zone the columns are aligned to: the board's home zone, or `UTC`
   /// when it does not resolve.
   final String referenceZoneId;
+
+  /// Width of one hour column, resolved from the surface by `GridLayout`.
+  ///
+  /// **This widget's `itemExtent` is the grid's authoritative content
+  /// extent** — the rows and both painters compute their pixels to match it,
+  /// never the other way round. It is the one number that must not be derived
+  /// twice.
+  final double columnWidth;
 
   /// The grid's single horizontal controller.
   final ScrollController controller;
@@ -77,7 +87,7 @@ class GridHeaderStrip extends StatelessWidget {
           // Fixed extent so the viewport can jump straight to a column
           // instead of measuring its way there; the initial centre-on-now
           // scroll (rule 13) depends on it being exact.
-          itemExtent: GridMetrics.hourColumnWidth,
+          itemExtent: columnWidth,
           itemCount: slots.length,
           itemBuilder: (context, index) => _headerColumn(
             engine: resolvedEngine,
@@ -136,7 +146,10 @@ class _HeaderColumn extends StatelessWidget {
 
   final bool isCursor;
 
-  static const double _dateFontSize = 9;
+  static const double _dateFontSize = 10;
+
+  /// The ruler's hour. Below the cells' 15pt on purpose — see [build].
+  static const double _hourFontSize = 13;
   static const double _cursorFillAlpha = 0.12;
 
   /// `14`, or `14:30` after a 30-minute shift in the reference zone. Same
@@ -178,7 +191,11 @@ class _HeaderColumn extends StatelessWidget {
           Text(
             _hourLabel,
             maxLines: 1,
+            // 13pt against the cells' 15pt: the ruler names the column, the
+            // cell carries the answer, and a ruler at the same weight as the
+            // data competes with it.
             style: context.textTheme.labelSmall?.copyWith(
+              fontSize: _hourFontSize,
               fontWeight: isCursor ? FontWeight.w600 : FontWeight.w500,
               color: isCursor ? colors.primary : colors.onBackgroundLight,
             ),

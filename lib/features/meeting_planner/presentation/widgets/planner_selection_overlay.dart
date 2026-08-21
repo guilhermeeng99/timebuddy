@@ -123,6 +123,13 @@ class _SelectionBandPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    // STALE, and knowingly so: the grid stopped using a constant column width
+    // (docs/specs/time_grid.md rule 12) and resolves one per surface through
+    // `GridLayout`. This overlay has had no entry point since the Compare/Plan
+    // toggle was removed, so it was left compiling rather than half-migrated —
+    // but reviving the planner means taking `columnWidth` as a parameter here,
+    // the way `GridNowMarker` does, or the band will sit on the wrong hours at
+    // every width but one.
     final left =
         startColumn * GridMetrics.hourColumnWidth - horizontalOffset.value;
     final right = left + columnCount * GridMetrics.hourColumnWidth;

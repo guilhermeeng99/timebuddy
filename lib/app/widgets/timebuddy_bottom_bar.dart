@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:timebuddy/app/theme/app_spacing.dart';
+import 'package:timebuddy/app/widgets/app_icon.dart';
 import 'package:timebuddy/app/widgets/responsive_layout.dart';
 import 'package:timebuddy/app/widgets/sub_page_scope.dart';
 import 'package:timebuddy/app/widgets/timebuddy_sidebar.dart';
@@ -223,8 +224,8 @@ class _BottomBarItem extends StatelessWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(
-                      isSelected ? destination.selectedIcon : destination.icon,
+                    AppIcon(
+                      destination.icon,
                       size: _iconSize,
                       color: foreground,
                       // Only the selected destination renders its label, so

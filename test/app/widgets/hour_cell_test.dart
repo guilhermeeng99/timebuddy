@@ -10,24 +10,29 @@ import 'package:timebuddy/gen/i18n/strings.g.dart';
 // The cell decides nothing about time: the band arrives already computed by
 // `hourBandFor`, so everything asserted here is presentation. What makes these
 // assertions worth writing is that the presentation *is* the specification:
-// the alpha, the border width and the minute suffix are the only things
-// telling a user that 09:00 is reachable and that a row does not line up with
-// the column above it.
+// the alpha, the digit size and the minute suffix are the only things telling
+// a user that 09:00 is reachable and that a row does not line up with the
+// column above it.
 
 /// The band token's opacity on the cell fill (design_system, hour bands).
-const double _fillAlpha = 0.12;
+const double _fillAlpha = 0.16;
 
-/// The selection wash over that fill.
+/// The selection wash over that fill, and the cursor's own fill.
 const double _selectedAlpha = 0.18;
 
-/// Border width of the shared hour cursor.
-const double _cursorBorderWidth = 2;
+/// The comfortable cell's digits, and the compact chip's.
+const double _comfortableFontSize = 15;
+const double _compactFontSize = 11;
+
+/// How far a digit is pulled from its band toward the foreground.
+const double _inkBlend = 0.55;
+const double _cursorInkBlend = 0.45;
 
 void main() {
   setUpAll(() => LocaleSettings.setLocaleSync(AppLocale.en));
 
   group('band colours', () {
-    testWidgets('each band paints its own token at 12 percent', (
+    testWidgets('each band paints its own token at 16 percent', (
       tester,
     ) async {
       // Written against the palette tokens rather than against
@@ -109,13 +114,34 @@ void main() {
       await tester.pumpWidget(
         _host(const HourCell(hour: 14, band: HourBand.good)),
       );
-      // Two extra glyphs have to fit the same 44px column.
-      expect(withMinutes, lessThan(_labelStyle(tester, '14').fontSize!));
+      // **The same size, and that inversion is the point.** The column used to
+      // be 44pt and a minute suffix was squeezed to 9pt to fit it, so the rows
+      // that most need explaining — Kolkata, Kathmandu, Chatham — were the
+      // hardest ones on the screen to read. A 60pt column holds `05:45` at the
+      // size every other cell uses.
+      expect(withMinutes, _comfortableFontSize);
+      expect(_labelStyle(tester, '14').fontSize, _comfortableFontSize);
+    });
+
+    testWidgets('the compact chip keeps the small digits and the rounding', (
+      tester,
+    ) async {
+      // The settings preview shares this widget so its 24 cells are a legend
+      // for the grid's colours, but it can afford as little as 26pt each.
+      await tester.pumpWidget(
+        _host(const HourCell(hour: 9, band: HourBand.good, compact: true)),
+      );
+
+      expect(_labelStyle(tester, '09').fontSize, _compactFontSize);
+      expect(_decorationsOf(tester).first.borderRadius, isNotNull);
+      expect(_labelStyle(tester, '09').color, AppColors.light.onBackground);
     });
   });
 
   group('cursor and selection', () {
-    testWidgets('a plain cell has neither border nor wash', (tester) async {
+    testWidgets('a plain cell has no wash, and tints its digits', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         _host(const HourCell(hour: 9, band: HourBand.good)),
       );
@@ -124,22 +150,44 @@ void main() {
       expect(decorations, hasLength(2));
       expect(decorations.first.border, isNull);
       expect(decorations.last.color, isNull);
-      expect(_labelStyle(tester, '09').color, AppColors.light.onBackground);
+      // The digits carry the band too, so a row read out of the corner of the
+      // eye still says which band it is in. Lerped toward the foreground
+      // rather than hardcoded, which is what keeps it legible on the light
+      // palettes as well as the dark ones.
+      expect(
+        _labelStyle(tester, '09').color,
+        Color.lerp(
+          AppColors.light.hourGood,
+          AppColors.light.onBackground,
+          _inkBlend,
+        ),
+      );
       expect(_labelStyle(tester, '09').fontWeight, FontWeight.w500);
     });
 
-    testWidgets('the cursor draws a primary border and emphasises', (
-      tester,
-    ) async {
+    testWidgets('the cursor is a wash, not a ring', (tester) async {
       await tester.pumpWidget(
         _host(const HourCell(hour: 9, band: HourBand.good, isCursor: true)),
       );
 
-      final border = _decorationsOf(tester).first.border! as Border;
-      expect(border.top.color, AppColors.light.primary);
-      expect(border.top.width, _cursorBorderWidth);
-      expect(_labelStyle(tester, '09').color, AppColors.light.primary);
-      expect(_labelStyle(tester, '09').fontWeight, FontWeight.w600);
+      final decorations = _decorationsOf(tester);
+      // It used to draw a 2pt border around the cell. A ring is a fifth box on
+      // a screen that already has eighty; a filled column reads as "here" from
+      // across the row and costs no extra edge.
+      expect(decorations.first.border, isNull);
+      expect(
+        decorations.first.color,
+        AppColors.light.primary.withValues(alpha: _selectedAlpha),
+      );
+      expect(
+        _labelStyle(tester, '09').color,
+        Color.lerp(
+          AppColors.light.primary,
+          AppColors.light.onBackground,
+          _cursorInkBlend,
+        ),
+      );
+      expect(_labelStyle(tester, '09').fontWeight, FontWeight.w700);
     });
 
     testWidgets('selection washes primary over the band it keeps', (
@@ -161,7 +209,14 @@ void main() {
         AppColors.light.primary.withValues(alpha: _selectedAlpha),
       );
       expect(decorations.first.border, isNull);
-      expect(_labelStyle(tester, '09').color, AppColors.light.primary);
+      expect(
+        _labelStyle(tester, '09').color,
+        Color.lerp(
+          AppColors.light.primary,
+          AppColors.light.onBackground,
+          _cursorInkBlend,
+        ),
+      );
     });
   });
 

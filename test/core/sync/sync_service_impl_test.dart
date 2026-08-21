@@ -427,6 +427,88 @@ void main() {
     });
   });
 
+  group('adopting a guest into an account', () {
+    /// The adopting sync, which is the one call that bypasses the ladder
+    /// (docs/specs/guest_mode.md rule 6).
+    Future<SyncOutcome> adoptedOutcome() async {
+      final result = await service.sync(
+        userId: _userId,
+        adoptGuestDocuments: true,
+      );
+      return result.fold<SyncOutcome>(
+        (failure) => fail('sync answered Left($failure)'),
+        (outcome) => outcome,
+      );
+    }
+
+    test('an account with no board takes the guest board', () async {
+      remoteHoldsBoard(null);
+
+      final outcome = await adoptedOutcome();
+
+      // The only direction that is safe unconditionally: nothing on the
+      // server is being replaced, so this is ordinary provisioning wearing a
+      // different name.
+      expect(outcome.boardWinner, ConflictWinner.local);
+      expect(outcome.board, _localBoard);
+      expectBoardWasUploaded(_localBoard);
+      verifyNever(() => boardRepository.save(any()));
+    });
+
+    test('an account that has a board keeps it', () async {
+      final remoteBoard = _remoteBoard(
+        revision: 1,
+        updatedAt: _earlierInstant,
+      );
+      remoteHoldsBoard(remoteBoard);
+
+      // Lower revision, older timestamp: it loses every rung of the ladder and
+      // still wins here. That is the whole rule — the guest's board never left
+      // this device, and the account's is on other devices too.
+      expect(_localBoard.revision, greaterThan(remoteBoard.revision));
+      expect(_localBoard.updatedAt.isAfter(remoteBoard.updatedAt), isTrue);
+
+      final outcome = await adoptedOutcome();
+
+      expect(outcome.boardWinner, ConflictWinner.remote);
+      expect(outcome.board, same(remoteBoard));
+      verify(() => boardRepository.save(remoteBoard)).called(1);
+      expectBoardWasNotUploaded();
+    });
+
+    test('the same pair without the flag goes the other way', () async {
+      // The control for the test above: this is exactly what the ladder does
+      // with these two documents, and exactly what would silently destroy an
+      // account's board if adoption were left to it.
+      remoteHoldsBoard(_remoteBoard(revision: 1, updatedAt: _earlierInstant));
+
+      final outcome = await syncedOutcome();
+
+      expect(outcome.boardWinner, ConflictWinner.local);
+      expectBoardWasUploaded(_localBoard);
+    });
+
+    test('each document is decided on its own', () async {
+      // Rule 7 of sync.md survives adoption: an account that has preferences
+      // but has never saved a board still gets the guest's board pushed up.
+      remoteHoldsBoard(null);
+
+      final outcome = await adoptedOutcome();
+
+      expect(outcome.boardWinner, ConflictWinner.local);
+      expect(outcome.preferencesWinner, ConflictWinner.remote);
+    });
+
+    test('leaves no dirty flag behind when both writes landed', () async {
+      remoteHoldsBoard(null);
+
+      await adoptedOutcome();
+
+      expect(storedKeys.containsKey(StorageKeys.boardDirty), isFalse);
+      expect(storedKeys.containsKey(StorageKeys.preferencesDirty), isFalse);
+    });
+  });
+
   group('dirty flags', () {
     test('a failed remote write succeeds and marks the document', () async {
       remoteHoldsBoard(null);

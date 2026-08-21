@@ -5,6 +5,8 @@ import 'package:dartz/dartz.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:timebuddy/core/errors/failures.dart';
+import 'package:timebuddy/core/session/guest_session.dart';
+import 'package:timebuddy/core/storage/local_store.dart';
 import 'package:timebuddy/core/sync/sync_service.dart';
 import 'package:timebuddy/features/auth/domain/entities/user_entity.dart';
 import 'package:timebuddy/features/auth/presentation/bloc/auth_bloc.dart';
@@ -58,6 +60,8 @@ void main() {
   late MockTimeZoneEngine engine;
   late _MockCityCatalogRepository catalog;
   late _MockSyncService syncService;
+  late MockLocalStore localStore;
+  late GuestSession guestSession;
 
   /// What was reached for, in the order it was reached for.
   ///
@@ -79,7 +83,15 @@ void main() {
     engine = MockTimeZoneEngine();
     catalog = _MockCityCatalogRepository();
     syncService = _MockSyncService();
+    localStore = MockLocalStore();
+    guestSession = GuestSession(localStore: localStore);
     reachedFor = <String>[];
+
+    // Not a guest unless a case says so. Stubbed rather than left to
+    // mocktail's null, so `restore()` has something to read on every path.
+    when(
+      () => localStore.readRaw(StorageKeys.guest),
+    ).thenAnswer((_) async => null);
 
     when(engine.initialize).thenAnswer((_) async {
       reachedFor.add('engine');
@@ -88,7 +100,12 @@ void main() {
       reachedFor.add('catalog');
       return const Right<Failure, List<CityEntity>>([]);
     });
-    when(() => syncService.sync(userId: any(named: 'userId'))).thenAnswer(
+    when(
+      () => syncService.sync(
+        userId: any(named: 'userId'),
+        adoptGuestDocuments: any(named: 'adoptGuestDocuments'),
+      ),
+    ).thenAnswer(
       (_) async => Right<Failure, SyncOutcome>(_reconciled),
     );
 
@@ -100,7 +117,22 @@ void main() {
     engine: engine,
     catalog: catalog,
     syncService: syncService,
+    guestSession: guestSession,
   );
+
+  /// Turns the device into a guest, the way onboarding would.
+  ///
+  /// The real [GuestSession] over a mocked store rather than a mocked session:
+  /// `LocalStore` is the boundary (CLAUDE.md), and the thing under test here
+  /// is partly *whether the cubit clears the marker*, which a mock would
+  /// happily report either way.
+  Future<void> becomeGuest() async {
+    when(
+      () => localStore.readRaw(StorageKeys.guest),
+    ).thenAnswer((_) async => 'true');
+    when(() => localStore.remove(StorageKeys.guest)).thenAnswer((_) async {});
+    await guestSession.restore();
+  }
 
   /// Every state the cubit emits while [body] runs.
   ///
@@ -123,7 +155,12 @@ void main() {
   }
 
   void expectSyncWasNotRun() {
-    verifyNever(() => syncService.sync(userId: any(named: 'userId')));
+    verifyNever(
+      () => syncService.sync(
+        userId: any(named: 'userId'),
+        adoptGuestDocuments: any(named: 'adoptGuestDocuments'),
+      ),
+    );
   }
 
   test('starts before initialize has attempted anything', () {
@@ -183,7 +220,12 @@ void main() {
         const StartupAuthenticated(userId: _userId, syncFailed: false),
       ],
       verify: (_) {
-        verify(() => syncService.sync(userId: _userId)).called(1);
+        verify(
+          () => syncService.sync(
+            userId: _userId,
+            adoptGuestDocuments: any(named: 'adoptGuestDocuments'),
+          ),
+        ).called(1);
         // Rule 4: a bloc that already holds the answer is not worth a
         // subscription opened to close a moment later.
         verifyNever(() => authBloc.stream);
@@ -301,7 +343,12 @@ void main() {
       'opens on local data when the sync fails outright',
       setUp: () {
         authBlocHolds(Authenticated(_user));
-        when(() => syncService.sync(userId: any(named: 'userId'))).thenAnswer(
+        when(
+          () => syncService.sync(
+            userId: any(named: 'userId'),
+            adoptGuestDocuments: any(named: 'adoptGuestDocuments'),
+          ),
+        ).thenAnswer(
           (_) async => const Left<Failure, SyncOutcome>(ServerFailure()),
         );
       },
@@ -325,7 +372,10 @@ void main() {
       authBlocHolds(Authenticated(_user));
       final pending = Completer<Either<Failure, SyncOutcome>>();
       when(
-        () => syncService.sync(userId: any(named: 'userId')),
+        () => syncService.sync(
+          userId: any(named: 'userId'),
+          adoptGuestDocuments: any(named: 'adoptGuestDocuments'),
+        ),
       ).thenAnswer((_) => pending.future);
 
       final cubit = buildCubit();
@@ -432,6 +482,136 @@ void main() {
       // Rule 1: re-entry is the error state's retry and nothing else, and it
       // re-announces loading rather than returning to `StartupInitial`.
       expect(cubit.state, const StartupUnauthenticated());
+    });
+  });
+
+  group('adopting a guest who signed in', () {
+    test(
+      'asks the sync to adopt, and clears the marker once it lands',
+      () async {
+        await becomeGuest();
+        authBlocHolds(Authenticated(_user));
+
+        final cubit = buildCubit();
+        addTearDown(cubit.close);
+        await cubit.initialize();
+
+        // The flag is the whole difference between "your account replaces this
+        // board" and "this board replaces your account"
+        // (docs/specs/guest_mode.md rule 6).
+        verify(
+          () => syncService.sync(userId: _userId, adoptGuestDocuments: true),
+        ).called(1);
+        expect(guestSession.isGuest, isFalse);
+        expect(
+          cubit.state,
+          const StartupAuthenticated(userId: _userId, syncFailed: false),
+        );
+      },
+    );
+
+    test('leaves the marker set when the adopting sync failed', () async {
+      await becomeGuest();
+      authBlocHolds(Authenticated(_user));
+      when(
+        () => syncService.sync(
+          userId: any(named: 'userId'),
+          adoptGuestDocuments: any(named: 'adoptGuestDocuments'),
+        ),
+      ).thenAnswer(
+        (_) async => const Left<Failure, SyncOutcome>(
+          ServerFailure('the account could not be read'),
+        ),
+      );
+
+      final cubit = buildCubit();
+      addTearDown(cubit.close);
+      await cubit.initialize();
+
+      // Rule 8. Clearing it here would strand a board that never reached the
+      // account: the next launch would sync as an ordinary signed-in user and
+      // the guest's cities would lose the ladder to a remote that has them
+      // beaten on nothing but existing.
+      expect(guestSession.isGuest, isTrue);
+      expect(
+        cubit.state,
+        const StartupAuthenticated(userId: _userId, syncFailed: true),
+      );
+    });
+
+    test('marks the attempt before awaiting, so the router cannot loop',
+        () async {
+      await becomeGuest();
+      authBlocHolds(Authenticated(_user));
+      final held = Completer<Either<Failure, SyncOutcome>>();
+      when(
+        () => syncService.sync(
+          userId: any(named: 'userId'),
+          adoptGuestDocuments: any(named: 'adoptGuestDocuments'),
+        ),
+      ).thenAnswer((_) => held.future);
+
+      final cubit = buildCubit();
+      addTearDown(cubit.close);
+      unawaited(cubit.initialize());
+      await pumpEventQueue();
+
+      // While the sync is still in flight the marker is necessarily still set,
+      // so `AppRouter`'s guest rule would send this same session back to the
+      // splash forever if it keyed on the marker alone.
+      expect(guestSession.isGuest, isTrue);
+      expect(guestSession.adoptionAttempted, isTrue);
+
+      held.complete(Right<Failure, SyncOutcome>(_reconciled));
+      await pumpEventQueue();
+      expect(guestSession.isGuest, isFalse);
+    });
+
+    test('an adopting sync is not cut off by the time box', () async {
+      await becomeGuest();
+      authBlocHolds(Authenticated(_user));
+      final slow = Completer<Either<Failure, SyncOutcome>>();
+      when(
+        () => syncService.sync(
+          userId: any(named: 'userId'),
+          adoptGuestDocuments: any(named: 'adoptGuestDocuments'),
+        ),
+      ).thenAnswer((_) => slow.future);
+
+      final cubit = buildCubit();
+      addTearDown(cubit.close);
+      unawaited(cubit.initialize());
+      // Well past rule 8's budget, which an ordinary first sync would have
+      // abandoned by now.
+      await Future<void>.delayed(StartupCubit.syncTimeBox * 2);
+      await pumpEventQueue();
+
+      // Rule 7: `AppShell` builds `BoardCubit` the moment the router leaves
+      // `/startup`, so opening early would load the guest's document a
+      // heartbeat before the account's replaced it.
+      expect(cubit.state, isA<StartupLoading>());
+
+      slow.complete(Right<Failure, SyncOutcome>(_reconciled));
+      await pumpEventQueue();
+      expect(
+        cubit.state,
+        const StartupAuthenticated(userId: _userId, syncFailed: false),
+      );
+    });
+
+    test('a signed-in user who was never a guest syncs normally', () async {
+      authBlocHolds(Authenticated(_user));
+
+      final cubit = buildCubit();
+      addTearDown(cubit.close);
+      await cubit.initialize();
+
+      // The ladder still owns every ordinary sync. Adoption is one call on one
+      // transition, not a mode the app stays in.
+      verify(
+        () => syncService.sync(userId: _userId),
+      ).called(1);
+      verifyNever(() => localStore.remove(StorageKeys.guest));
     });
   });
 }

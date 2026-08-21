@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:timebuddy/app/theme/app_spacing.dart';
+import 'package:timebuddy/app/widgets/app_icon.dart';
 import 'package:timebuddy/app/widgets/clock_text.dart';
 import 'package:timebuddy/app/widgets/dst_badge.dart';
 import 'package:timebuddy/app/widgets/timebuddy_picker_row.dart';
@@ -192,8 +194,7 @@ class _Facts extends StatelessWidget {
           // `null` from the formatter means the two zones match, which is an
           // answer rather than an absence on a line that names the question.
           value:
-              relativeOffsetLabel(tile.offsetFromHome) ??
-              t.worldClock.sameTime,
+              relativeOffsetLabel(tile.offsetFromHome) ?? t.worldClock.sameTime,
         ),
         if (tile.isDst) ...[
           const SizedBox(height: AppSpacing.sm),
@@ -307,7 +308,7 @@ class _Actions extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         TimeBuddyPickerRow(
-          leading: const Icon(Icons.home_outlined),
+          leading: const AppIcon(FontAwesomeIcons.house),
           title: t.worldClock.actionSetHome,
           // Already home reads as the selected option, which is what the check
           // mark means everywhere else in the app. Tapping it closes the sheet
@@ -319,13 +320,13 @@ class _Actions extends StatelessWidget {
           ),
         ),
         TimeBuddyPickerRow(
-          leading: const Icon(Icons.grid_on_outlined),
+          leading: const AppIcon(FontAwesomeIcons.tableCells),
           title: t.worldClock.actionOpenInGrid,
           onTap: () => _close(context, LocationDetailAction.openInGrid),
         ),
         if (canRemove)
           TimeBuddyPickerRow(
-            leading: const Icon(Icons.delete_outline),
+            leading: const AppIcon(FontAwesomeIcons.trash),
             title: t.worldClock.actionRemove,
             onTap: () => _close(context, LocationDetailAction.remove),
           ),

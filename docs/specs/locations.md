@@ -8,6 +8,23 @@ This spec owns the saved-location entity, the city catalog behind the search, an
 the `BoardCubit` that is the single source of truth for "which places is this
 user watching".
 
+**The board has no screen of its own.** It used to: a Cities destination whose
+whole content was the list, its order and its row actions. It was removed, and
+the reason is worth keeping — it showed the same list the grid already shows,
+one tab away, so a user who wanted to move a city looked at their cities twice.
+Editing now happens where the board is being read:
+
+| Capability | Where it lives |
+| --- | --- |
+| Reorder | Drag a row label on the grid, or a tile on the world clock |
+| Set as home / replace zone / remove | Tap a row label on the grid; the world clock's detail sheet |
+| Add | The FAB on either, and the `/add` route behind it |
+| How full the board is | The add sheet's header, where the cap is about to matter |
+
+The interactions themselves are one library, `board_actions.dart`, rather than
+a copy per screen — two copies of a five-second undo window is how it becomes
+four seconds on one of them.
+
 ---
 
 ## Entity Contract
@@ -500,6 +517,13 @@ the generic message is the honest one.
 ## Testing
 
 `test/features/locations/` covers:
+
+There is no `locations_page_test.dart` any more; the board's editing gestures
+are asserted where they now live, in
+`test/features/time_grid/presentation/pages/time_grid_page_test.dart`'s "the
+label column owns the row" group — including the case that matters most, a
+horizontal drag over the hours that must move the cursor and **not** the row.
+
 
 - `board_cubit_test.dart`: load (stored board, freshly seeded board, canonicalised
   ids, unresolved flagging, read failure), `addCity`, duplicate and cap

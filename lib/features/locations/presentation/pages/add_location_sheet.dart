@@ -12,6 +12,7 @@ import 'package:timebuddy/app/widgets/timebuddy_picker_sheet_empty.dart';
 import 'package:timebuddy/app/widgets/timebuddy_search_field.dart';
 import 'package:timebuddy/core/errors/failures.dart';
 import 'package:timebuddy/core/extensions/context_extensions.dart';
+import 'package:timebuddy/features/locations/domain/entities/board_entity.dart';
 import 'package:timebuddy/features/locations/domain/entities/city_entity.dart';
 import 'package:timebuddy/features/locations/domain/entities/saved_location_entity.dart';
 import 'package:timebuddy/features/locations/domain/repositories/city_catalog_repository.dart';
@@ -72,7 +73,7 @@ String boardWriteFailureMessage(Failure failure) => switch (failure) {
 /// ```dart
 /// FloatingActionButton(
 ///   onPressed: () => unawaited(showAddLocationSheet(context)),
-///   child: const Icon(Icons.add),
+///   child: AppIcon(FontAwesomeIcons.plus),
 /// );
 /// ```
 Future<void> showAddLocationSheet(
@@ -135,20 +136,70 @@ class _PickerChrome extends StatelessWidget {
     final cubit = context.read<LocationSearchCubit>();
     return TimeBuddyPickerSheet(
       title: replaces == null ? t.locations.addTitle : t.locations.replaceZone,
-      header: TimeBuddySearchField(
-        hintText: t.locations.searchHint,
-        // The user opened this sheet in order to type; anything else is a tap
-        // they should not have had to make.
-        autofocus: true,
-        clearTooltip: t.common.clear,
-        // Undebounced by design: the field reports keystrokes and the cubit
-        // owns the 200 ms wait, which is the only place a test can see it.
-        onChanged: cubit.search,
+      header: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TimeBuddySearchField(
+            hintText: t.locations.searchHint,
+            // The user opened this sheet in order to type; anything else is a
+            // tap they should not have had to make.
+            autofocus: true,
+            clearTooltip: t.common.clear,
+            // Undebounced by design: the field reports keystrokes and the
+            // cubit owns the 200 ms wait, which is the only place a test can
+            // see it.
+            onChanged: cubit.search,
+          ),
+          // How full the board is, stated where it is about to matter
+          // (docs/specs/locations.md rule 4): a user who meets
+          // `BoardFullFailure` at the twenty-first city should have been able
+          // to see it coming. The board page's header used to carry this and
+          // the board page is gone; the moment before choosing a city is a
+          // better place for it than a screen the user had to visit on
+          // purpose.
+          //
+          // Absent while replacing a zone, which swaps a row rather than
+          // adding one and so cannot reach the cap.
+          if (replaces == null) const _BoardCount(),
+        ],
       ),
       bodyBuilder: (_, scrollController) => _PickerBody(
         scrollController: scrollController,
         replaces: replaces,
       ),
+    );
+  }
+}
+
+/// How many of the twenty places are already taken.
+///
+/// Reads `BoardCubit` rather than taking a count as an argument: the sheet is
+/// open across the add that changes it, so a number passed in at open time
+/// would be stale the moment it mattered.
+class _BoardCount extends StatelessWidget {
+  const _BoardCount();
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<BoardCubit, BoardState>(
+      builder: (context, state) {
+        // Silent until the board is there. A count rendered from a state that
+        // has not loaded would read "0 of 20" over a board that is full.
+        if (state is! BoardLoaded) return const SizedBox.shrink();
+        return Padding(
+          padding: const EdgeInsets.only(top: AppSpacing.sm),
+          child: Text(
+            t.locations.countLabel(
+              count: state.board.locations.length,
+              max: BoardEntity.maxLocations,
+            ),
+            style: context.textTheme.bodySmall?.copyWith(
+              color: context.appColors.onBackgroundLight,
+            ),
+          ),
+        );
+      },
     );
   }
 }

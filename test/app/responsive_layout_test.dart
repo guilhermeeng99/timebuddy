@@ -15,6 +15,7 @@ import 'package:timebuddy/app/widgets/timebuddy_bottom_bar.dart';
 import 'package:timebuddy/app/widgets/timebuddy_date_pill.dart';
 import 'package:timebuddy/app/widgets/timebuddy_sidebar.dart';
 import 'package:timebuddy/core/errors/failures.dart';
+import 'package:timebuddy/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:timebuddy/features/locations/domain/entities/board_entity.dart';
 import 'package:timebuddy/features/locations/domain/repositories/board_repository.dart';
 import 'package:timebuddy/features/preferences/presentation/cubit/preferences_cubit.dart';
@@ -42,8 +43,18 @@ import '../harness/pump_app.dart';
 /// A phone: the smaller of the two surfaces, and below the breakpoint.
 const Size _mobileSurface = Size(375, 812);
 
-/// A desktop window: past both breakpoints, so the rail is on screen.
+/// A desktop window: past both breakpoints, so the rail is on screen and
+/// expanded.
 const Size _desktopSurface = Size(1280, 800);
+
+/// A tablet: past the first breakpoint and short of the second, so the rail is
+/// on screen collapsed to icons.
+///
+/// **This band had no surface in the suite at all**, which is how it came to
+/// be the one place where widening the window made the app worse: a 240pt rail
+/// on a 700pt window left the time grid less room than a phone had. Every
+/// assertion here is one that stayed green through that.
+const Size _tabletSurface = Size(768, 1024);
 
 /// Relative path of the pushed sub-page under the grid branch.
 const String _subPageSegment = 'sub';
@@ -182,14 +193,6 @@ GoRouter _shellRouter({required String initialLocation}) {
           StatefulShellBranch(
             routes: <RouteBase>[
               GoRoute(
-                path: AppRoutes.locations,
-                builder: (context, state) => const SizedBox.shrink(),
-              ),
-            ],
-          ),
-          StatefulShellBranch(
-            routes: <RouteBase>[
-              GoRoute(
                 path: AppRoutes.settings,
                 builder: (context, state) => const SettingsPage(),
               ),
@@ -253,8 +256,14 @@ void main() {
     final router = _shellRouter(initialLocation: initialLocation);
     await tester.pumpWidget(
       TranslationProvider(
-        child: BlocProvider<PreferencesCubit>.value(
-          value: app.cubit,
+        // Both providers, matching `TimeBuddyApp`: settings' Account row reads
+        // the session off the tree, and this file mounts the real settings
+        // page to measure how its last row clears the bar.
+        child: MultiBlocProvider(
+          providers: [
+            BlocProvider<PreferencesCubit>.value(value: app.cubit),
+            BlocProvider<AuthBloc>.value(value: app.authBloc),
+          ],
           child: MaterialApp.router(
             theme: AppTheme.light(),
             routerConfig: router,
@@ -283,10 +292,13 @@ void main() {
 
   /// The licenses row of the settings page: the last thing in that list, and
   /// the row a missing bottom inset leaves visible and untappable.
-  Finder licensesRow() => find.ancestor(
-    of: find.text(t.settings.licenses),
-    matching: find.byType(InkWell),
-  );
+  /// The settings page's last row, whatever it currently is.
+  ///
+  /// It used to be the licenses link, which is gone. The anchor is the *last*
+  /// row rather than a named one because what these two tests measure is
+  /// clearance at the bottom of the list, not which row happens to be there.
+  Finder lastSettingsRow() =>
+      find.text(t.settings.tzDataVersion).hitTestable();
 
   /// Drags [page]'s scroll view to its end, having checked there was something
   /// to scroll.
@@ -337,16 +349,20 @@ void main() {
     expect(find.text(t.nav.settings), findsNothing);
   });
 
-  testWidgets('all five destinations fit the bar on a 375px phone', (
+  testWidgets('every destination fits the bar on a 375px phone', (
     tester,
   ) async {
     await pumpShell(tester, surface: _mobileSurface);
 
-    // Milestone 4 took the nav from three destinations to five, and the pill
-    // is the surface where that has to be paid for: it is the one nav that
-    // cannot scroll, cannot wrap and cannot drop an item. Measured here rather
-    // than argued from the arithmetic in `collapsedItemWidth`'s contract,
-    // because the arithmetic is what would be wrong.
+    // Milestone 4 took the nav from three destinations to five; removing the
+    // Cities destination took it back to four. The pill is the surface where
+    // that count has to be paid for either way: it is the one nav that cannot
+    // scroll, cannot wrap and cannot drop an item. Counted off
+    // `TimeBuddyNavDestination.values` rather than written out, so the next
+    // change to the nav is measured here instead of renaming this test.
+    // Measured rather than argued from the arithmetic in
+    // `collapsedItemWidth`'s contract, because the arithmetic is what would
+    // be wrong.
     final items = find.descendant(
       of: find.byType(TimeBuddyBottomBar),
       matching: find.byType(InkWell),
@@ -369,16 +385,22 @@ void main() {
     expect(rects.first.left, greaterThanOrEqualTo(bar.left));
     expect(rects.last.right, lessThanOrEqualTo(bar.right));
 
-    // The four the user is not on keep the full tap target rather than
-    // shrinking to the 22pt icon they centre, which is the half of the fit a
-    // sixth destination would break first.
+    // The ones the user is not on keep the full tap target rather than
+    // shrinking to the 22pt icon they centre, which is the half of the fit an
+    // extra destination would break first.
+    //
+    // `moreOrLessEquals` and not equality: the pill divides its width among
+    // the items, so how the remainder lands on the last sub-pixel is a
+    // property of the item count, not of the layout being right or wrong.
     expect(
       rects.skip(1).map((rect) => rect.width),
-      everyElement(TimeBuddyBottomBar.collapsedItemWidth),
+      everyElement(
+        moreOrLessEquals(TimeBuddyBottomBar.collapsedItemWidth, epsilon: 0.01),
+      ),
     );
     // And the active one still had room to be more than an icon: it is the
     // only destination that names itself here (see the test above), so a
-    // label squeezed to nothing would be five unlabelled icons.
+    // label squeezed to nothing would be a row of unlabelled icons.
     expect(
       rects.first.width,
       greaterThan(TimeBuddyBottomBar.collapsedItemWidth),
@@ -398,20 +420,82 @@ void main() {
     final rail = tester.getRect(find.byType(TimeBuddySidebar));
     expect(rail.left, 0);
     expect(rail.top, 0);
-    expect(rail.width, TimeBuddySidebar.width);
+    expect(rail.width, TimeBuddySidebar.expandedWidth);
     expect(rail.height, _desktopSurface.height);
     expect(find.text(t.app.name), findsOneWidget);
 
     // The rail takes its own column rather than floating over the content.
     expect(
       tester.getRect(find.byType(_StepperPage)).left,
-      TimeBuddySidebar.width,
+      TimeBuddySidebar.expandedWidth,
     );
 
     // Every destination is legible at this width, not just the active one.
     for (final destination in TimeBuddyNavDestination.values) {
       expect(find.text(destination.label), findsOneWidget);
     }
+  });
+
+  testWidgets('between 600 and 900 the rail is on screen but collapsed', (
+    tester,
+  ) async {
+    await pumpShell(tester, surface: _tabletSurface);
+
+    expect(
+      tester.getSize(find.byType(TimeBuddyBottomBar)),
+      Size.zero,
+      reason: 'the rail is showing, so the bar must not be',
+    );
+
+    final rail = tester.getRect(find.byType(TimeBuddySidebar));
+    expect(rail.left, 0);
+    expect(rail.width, TimeBuddySidebar.collapsedWidth);
+    expect(rail.height, _tabletSurface.height);
+
+    // The labels are gone and so is the wordmark; the destinations are not.
+    // They carry a tooltip and a semantic label at this width, which is what
+    // separates an icon rail from four unnamed glyphs.
+    expect(find.text(t.app.name), findsNothing);
+    for (final destination in TimeBuddyNavDestination.values) {
+      expect(find.text(destination.label), findsNothing);
+    }
+
+    for (final destination in TimeBuddyNavDestination.values) {
+      // Settings is the profile tile at the foot of the rail, not a nav item.
+      if (destination == TimeBuddyNavDestination.settings) continue;
+      expect(
+        find.byTooltip(destination.label),
+        findsOneWidget,
+        reason: '${destination.name} must still name itself when unlabelled',
+      );
+    }
+    // The glyphs also carry a `semanticLabel`, which this file deliberately
+    // does not assert: the rail contributes **no semantics nodes at all**
+    // today, collapsed or expanded — the tree runs from the root straight to
+    // the page's route scope, so a screen reader cannot reach the navigation
+    // at any width. That predates the collapsed form and is not this test's
+    // subject; asserting a label here would only pass once that is fixed, and
+    // fail now for the wrong reason.
+
+    // Still its own column, 160pt narrower than the expanded form — which is
+    // the whole point: those 160pt are hour columns on the grid.
+    expect(
+      tester.getRect(find.byType(_StepperPage)).left,
+      TimeBuddySidebar.collapsedWidth,
+    );
+  });
+
+  testWidgets('a collapsed rail hands the stepper back to the page', (
+    tester,
+  ) async {
+    await pumpShell(tester, surface: _tabletSurface);
+
+    // An 80pt strip cannot hold a day stepper, so the page draws its own —
+    // and "exactly one on screen" still holds, which is the §7 rule rather
+    // than "the rail always owns it".
+    expect(datePill(), findsOneWidget);
+    expect(pillOnPage(), findsOneWidget);
+    expect(pillInRail(), findsNothing);
   });
 
   testWidgets('below 600px the page owns the stepper, and only the page', (
@@ -443,7 +527,7 @@ void main() {
     // Parented to the rail *and* drawn inside its column.
     expect(
       tester.getRect(datePill()).right,
-      lessThanOrEqualTo(TimeBuddySidebar.width),
+      lessThanOrEqualTo(TimeBuddySidebar.expandedWidth),
     );
   });
 
@@ -496,7 +580,7 @@ void main() {
     // The stepper goes; the way to another destination does not.
     expect(
       tester.getRect(find.byType(TimeBuddySidebar)).width,
-      TimeBuddySidebar.width,
+      TimeBuddySidebar.expandedWidth,
     );
     for (final destination in TimeBuddyNavDestination.values) {
       expect(find.text(destination.label), findsOneWidget);
@@ -550,7 +634,7 @@ void main() {
     );
     await scrollToEnd(tester, find.byType(SettingsPage));
 
-    final row = tester.getRect(licensesRow());
+    final row = tester.getRect(lastSettingsRow());
     final bar = tester.getRect(find.byType(TimeBuddyBottomBar));
     expect(bar.top, _mobileSurface.height - TimeBuddyBottomBar.reservedHeight);
 
@@ -581,7 +665,7 @@ void main() {
     // the last row.
     expect(tester.getSize(find.byType(TimeBuddyBottomBar)), Size.zero);
     expect(
-      tester.getRect(licensesRow()).bottom,
+      tester.getRect(lastSettingsRow()).bottom,
       greaterThan(_desktopSurface.height - TimeBuddyBottomBar.reservedHeight),
     );
   });

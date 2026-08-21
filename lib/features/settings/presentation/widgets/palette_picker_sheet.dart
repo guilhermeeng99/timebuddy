@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:timebuddy/app/theme/app_colors.dart';
 import 'package:timebuddy/app/theme/app_spacing.dart';
 import 'package:timebuddy/app/theme/dark_palettes.dart';
 import 'package:timebuddy/app/theme/light_palettes.dart';
+import 'package:timebuddy/app/widgets/app_icon.dart';
 import 'package:timebuddy/core/extensions/context_extensions.dart';
 
 // TODO(m2): migrate this onto the shared `TimeBuddyPickerSheet` /
@@ -224,7 +226,7 @@ class _PaletteRow extends StatelessWidget {
                 ),
               ),
               if (isSelected)
-                Icon(Icons.check_rounded, color: activeColors.primary),
+                AppIcon(FontAwesomeIcons.check, color: activeColors.primary),
             ],
           ),
         ),

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:timebuddy/app/theme/app_spacing.dart';
+import 'package:timebuddy/app/widgets/app_icon.dart';
 import 'package:timebuddy/core/extensions/context_extensions.dart';
 
 /// The trigger that opens a picker from a form: leading icon, label, the
@@ -12,7 +14,7 @@ import 'package:timebuddy/core/extensions/context_extensions.dart';
 ///
 /// ```dart
 /// TimeBuddyPickerField(
-///   icon: Icons.public_rounded,
+///   icon: FontAwesomeIcons.earthAmericas,
 ///   label: t.locations.homeCity,
 ///   value: home?.label,
 ///   placeholder: t.locations.pickHomeCity,
@@ -32,7 +34,7 @@ class TimeBuddyPickerField extends StatelessWidget {
   /// Leading glyph. An `IconData` rather than a widget: a form field's
   /// leading slot is a 24pt icon every time, and letting it be arbitrary is
   /// how a row of fields stops lining up.
-  final IconData icon;
+  final FaIconData icon;
 
   /// What the value means, in muted type above it.
   final String label;
@@ -70,7 +72,7 @@ class TimeBuddyPickerField extends StatelessWidget {
           ),
           child: Row(
             children: [
-              Icon(icon, color: colors.onBackgroundLight),
+              AppIcon(icon, color: colors.onBackgroundLight),
               const SizedBox(width: AppSpacing.md),
               Expanded(
                 child: _FieldText(
@@ -79,8 +81,8 @@ class TimeBuddyPickerField extends StatelessWidget {
                   value: value,
                 ),
               ),
-              Icon(
-                Icons.chevron_right_rounded,
+              AppIcon(
+                FontAwesomeIcons.chevronRight,
                 color: colors.onBackgroundLight,
               ),
             ],

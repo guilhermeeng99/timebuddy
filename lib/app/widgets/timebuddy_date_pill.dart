@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:timebuddy/app/theme/app_spacing.dart';
+import 'package:timebuddy/app/widgets/app_icon.dart';
 import 'package:timebuddy/core/extensions/context_extensions.dart';
 import 'package:timebuddy/core/utils/time_formatter.dart';
 
@@ -110,7 +112,7 @@ class TimeBuddyDatePill extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               _StepButton(
-                icon: Icons.chevron_left,
+                icon: FontAwesomeIcons.chevronLeft,
                 tooltip: previousDayLabel,
                 onTap: () => onChanged(_stepped(-1)),
               ),
@@ -132,7 +134,7 @@ class TimeBuddyDatePill extends StatelessWidget {
                 ),
               ),
               _StepButton(
-                icon: Icons.chevron_right,
+                icon: FontAwesomeIcons.chevronRight,
                 tooltip: nextDayLabel,
                 onTap: () => onChanged(_stepped(1)),
               ),
@@ -156,7 +158,7 @@ class TimeBuddyDatePill extends StatelessWidget {
 class _StepButton extends StatelessWidget {
   const _StepButton({required this.icon, required this.onTap, this.tooltip});
 
-  final IconData icon;
+  final FaIconData icon;
   final VoidCallback onTap;
   final String? tooltip;
 
@@ -176,7 +178,7 @@ class _StepButton extends StatelessWidget {
         child: SizedBox(
           width: _size,
           height: _size,
-          child: Icon(icon, size: _iconSize, color: colors.onBackground),
+          child: AppIcon(icon, size: _iconSize, color: colors.onBackground),
         ),
       ),
     );

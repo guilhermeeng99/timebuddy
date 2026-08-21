@@ -2,12 +2,13 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:timebuddy/app/di/injection_container.dart';
 import 'package:timebuddy/app/theme/app_spacing.dart';
+import 'package:timebuddy/app/widgets/app_icon.dart';
 import 'package:timebuddy/app/widgets/error_view.dart';
 import 'package:timebuddy/app/widgets/fab_safe_area.dart';
 import 'package:timebuddy/app/widgets/loading_shimmer.dart';
-import 'package:timebuddy/app/widgets/responsive_layout.dart';
 import 'package:timebuddy/app/widgets/timebuddy_large_app_bar.dart';
 import 'package:timebuddy/app/widgets/timebuddy_picker_field.dart';
 import 'package:timebuddy/app/widgets/timebuddy_picker_row.dart';
@@ -108,43 +109,36 @@ class _ConverterBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hourFormat = _hourFormatOf(context);
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(
-          maxWidth: ResponsiveLayout.maxContentWidth,
-        ),
-        child: ListView(
-          padding: EdgeInsets.fromLTRB(
-            AppSpacing.lg,
-            AppSpacing.lg,
-            AppSpacing.lg,
-            // The bar floats over this list, so the last city needs room to
-            // clear it (design_system §7).
-            bottomSafeForBar(context, isSubPage: false),
-          ),
-          children: [
-            _SourceSection(result: result, hourFormat: hourFormat),
-            // Rules 4 and 5: a local time that did not map cleanly onto one
-            // instant is said out loud, above the answer, every time.
-            if (result.isDisclosed) ...[
-              const SizedBox(height: AppSpacing.md),
-              _DisclosureBanner(result: result, hourFormat: hourFormat),
-            ],
-            const SizedBox(height: AppSpacing.xl),
-            TimeBuddySection(
-              label: t.converter.resultTitle,
-              // The rows carry their own band-tinted surfaces; a card behind
-              // them would be a second surface under every one of them.
-              card: false,
-              count: result.lines.isEmpty ? null : result.lines.length,
-              child: ConversionResultList(
-                lines: result.lines,
-                hourFormat: hourFormat,
-              ),
-            ),
-          ],
-        ),
+    return ListView(
+      padding: EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        AppSpacing.lg,
+        AppSpacing.lg,
+        // The bar floats over this list, so the last city needs room to
+        // clear it (design_system §7).
+        bottomSafeForBar(context, isSubPage: false),
       ),
+      children: [
+        _SourceSection(result: result, hourFormat: hourFormat),
+        // Rules 4 and 5: a local time that did not map cleanly onto one
+        // instant is said out loud, above the answer, every time.
+        if (result.isDisclosed) ...[
+          const SizedBox(height: AppSpacing.md),
+          _DisclosureBanner(result: result, hourFormat: hourFormat),
+        ],
+        const SizedBox(height: AppSpacing.xl),
+        TimeBuddySection(
+          label: t.converter.resultTitle,
+          // The rows carry their own band-tinted surfaces; a card behind
+          // them would be a second surface under every one of them.
+          card: false,
+          count: result.lines.isEmpty ? null : result.lines.length,
+          child: ConversionResultList(
+            lines: result.lines,
+            hourFormat: hourFormat,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -169,7 +163,7 @@ class _SourceSection extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           TimeBuddyPickerField(
-            icon: Icons.public_rounded,
+            icon: FontAwesomeIcons.earthAmericas,
             label: t.converter.sourceLabel,
             // Never rendered: the source line always resolves, to a board row
             // or to the stand-in the use case builds. The field still needs
@@ -182,9 +176,15 @@ class _SourceSection extends StatelessWidget {
           // Chevrons flank the date, so "the same time tomorrow" is one tap.
           Row(
             children: [
-              const _DayStepButton(days: -1, icon: Icons.chevron_left_rounded),
+              const _DayStepButton(
+                days: -1,
+                icon: FontAwesomeIcons.chevronLeft,
+              ),
               Expanded(child: _DateField(input: input)),
-              const _DayStepButton(days: 1, icon: Icons.chevron_right_rounded),
+              const _DayStepButton(
+                days: 1,
+                icon: FontAwesomeIcons.chevronRight,
+              ),
             ],
           ),
           const SizedBox(height: AppSpacing.md),
@@ -200,13 +200,13 @@ class _DayStepButton extends StatelessWidget {
   const _DayStepButton({required this.days, required this.icon});
 
   final int days;
-  final IconData icon;
+  final FaIconData icon;
 
   @override
   Widget build(BuildContext context) {
     return IconButton(
       onPressed: () => _step(context),
-      icon: Icon(icon, color: context.appColors.onBackgroundLight),
+      icon: AppIcon(icon, color: context.appColors.onBackgroundLight),
     );
   }
 
@@ -237,7 +237,7 @@ class _DateField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return TimeBuddyPickerField(
-      icon: Icons.event_rounded,
+      icon: FontAwesomeIcons.calendar,
       label: t.converter.dateLabel,
       placeholder: t.converter.dateLabel,
       // The platform's own localized date, rather than an inline DateFormat:
@@ -275,7 +275,7 @@ class _TimeField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return TimeBuddyPickerField(
-      icon: Icons.schedule_rounded,
+      icon: FontAwesomeIcons.clock,
       label: t.converter.timeLabel,
       placeholder: t.converter.timeLabel,
       value: formatClock(_inputLocalTime(input), hourFormat),
@@ -332,8 +332,8 @@ class _DisclosureBanner extends StatelessWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(
-                  Icons.info_outline,
+                AppIcon(
+                  FontAwesomeIcons.circleInfo,
                   size: _bannerIconSize,
                   color: colors.warning,
                 ),

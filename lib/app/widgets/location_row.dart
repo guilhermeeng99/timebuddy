@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:timebuddy/app/theme/app_spacing.dart';
+import 'package:timebuddy/app/widgets/app_icon.dart';
 import 'package:timebuddy/app/widgets/offset_badge.dart';
 import 'package:timebuddy/core/extensions/context_extensions.dart';
 import 'package:timebuddy/features/locations/domain/entities/saved_location_entity.dart';
@@ -238,8 +240,8 @@ class _UnresolvedMark extends StatelessWidget {
   Widget build(BuildContext context) {
     return Tooltip(
       message: t.locations.unresolvedZone,
-      child: Icon(
-        Icons.public_off,
+      child: AppIcon(
+        FontAwesomeIcons.circleQuestion,
         size: _iconSize,
         color: context.appColors.onBackgroundLight,
         semanticLabel: t.locations.unresolvedZone,

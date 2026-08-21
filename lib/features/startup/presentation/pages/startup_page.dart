@@ -2,12 +2,15 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:go_router/go_router.dart';
 import 'package:timebuddy/app/di/injection_container.dart';
 import 'package:timebuddy/app/routes/app_routes.dart';
 import 'package:timebuddy/app/theme/app_spacing.dart';
+import 'package:timebuddy/app/widgets/app_icon.dart';
 import 'package:timebuddy/app/widgets/clock_text.dart';
 import 'package:timebuddy/core/extensions/context_extensions.dart';
+import 'package:timebuddy/core/session/guest_session.dart';
 import 'package:timebuddy/core/time/timezone_engine.dart';
 import 'package:timebuddy/features/startup/presentation/cubit/startup_cubit.dart';
 import 'package:timebuddy/gen/i18n/strings.g.dart';
@@ -63,8 +66,16 @@ class _StartupPageState extends State<StartupPage> {
     switch (state) {
       case StartupAuthenticated():
         context.go(AppRoutes.grid);
+      // One state, two destinations (docs/specs/guest_mode.md rule 4).
+      // "Auth resolved to nobody" is still the whole of what startup found;
+      // whether that nobody has already chosen to go without an account is a
+      // device fact, and asking it here is what keeps `StartupState` from
+      // growing a variant that `AppRouter._startupResolved` would have to
+      // learn about.
       case StartupUnauthenticated():
-        context.go(AppRoutes.onboarding);
+        context.go(
+          sl<GuestSession>().isGuest ? AppRoutes.grid : AppRoutes.onboarding,
+        );
       case StartupInitial():
       case StartupLoading():
       case StartupError():
@@ -197,8 +208,8 @@ class _BrandMark extends StatelessWidget {
             color: colors.primary.withValues(alpha: _brandDiscAlpha),
             shape: BoxShape.circle,
           ),
-          child: Icon(
-            Icons.public_outlined,
+          child: AppIcon(
+            FontAwesomeIcons.earthAmericas,
             size: _brandGlyphSize,
             color: colors.primary,
           ),

@@ -95,16 +95,58 @@ user's last reference date, which is view state, not data.
 11. **Today is one tap away.** The date pill always offers a "Today" reset when
     `referenceDate` is not today in the home zone.
 
-12. **The grid is horizontally scrollable, never horizontally squeezed.** Column
-    width is fixed by `GridMetrics.hourColumnWidth`. On a narrow phone the user
-    scrolls; the app never shrinks columns to fit, because unreadable hour
-    numbers defeat the screen's purpose.
+12. **The hour column fills the track in whole columns, down to a floor.**
+    `GridLayout.resolve` divides the available track into the most equal
+    columns that still clear `GridLayout.minColumnWidth` (48pt), so the track
+    is always tiled edge to edge and **no column is ever drawn half-cut at the
+    right margin** — which is what "the values are truncated" meant. Below that
+    floor the grid scrolls, exactly as before; it never shrinks a column into
+    illegibility, because unreadable hour numbers defeat the screen's purpose.
 
-13. **Initial scroll position centres on now.** Opening the grid puts the current
-    instant in the middle of the viewport, not at column 0.
+    The floor is measured, not chosen, and the binding constraint is not the
+    hour digits. `05:45` is ~40pt of Inter at 15pt, but the per-row date label
+    (`Wed 28`, 9pt, rule 6) needs ~36pt *including its 4pt inset* and clips
+    from the right with no ellipsis — so a 40pt column would quietly print
+    `Wed 2` and hand the user a wrong calendar date that looks deliberate. 48
+    clears both and is also Material's minimum tap target, which every cell is.
+
+    **What this does and does not promise.** Thirty slots at the floor need a
+    1440pt track — 1620pt of grid box once the pinned column is paid for, and
+    about **1860pt of window** on a desktop, where the expanded rail takes
+    another 240. A phone still scrolls, and always will. That is arithmetic, not a
+    compromise: no arrangement of a 375pt screen shows a day at a legible size.
+    What changed at every width is that the track is *filled* — a 1280pt window
+    went from 14 columns with the fifteenth sliced through, to 17 whole ones.
+
+13. **Initial scroll position centres on now.** Opening the grid puts the
+    current instant in the middle of the viewport, not at column 0. On a screen
+    wide enough to hold the whole window this resolves to offset 0 and does
+    nothing, which is the rule working rather than failing: there is no
+    scrolling to do when every hour is already on screen.
 
 14. **A row whose zone is unresolved renders greyed with no cells**
     (locations rule 11), keeping its position so the board order is stable.
+
+15. **A resize moves hours, never the hour.** The track's scroll position is
+    converted to fractional columns before a relayout and back to pixels after
+    it (`GridLayout.columnOf` / `offsetOfColumn`), so dragging a window edge
+    changes how many hours are on screen and not *which* hour the user is
+    looking at. A `ScrollPosition` stores pixels, and a pixel stopped meaning a
+    fixed hour the moment the column width became a function of the viewport.
+
+    Numbered 15 rather than slotted in beside rule 12 on purpose: rules 13 and
+    14 are cited by name from six places in `lib/`, and renumbering a spec to
+    keep it tidy is how those citations quietly start pointing at the wrong
+    rule.
+
+    The published offset is also re-broadcast unconditionally in that same
+    post-frame callback, as a guard rather than as the main event: when a
+    relayout shrinks `maxScrollExtent`, Flutter clamps the position through
+    `correctPixels`, which assigns the field and notifies no listener, so a
+    page relying on the controller's own notifications could keep a stale
+    offset while the header painted at the corrected one. In practice the
+    rescale gets there first and notifies for it; the guard costs an
+    assignment and removes the need to reason about the ordering.
 
 ---
 
@@ -247,27 +289,159 @@ and `todayInHomeZone` (rule 11, never the device's date).
 | Tap a cell | Sets the cursor to that slot |
 | Drag horizontally on the cells area | Moves the cursor continuously |
 | Drag horizontally on the header strip | Scrolls the track |
-| Tap the cursor's header chip | Opens the meeting planner seeded with that hour ([meeting_planner.md](meeting_planner.md)) |
-| Long-press a row label | Opens row actions: set as home, remove, replace zone |
-| Drag a row label vertically | Reorders the board |
+| Tap a row label | Opens row actions: set as home, replace zone, remove |
+| Long-press a row label (touch) | Lifts the row to reorder the board |
+| Drag a row label (pointer) | Lifts the row to reorder the board |
 | Left / right arrow | Moves the cursor one slot |
 | `Home` key | Cursor back to now |
 | Swipe left / right on the date pill | Steps the reference date |
 
-Reordering writes through `BoardCubit.reorder`; the grid holds no order of its
-own.
+**The pinned label column owns both row gestures, and the hour cells own
+none of them.** That split is the whole design, and it is what lets a row be
+draggable on a screen where a horizontal drag already means something:
+`_slotAt` answers `null` left of `labelWidth`, so the cursor drag and the row
+lift never compete for a pixel. Moving the lift onto the cells — or onto the
+whole row — would put it in the same arena as the cursor.
+
+**Which lift gesture depends on the pointer**, matching what
+`ReorderableListView`'s own default handles do: a mouse drags immediately,
+because a hold before a drag on a desktop reads as the app being slow; a finger
+must press and hold, because an immediate lift would steal every vertical
+scroll of the grid that began over a label. Neither claims a pointer that never
+moved, so the tap survives on both.
+
+The label column also suppresses tooltips (`TooltipVisibility`). The
+unresolved-zone glyph in `LocationRow` carries one, and its long-press
+recognizer sits deeper than the lift's — it would win those fourteen pixels and
+give the drag a dead spot that appears and disappears as rows resolve. The
+glyph keeps its `semanticLabel`, and the repair the tooltip only described is
+now one tap away in the actions sheet.
+
+Reordering writes through `BoardCubit.reorder` and row actions through
+`board_actions.dart`; the grid holds no order of its own.
+
+**The grid has one mode.** It carried a Compare / Plan toggle in its app bar
+that turned the same rows and columns into the meeting planner; the toggle and
+the mode are gone, along with the planner provider, the selection overlay and
+the summary panel slot. What is left is the comparison grid this spec
+describes, and it is simpler for it — the `Stack` that held the panel is a
+plain `Column`, and the `GlobalKey` that existed only to reparent the grid when
+the planner provider appeared above it is gone with them.
+
+**This table used to describe a screen that did not exist.** Row actions and
+drag-to-reorder were specified in M2, deferred, and listed in
+[roadmap.md](../roadmap.md) as shipped-elsewhere: they lived on a Cities page
+instead, and `t.grid.rowAction*` were strings with no call site. The Cities page
+is gone and the grid is where the board is edited, so the promise and the code
+finally agree. `t.grid.rowAction*` stay unused — the sheet is the board's, and
+speaks `t.locations.*`, so one gesture does not teach two vocabularies.
+
+---
+
+## Geometry, and why it grew
+
+`GridMetrics` was retuned on 2026-08-20 after the owner said the grid was
+uncomfortable to read — "tudo muito pequeno e valores truncados". It was, and
+the numbers say why: an hour column was **44pt** holding an 11pt digit, and a
+half-hour zone's `05:45` was shrunk to **9pt** to fit. The rows that most need
+explaining — Kolkata `+05:30`, Kathmandu `+05:45`, Chatham `+12:45` — were the
+hardest ones on the screen to read.
+
+| | before | now |
+| --- | --- | --- |
+| `hourColumnWidth` | 44 | **60** |
+| `rowHeight` | 64 | **72** |
+| `labelColumnWidth` | 132 | **180** |
+| `headerHeight` | 40 | **48** |
+| dense label column | 96 | **128** |
+| cell digits | 11pt, 9pt with minutes | **15pt, always** |
+| band fill alpha | 0.12 | **0.16** |
+
+**The trade was explicit at the time: at a fixed 60pt column, a 1400pt track
+showed about 22 hours instead of 30.** That was the direction the owner picked
+from three, and it was the right one for this screen — a readable half-day
+beats an unreadable full one, and the track scrolls.
+
+> **Superseded in part.** The column stopped being fixed (rule 12): the same
+> 1400pt track now holds 29 columns at ~48pt, because the width is resolved per
+> surface rather than declared. What survives from this section is the *type* —
+> 15pt digits for every cell, minutes included — and the reason the reference
+> width is 60 rather than 44. `GridMetrics.hourColumnWidth` is no longer read
+> by any grid widget; it is the settings preview's cell and the size the type
+> scale was chosen against.
+
+Three things changed shape along with the size, and each removes a box:
+
+- **The cell is flat and edge to edge.** It had 4pt of inset and an
+  `AppRadius.sm` corner, so a row was twenty floating pills; now neighbouring
+  hours meet and a row reads as one continuous day. `HourCell.compact` keeps
+  the old chip for the settings preview, whose 24 cells share one card and can
+  be as narrow as 26pt.
+- **The cursor is a wash, not a ring.** A 2pt border was a fifth edge on a
+  screen that already had eighty; a filled column reads as "here" from across
+  the row.
+- **The digits are tinted by their band**, lerped 55% toward `onBackground` so
+  it stays legible on all twenty palettes rather than being a hardcoded light
+  tint. A row read out of the corner of the eye now says which band it is in.
+  The compact chip keeps the plain foreground — at 11pt a tinted digit loses
+  contrast before it gains meaning.
+
+A row hairline (`surfaceVariant`) was added underneath each row, and it is
+load-bearing rather than decoration: contiguous fills with no rule between them
+read as one block of colour instead of four cities.
+
+**No legend was added to the grid**, although the direction artboard carried
+one. On the artboard the grid was a fixed four-row block with room beneath it;
+here the rows are a scrolling list under a floating bar and a FAB, so a legend
+would have to be pinned and would cost vertical space on every screen. The
+bands are already named in Settings → Working hours.
 
 ---
 
 ## Responsive
 
-- **< 600px:** pinned label column narrows to 96px and drops the country line,
-  keeping the city label and offset badge. The date pill renders on the page.
-- **600–900px:** full label column, sidebar owns the date pill.
-- **>= 900px:** same, plus the grid gets the full window width
-  (`maxContentWidth` does not apply, design_system §7).
+- **< 600px:** no rail. Pinned label column narrows to 128px and drops the
+  country line, keeping the city label and offset badge. The date pill renders
+  on the page.
+- **600–900px:** the rail is on screen but **collapsed to 80px of icons**, and
+  the page keeps drawing its own date pill because an 80px strip cannot hold a
+  stepper. Full 180px label column.
+- **>= 900px:** the rail expands to 240px with labels and takes the date pill.
+  The grid gets the full window width (`maxContentWidth` does not apply,
+  design_system §7).
 - Row height is constant across breakpoints. Vertical scrolling is a normal
   `ListView.builder` over rows.
+
+### Why the rail collapses, with the arithmetic
+
+The middle band existed and was the worst place in the app to read this
+screen. A 240px rail plus a 180px label column is 420px of chrome, so a 600px
+window left the hours 180px — **three columns, where a 599px phone showed
+nine**. Every window from 600 to 890 was a regression against the phone
+layout, and widening one was how a user discovered it.
+
+Moving the breakpoint to 900 would only have relocated that cliff, because the
+drop is the chrome's width and not the breakpoint's position. Collapsing the
+rail attacks the cause: the step across 600 is now the 80px icon rail, about
+two columns, and the step across 900 is the 160px the rail gains when it
+expands — which it does exactly where the screen can afford it.
+
+| window | rail | label | track | columns | before |
+| --- | --- | --- | --- | --- | --- |
+| 375 | 0 | 128 | 247 | 5 | 4 |
+| 599 | 0 | 128 | 471 | 9 | 7 |
+| 601 | 80 | 180 | 341 | 7 | **3** |
+| 768 | 80 | 180 | 508 | 10 | 5 |
+| 899 | 80 | 180 | 639 | 13 | 7 |
+| 900 | 240 | 180 | 480 | 10 | 8 |
+| 1280 | 240 | 180 | 860 | 17 | 14 |
+| 1920 | 240 | 180 | 1500 | 30 (all) | 25 |
+
+`ResponsiveLayout.showsSidebar` and `sidebarIsExpanded` are what the chrome
+reads. **`isMobile` deliberately stays at 600 and keeps meaning "is this a
+phone"** — the grid's dense label column and the settings row's stacking are
+content decisions about a 360pt screen, and a 700pt tablet is *wider* than a
+phone once the rail is 80pt, not narrower.
 
 ---
 

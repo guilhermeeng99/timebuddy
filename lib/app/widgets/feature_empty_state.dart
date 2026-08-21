@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:timebuddy/app/theme/app_spacing.dart';
+import 'package:timebuddy/app/widgets/app_icon.dart';
 import 'package:timebuddy/core/extensions/context_extensions.dart';
 
 /// The first impression of a feature that has nothing to show yet.
@@ -15,7 +17,7 @@ import 'package:timebuddy/core/extensions/context_extensions.dart';
 ///
 /// ```dart
 /// FeatureEmptyState(
-///   icon: Icons.public_outlined,
+///   icon: FontAwesomeIcons.earthAmericas,
 ///   title: t.grid.emptyTitle,
 ///   message: t.grid.emptyMessage,
 ///   ctaLabel: t.grid.emptyCta,
@@ -39,7 +41,7 @@ class FeatureEmptyState extends StatelessWidget {
 
   /// The glyph inside the tinted disc. Name the feature's subject, not its
   /// absence: a crossed-out icon reads as a failure, and nothing failed.
-  final IconData icon;
+  final FaIconData icon;
 
   /// One short line naming what is missing.
   final String title;
@@ -94,7 +96,7 @@ class FeatureEmptyState extends StatelessWidget {
                     color: colors.primary.withValues(alpha: _discAlpha),
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(icon, size: _iconSize, color: colors.primary),
+                  child: AppIcon(icon, size: _iconSize, color: colors.primary),
                 ),
                 const SizedBox(height: AppSpacing.lg),
                 Text(

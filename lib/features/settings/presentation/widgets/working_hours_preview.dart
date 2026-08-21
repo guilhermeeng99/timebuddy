@@ -153,6 +153,9 @@ class _BandStrip extends StatelessWidget {
                     hour: hour,
                     band: hourBandFor(hour, workingHours),
                     height: _cellHeight,
+                    // 24 cells sharing one card: this strip is a legend, and
+                    // the grid's comfortable cell has nowhere to go at 26pt.
+                    compact: true,
                   ),
                 ),
             ],

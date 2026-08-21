@@ -7,11 +7,13 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:timebuddy/app/di/injection_container.dart';
 import 'package:timebuddy/app/widgets/responsive_layout.dart';
+import 'package:timebuddy/app/widgets/sidebar_profile_tile.dart';
 import 'package:timebuddy/app/widgets/timebuddy_bottom_bar.dart';
 import 'package:timebuddy/app/widgets/timebuddy_sidebar.dart';
 import 'package:timebuddy/core/extensions/context_extensions.dart';
 import 'package:timebuddy/core/time/clock.dart';
 import 'package:timebuddy/core/time/timezone_engine.dart';
+import 'package:timebuddy/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:timebuddy/features/locations/domain/repositories/board_repository.dart';
 import 'package:timebuddy/features/locations/presentation/cubit/board_cubit.dart';
 import 'package:uuid/uuid.dart';
@@ -96,6 +98,14 @@ class AppShell extends StatelessWidget {
               datePill: destination == TimeBuddyNavDestination.grid
                   ? const _SidebarDatePill()
                   : null,
+              // The settings destination, wearing the session. Built here
+              // rather than by the rail so `TimeBuddySidebar` stays free of
+              // auth: the shell is already a reader of it, and a second one
+              // is a second answer to "who is signed in".
+              profile: _SidebarProfile(
+                isSelected: destination == TimeBuddyNavDestination.settings,
+                onTap: () => _select(TimeBuddyNavDestination.settings),
+              ),
             ),
             Expanded(
               child: Stack(
@@ -282,7 +292,11 @@ class _ShellDatePillState extends State<ShellDatePill> {
 
   @override
   Widget build(BuildContext context) {
-    if (ResponsiveLayout.isMobile(context)) {
+    // The rail owns the stepper only while it is wide enough to hold one.
+    // Collapsed to 80pt it hands the control back and the page draws it, the
+    // same as on a phone — so the §7 rule stays "exactly one stepper on
+    // screen" across all three widths.
+    if (!ResponsiveLayout.sidebarIsExpanded(context)) {
       // Clears rather than skips: a window dragged narrower keeps the same
       // State, and a stale publication would leave the rail's copy behind.
       shellDatePill.publish(null);
@@ -290,5 +304,31 @@ class _ShellDatePillState extends State<ShellDatePill> {
     }
     shellDatePill.publish(widget.pill);
     return const SizedBox.shrink();
+  }
+}
+
+/// The rail's foot: the settings destination with whoever is signed in on it.
+///
+/// A `BlocBuilder` of its own rather than a value read in `AppShell.build`, so
+/// a sign-in repaints thirty-six pixels of avatar instead of the whole shell —
+/// which owns the board and every branch navigator under it.
+class _SidebarProfile extends StatelessWidget {
+  const _SidebarProfile({required this.isSelected, required this.onTap});
+
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<AuthBloc, AuthState>(
+      builder: (context, state) => SidebarProfileTile(
+        // Everything that is not a session reads as a guest here, and that is
+        // the honest rendering: `AuthLoading` is a frame long, and a guest is
+        // a supported visitor rather than a state to paper over.
+        user: state is Authenticated ? state.user : null,
+        isSelected: isSelected,
+        onTap: onTap,
+      ),
+    );
   }
 }

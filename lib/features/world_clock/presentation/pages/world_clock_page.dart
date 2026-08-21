@@ -2,10 +2,12 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:go_router/go_router.dart';
 import 'package:timebuddy/app/di/injection_container.dart';
 import 'package:timebuddy/app/routes/app_routes.dart';
 import 'package:timebuddy/app/theme/app_spacing.dart';
+import 'package:timebuddy/app/widgets/app_icon.dart';
 import 'package:timebuddy/app/widgets/clock_text.dart';
 import 'package:timebuddy/app/widgets/day_night_dot.dart';
 import 'package:timebuddy/app/widgets/dst_badge.dart';
@@ -14,17 +16,14 @@ import 'package:timebuddy/app/widgets/fab_safe_area.dart';
 import 'package:timebuddy/app/widgets/lifted_fab.dart';
 import 'package:timebuddy/app/widgets/loading_shimmer.dart';
 import 'package:timebuddy/app/widgets/offset_badge.dart';
-import 'package:timebuddy/app/widgets/responsive_layout.dart';
 import 'package:timebuddy/app/widgets/timebuddy_large_app_bar.dart';
-import 'package:timebuddy/core/errors/failures.dart';
 import 'package:timebuddy/core/extensions/context_extensions.dart';
 import 'package:timebuddy/core/time/clock.dart';
 import 'package:timebuddy/core/time/ticker_service.dart';
 import 'package:timebuddy/core/time/timezone_engine.dart';
 import 'package:timebuddy/core/utils/time_formatter.dart';
-import 'package:timebuddy/features/locations/domain/entities/saved_location_entity.dart';
+import 'package:timebuddy/features/locations/presentation/board_actions.dart';
 import 'package:timebuddy/features/locations/presentation/cubit/board_cubit.dart';
-import 'package:timebuddy/features/locations/presentation/pages/add_location_sheet.dart';
 import 'package:timebuddy/features/preferences/presentation/cubit/preferences_cubit.dart';
 import 'package:timebuddy/features/world_clock/domain/entities/world_clock_view_model.dart';
 import 'package:timebuddy/features/world_clock/domain/usecases/build_world_clock_usecase.dart';
@@ -36,11 +35,6 @@ import 'package:timebuddy/gen/i18n/strings.g.dart';
 /// Placeholder rows while the board resolves. Five is roughly a phone screen,
 /// so the real clocks land without the page jumping (design_system §8).
 const int _loadingRowCount = 5;
-
-/// How long the undo offer stays on screen after a removal
-/// (docs/specs/locations.md rule 7). The same five seconds the board page
-/// offers, because it is the same removal.
-const Duration _undoWindow = Duration(seconds: 5);
 
 /// Digit size of the hero clock (design_system: `displayLarge`, the hero clock
 /// on the world-clock header).
@@ -125,7 +119,7 @@ class _WorldClockViewState extends State<_WorldClockView>
         child: FloatingActionButton(
           onPressed: () => context.push(AppRoutes.addLocation),
           tooltip: t.locations.addTitle,
-          child: const Icon(Icons.add),
+          child: const AppIcon(FontAwesomeIcons.plus),
         ),
       ),
       body: BlocBuilder<WorldClockCubit, WorldClockState>(
@@ -157,51 +151,44 @@ class _WorldClockViewState extends State<_WorldClockView>
     WorldClockViewModel model,
     bool showSeconds,
   ) {
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(
-          maxWidth: ResponsiveLayout.maxContentWidth,
-        ),
-        child: ReorderableListView.builder(
-          // Rule 2: the list *is* the board, so dragging here writes through
-          // `BoardCubit.reorder` and this page holds no order of its own.
-          //
-          // No default handles: the platform's are an overlay pinned to the
-          // trailing edge, which is exactly where the digits are. A delayed
-          // listener gives press-and-hold to drag on every platform without
-          // taking a pixel from the clock, and the tile's own `onTap` still
-          // fires for a tap, since an InkWell without `onLongPress` never
-          // claims the long press.
-          buildDefaultDragHandles: false,
-          header: _Header(
-            model: model,
+    return ReorderableListView.builder(
+      // Rule 2: the list *is* the board, so dragging here writes through
+      // `BoardCubit.reorder` and this page holds no order of its own.
+      //
+      // No default handles: the platform's are an overlay pinned to the
+      // trailing edge, which is exactly where the digits are. A delayed
+      // listener gives press-and-hold to drag on every platform without
+      // taking a pixel from the clock, and the tile's own `onTap` still
+      // fires for a tap, since an InkWell without `onLongPress` never
+      // claims the long press.
+      buildDefaultDragHandles: false,
+      header: _Header(
+        model: model,
+        showSeconds: showSeconds,
+        onOpenHome: () => unawaited(
+          _openDetail(
+            context,
+            tile: model.home,
+            // Home is a zone id, not a row: there is nothing to remove
+            // when the user never saved their own city (rule 11).
+            canRemove: model.homeHasBoardRow,
             showSeconds: showSeconds,
-            onOpenHome: () => unawaited(
-              _openDetail(
-                context,
-                tile: model.home,
-                // Home is a zone id, not a row: there is nothing to remove
-                // when the user never saved their own city (rule 11).
-                canRemove: model.homeHasBoardRow,
-                showSeconds: showSeconds,
-              ),
-            ),
           ),
-          padding: EdgeInsets.fromLTRB(
-            AppSpacing.lg,
-            AppSpacing.lg,
-            AppSpacing.lg,
-            // The bar and the FAB float over this list, so the last clock
-            // needs room to clear them (design_system §7).
-            bottomSafeForFab(context, isSubPage: false),
-          ),
-          itemCount: model.tiles.length,
-          onReorderItem: (oldIndex, newIndex) =>
-              _reorder(context, oldIndex, newIndex),
-          itemBuilder: (context, index) =>
-              _tile(context, model.tiles[index], index, showSeconds),
         ),
       ),
+      padding: EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        AppSpacing.lg,
+        AppSpacing.lg,
+        // The bar and the FAB float over this list, so the last clock
+        // needs room to clear them (design_system §7).
+        bottomSafeForFab(context, isSubPage: false),
+      ),
+      itemCount: model.tiles.length,
+      onReorderItem: (oldIndex, newIndex) =>
+          _reorder(context, oldIndex, newIndex),
+      itemBuilder: (context, index) =>
+          _tile(context, model.tiles[index], index, showSeconds),
     );
   }
 
@@ -239,7 +226,9 @@ class _WorldClockViewState extends State<_WorldClockView>
     // as final positions, so the board takes them as they are and there is no
     // off-by-one correction here to hide a bug in.
     if (newIndex == oldIndex) return;
-    unawaited(_write(context, (cubit) => cubit.reorder(oldIndex, newIndex)));
+    unawaited(
+      reorderBoardRow(context, oldIndex: oldIndex, newIndex: newIndex),
+    );
   }
 
   /// Rule 9: the sheet reports a choice and this page performs it, so every
@@ -270,71 +259,12 @@ class _WorldClockViewState extends State<_WorldClockView>
       case LocationDetailAction.setHome:
         // Home is a zone id, not a row (locations rule 3), so this leaves the
         // list untouched and only moves what every offset is measured from.
-        unawaited(
-          _write(context, (cubit) => cubit.setHome(tile.location.zoneId)),
-        );
+        unawaited(setBoardHome(context, tile.location.zoneId));
       case LocationDetailAction.remove:
-        unawaited(_removeWithUndo(context, tile.location));
+        unawaited(removeLocationWithUndo(context, tile.location));
       case LocationDetailAction.openInGrid:
         context.go(AppRoutes.grid);
     }
-  }
-
-  Future<void> _removeWithUndo(
-    BuildContext context,
-    SavedLocationEntity location,
-  ) async {
-    final cubit = context.read<BoardCubit>();
-    // Resolved before the await: the tile is gone by the time the write
-    // returns, and with it any context lookup made from inside its subtree.
-    final messenger = ScaffoldMessenger.of(context);
-    final failure = await cubit.removeLocation(location.id);
-    // The write was refused and the cubit rolled the board back, so the row
-    // is still there and there is nothing to undo.
-    if (failure != null) {
-      _snack(messenger, failure);
-      return;
-    }
-    messenger
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(t.locations.removed(city: location.label)),
-          duration: _undoWindow,
-          action: SnackBarAction(
-            label: t.locations.undo,
-            onPressed: () => unawaited(_restore(cubit, messenger)),
-          ),
-        ),
-      );
-  }
-
-  /// Puts the removed row back, or says why it could not go back: the undo
-  /// window is the user's, so another device may have filled the board or
-  /// re-added the zone in the meantime.
-  Future<void> _restore(
-    BoardCubit cubit,
-    ScaffoldMessengerState messenger,
-  ) async {
-    final failure = await cubit.undoRemove();
-    if (failure != null) _snack(messenger, failure);
-  }
-
-  Future<void> _write(
-    BuildContext context,
-    Future<Failure?> Function(BoardCubit cubit) mutate,
-  ) async {
-    final messenger = ScaffoldMessenger.of(context);
-    final failure = await mutate(context.read<BoardCubit>());
-    if (failure != null) _snack(messenger, failure);
-  }
-
-  void _snack(ScaffoldMessengerState messenger, Failure failure) {
-    messenger
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(content: Text(boardWriteFailureMessage(failure))),
-      );
   }
 
   bool _showSecondsOf(BuildContext context) =>
@@ -544,30 +474,32 @@ class _HomeZoneBanner extends StatelessWidget {
       child: Material(
         color: colors.warning.withValues(alpha: _tintAlpha),
         borderRadius: radius,
-        child: InkWell(
-          borderRadius: radius,
-          onTap: () => context.go(AppRoutes.locations),
-          child: Padding(
-            padding: const EdgeInsets.all(AppSpacing.md),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(
-                  Icons.warning_amber_rounded,
-                  size: _iconSize,
-                  color: colors.warning,
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: Text(
-                    t.grid.homeZoneBrokenBanner,
-                    style: context.textTheme.bodySmall?.copyWith(
-                      color: colors.onBackground,
-                    ),
+        // Not tappable any more, and that is the change rather than an
+        // oversight. It used to navigate to the Cities page, which was the
+        // only screen that could set a home city; that page is gone and the
+        // repair is now one tap on a row of the list this banner sits above.
+        // A link that only re-displayed the screen you are already on would
+        // be a control that does nothing.
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              AppIcon(
+                FontAwesomeIcons.triangleExclamation,
+                size: _iconSize,
+                color: colors.warning,
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Text(
+                  t.grid.homeZoneBrokenBanner,
+                  style: context.textTheme.bodySmall?.copyWith(
+                    color: colors.onBackground,
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),

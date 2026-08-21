@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:timebuddy/app/theme/app_spacing.dart';
+import 'package:timebuddy/app/widgets/app_icon.dart';
 import 'package:timebuddy/core/extensions/context_extensions.dart';
 import 'package:timebuddy/gen/i18n/strings.g.dart';
 
@@ -48,10 +50,19 @@ class DstBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final message = _marksTransition ? t.grid.dstTransitionHere : t.grid.dstOn;
-    final glyph = Icon(
-      // A clock with an arrow for the moment of the change, a low sun for the
-      // season: the transition is an event, the observance is a state.
-      _marksTransition ? Icons.update_rounded : Icons.wb_twilight_rounded,
+    final glyph = AppIcon(
+      // A clock with an arrow for the *moment* of the change, a circled up
+      // arrow for the state of being shifted: the transition is an event, the
+      // observance is a condition.
+      //
+      // **Not a sun, and that was measured rather than assumed.** The obvious
+      // glyph for "summer time" is a sun, and at this 16pt its eight
+      // triangular rays merge into the disc and it reads as a cog — in either
+      // weight. The up arrow also says the one thing a sun does not: which
+      // way the clocks moved.
+      _marksTransition
+          ? FontAwesomeIcons.clockRotateLeft
+          : FontAwesomeIcons.solidCircleUp,
       size: size,
       color: context.appColors.warning,
       semanticLabel: message,

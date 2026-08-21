@@ -42,7 +42,7 @@
     "onboardingTitle2": "Know when to call",
     "onboardingBody2": "Working hours are shaded on the grid, so a time that suits everyone is something you see instead of something you calculate.",
     "onboardingTitle3": "The same board everywhere",
-    "onboardingBody3": "Sign in with Google and your cities follow you from the phone to the browser.",
+    "onboardingBody3": "Sign in with Google and your cities follow you from the phone to the browser. You can also just start using it.",
     "onboardingSkip": "Skip",
     "onboardingNext": "Next",
     "onboardingSkipHint": "Skip the tour and go straight to signing in.",
@@ -53,12 +53,17 @@
     "signInPopupBlocked": "The sign-in window was blocked. Allow pop-ups for this site and press the button again.",
     "signOut": "Sign out",
     "signOutConfirm": "Sign out?",
-    "signOutConfirmBody": "Your cities stay in your account. The copy kept on this device is cleared until you sign in again.",
+    "signOutConfirmBody": "Your cities stay in your account. The copy kept on this device is cleared, and you carry on without an account.",
     "signOutFailed": "We couldn't sign you out. Try again.",
     "deleteAccount": "Delete account",
     "deleteAccountConfirm": "Delete your account?",
     "deleteAccountWarning": "This removes your board, your preferences and your profile from every device. It cannot be undone.",
-    "deleteAccountFailed": "We couldn't delete your account. Try again."
+    "deleteAccountFailed": "We couldn't delete your account. Try again.",
+    "continueAsGuest": "Continue without an account",
+    "continueAsGuestHint": "Use TimeBuddy right away. Your cities stay on this device until you sign in.",
+    "guestTitle": "You're not signed in",
+    "guestBody": "Your cities and settings live only on this device. Sign in and they follow you to your phone and back.",
+    "signInToSave": "Sign in to save"
   },
   "profile": {
     "title": "Account",
@@ -108,7 +113,8 @@
     "deleteAccount": "Delete account",
     "appVersion": "App version",
     "tzDataVersion": "Time zone data",
-    "licenses": "Licenses"
+    "licenses": "Licenses",
+    "accountRowHint": "Your board and preferences, and the way out."
   },
   "bands": {
     "good": "Good",
@@ -161,8 +167,6 @@
     "actionOpenInGrid": "Open in the grid"
   },
   "planner": {
-    "modeCompare": "Compare",
-    "modePlan": "Plan",
     "selectHint": "Drag across the hours to pick a window, and every city's local time shows up below.",
     "durationLabel": "Lasts ${duration}",
     "verdictGood": "Works well",

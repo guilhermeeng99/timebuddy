@@ -74,4 +74,17 @@ abstract class StorageKeys {
   static const String preferences = 'timebuddy.preferences.v1';
   static const String boardDirty = 'timebuddy.dirty.board';
   static const String preferencesDirty = 'timebuddy.dirty.preferences';
+
+  /// Whether this device chose to use the app without an account
+  /// (docs/specs/guest_mode.md).
+  ///
+  /// A device fact, not a user one, which is why it is a key of its own rather
+  /// than a field of the preferences document: that document syncs, and a
+  /// guest flag pushed to Firestore would tell every other device that this
+  /// account is a guest.
+  ///
+  /// `clearAll()` on sign-out removes it along with everything else, so
+  /// whoever wants a guest session afterwards writes it back *after* the wipe
+  /// (guest_mode.md rule 9).
+  static const String guest = 'timebuddy.guest.v1';
 }

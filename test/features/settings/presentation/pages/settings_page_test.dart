@@ -27,22 +27,13 @@ import '../../../../harness/pump_app.dart';
 /// anything.
 const Size _tallSurface = Size(900, 2400);
 
-/// The catalog label of `LightPalette.forestSage`.
-///
-/// Written out rather than read back from `LightPalettes.all`: the assertion
-/// is that the row shows the product name the catalog holds, and comparing
-/// the catalog against itself would pass on any name at all.
-const String _seededLightLabel = 'Forest Sage';
+/// A phone, below `ResponsiveLayout.mobileBreakpoint`.
+const Size _phoneSurface = Size(400, 900);
 
-/// The catalog label of `DarkPalette.roseNoir`.
-const String _seededDarkLabel = 'Rose Noir';
-
-/// The catalog label of `LightPalette.amberWarm`, the palette picked in the
-/// sheet, which is neither the seeded one nor the catalog's first entry.
-const String _pickedLightLabel = 'Amber Warm';
-
-/// How many palettes each brightness catalog offers (CLAUDE.md, Theme).
-const int _palettesPerBrightness = 10;
+/// `TimeBuddySettingsRow._controlMaxWidth`, written out because it is private.
+/// The number is the assertion: a control that grew past it would be the
+/// defect this layout exists to avoid.
+const double _controlMaxWidth = 420;
 
 void main() {
   setUpAll(() {
@@ -82,7 +73,10 @@ void main() {
 
     expect(find.text(t.settings.title), findsOneWidget);
 
-    // TimeBuddySection uppercases whatever header it is handed.
+    // TimeBuddySection uppercases whatever header it is handed. Account is
+    // no longer among them: the identity card at the top of the page took its
+    // place, and a hero block plus a row two thirds down were two places
+    // answering one question.
     for (final group in <String>[
       t.settings.groupAppearance,
       t.settings.groupTime,
@@ -97,25 +91,41 @@ void main() {
     expect(find.byType(TimeBuddyPillToggle<ThemeMode>), findsOneWidget);
     expect(find.byType(TimeBuddyPillToggle<ClockFormat>), findsOneWidget);
     expect(find.byType(TimeBuddyPillToggle<WeekStart>), findsOneWidget);
-    expect(find.byType(SwitchListTile), findsOneWidget);
+    // A bare `Switch` in a row's trailing slot, not a `SwitchListTile`: the
+    // row already owns the icon disc, the title and the hint, so the tile's
+    // own layout would be a second one nested inside it.
+    expect(find.byType(Switch), findsOneWidget);
     expect(find.byType(DropdownButton<int>), findsNWidgets(2));
     expect(find.byType(WorkingHoursPreview), findsOneWidget);
+    // Appearance is one row now: the theme toggle, with no palette pickers
+    // under it.
+    expect(find.text(t.settings.lightPalette), findsNothing);
+    expect(find.text(t.settings.darkPalette), findsNothing);
+    // About states two facts and offers nothing to tap; the licenses link is
+    // gone with them.
+    expect(find.text(t.settings.licenses), findsNothing);
+    expect(find.text(t.settings.appVersion), findsOneWidget);
     expect(find.text(t.settings.languageSystem), findsOneWidget);
     expect(find.text(t.settings.languagePortuguese), findsOneWidget);
     expect(find.text(t.settings.languageEnglish), findsOneWidget);
-    expect(find.text(t.settings.licenses), findsOneWidget);
   });
 
-  testWidgets('omits the Account group while there is no auth', (
-    tester,
-  ) async {
+  testWidgets('leads with an identity card, which reads as an offer while '
+      'signed out', (tester) async {
     await pumpSettings(tester);
 
-    // preferences.md, Settings page: the copy keys exist, the group does not.
-    // A "not signed in" row with a dead sign-out button would promise a
-    // feature this build cannot deliver.
-    expect(find.text(t.settings.groupAccount.toUpperCase()), findsNothing);
-    expect(find.text(t.settings.notSignedIn), findsNothing);
+    // guest_mode.md rule 10, now as the page's hero rather than as a row two
+    // thirds down. This assertion has been inverted twice: it began as "the
+    // Account group is absent", became "the Account row is present", and is
+    // now the card that replaced the row. What survived every rewrite is the
+    // real requirement — a guest can see they are a guest, and can get from
+    // here to the offer.
+    expect(find.text(t.settings.notSignedIn), findsOneWidget);
+    expect(find.text(t.auth.guestBody), findsOneWidget);
+
+    // Still not here, and deliberately: signing in and out lives on the
+    // profile page, and a second copy of either would be a second owner of
+    // the session.
     expect(find.text(t.settings.signOut), findsNothing);
     expect(find.text(t.settings.deleteAccount), findsNothing);
   });
@@ -207,130 +217,39 @@ void main() {
     expect(bands.where((band) => band == HourBand.night), isEmpty);
   });
 
-  testWidgets('the palette rows show the catalog label of each palette', (
-    tester,
-  ) async {
+  // The four palette tests that used to sit here are gone with the rows
+  // they covered: Appearance is one theme toggle now, and the light/dark
+  // palette pickers were removed from the page. `AppColors` still carries
+  // both catalogs and `palette_picker_sheet.dart` still exists — nothing
+  // on this screen opens them.
+
+  testWidgets('a control sits beside its title on a wide window and under it '
+      'on a phone', (tester) async {
     await pumpSettings(tester);
 
-    expect(find.text(t.settings.lightPalette), findsOneWidget);
-    expect(find.text(t.settings.darkPalette), findsOneWidget);
-    // Product names from the catalog, never through slang: a palette name is
-    // the same in every language (preferences.md, Settings page).
-    expect(find.text(_seededLightLabel), findsOneWidget);
-    expect(find.text(_seededDarkLabel), findsOneWidget);
-  });
-
-  testWidgets('the light palette picker lists the ten light palettes', (
-    tester,
-  ) async {
-    await pumpSettings(tester);
-
-    await tester.tap(find.text(t.settings.lightPalette));
-    await tester.pumpAndSettle();
-
-    // Scoped to the sheet: it is modal but not opaque, so the page behind it
-    // is still in the tree and still showing the selected palette's label.
-    final sheet = find.byType(BottomSheet);
-    expect(sheet, findsOneWidget);
-    expect(LightPalettes.all, hasLength(_palettesPerBrightness));
-
-    for (final option in LightPalettes.all) {
-      final row = await _revealInSheet(tester, option.label);
-      expect(row, findsOneWidget, reason: option.label);
-      // Stronger than counting InkWells: every row must itself be tappable,
-      // so a palette rendered as dead decoration fails here.
-      expect(
-        find.ancestor(of: row, matching: find.byType(InkWell)),
-        findsOneWidget,
-        reason: '${option.label} must be tappable',
-      );
-    }
-    // The relevant brightness only: no dark palette leaks into this sheet.
-    for (final option in DarkPalettes.all) {
-      expect(
-        find.descendant(of: sheet, matching: find.text(option.label)),
-        findsNothing,
-        reason: option.label,
-      );
-    }
-
-    // A check mark on the current palette, and only there. Revealed first
-    // because the seeded palette can sit below the fold after the sweep above.
-    await _revealInSheet(tester, _seededLightLabel);
-    expect(
-      find.descendant(of: sheet, matching: find.byIcon(Icons.check_rounded)),
-      findsOneWidget,
+    // Above the breakpoint the toggle is capped and right-aligned: the eye is
+    // already tracking values down that edge, and an uncapped one would be a
+    // row of enormous buttons across a 1300pt window.
+    final wideToggle = tester.getRect(
+      find.byType(TimeBuddyPillToggle<ThemeMode>),
     );
+    final wideTitle = tester.getRect(find.text(t.settings.themeMode));
+    expect(wideToggle.left, greaterThan(wideTitle.right));
+    expect(wideToggle.width, lessThanOrEqualTo(_controlMaxWidth));
+
+    await tester.binding.setSurfaceSize(_phoneSurface);
+    tester.view.physicalSize = _phoneSurface;
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpAndSettle();
+
+    // Below it there is no room for two columns, so the control stacks and
+    // fills the row instead.
+    final phoneToggle = tester.getRect(
+      find.byType(TimeBuddyPillToggle<ThemeMode>),
+    );
+    final phoneTitle = tester.getRect(find.text(t.settings.themeMode));
+    expect(phoneToggle.top, greaterThan(phoneTitle.bottom));
   });
-
-  testWidgets('the dark palette picker lists the ten dark palettes', (
-    tester,
-  ) async {
-    await pumpSettings(tester);
-
-    await tester.tap(find.text(t.settings.darkPalette));
-    await tester.pumpAndSettle();
-
-    final sheet = find.byType(BottomSheet);
-    expect(sheet, findsOneWidget);
-    expect(DarkPalettes.all, hasLength(_palettesPerBrightness));
-
-    for (final option in DarkPalettes.all) {
-      final row = await _revealInSheet(tester, option.label);
-      expect(row, findsOneWidget, reason: option.label);
-      expect(
-        find.ancestor(of: row, matching: find.byType(InkWell)),
-        findsOneWidget,
-        reason: '${option.label} must be tappable',
-      );
-    }
-    for (final option in LightPalettes.all) {
-      expect(
-        find.descendant(of: sheet, matching: find.text(option.label)),
-        findsNothing,
-        reason: option.label,
-      );
-    }
-  });
-
-  testWidgets('picking a palette writes it through and relabels the row', (
-    tester,
-  ) async {
-    final app = await pumpSettings(tester);
-
-    await tester.tap(find.text(t.settings.lightPalette));
-    await tester.pumpAndSettle();
-
-    // Tap the row, not the label: scrollUntilVisible can leave the text
-    // flush against the sheet edge, where the tap point gets clamped onto a
-    // neighbour. The InkWell spans the full row, so its centre is safe.
-    final picked = await _revealInSheet(tester, _pickedLightLabel);
-    await tester.ensureVisible(picked);
-    await tester.pumpAndSettle();
-    await tester.tap(find.ancestor(of: picked, matching: find.byType(InkWell)));
-    await tester.pumpAndSettle();
-
-    final state = app.cubit.state as PreferencesReady;
-    expect(state.preferences.lightPalette, LightPalette.amberWarm);
-    expect(find.byType(BottomSheet), findsNothing);
-    expect(find.text(_pickedLightLabel), findsOneWidget);
-    expect(find.text(_seededLightLabel), findsNothing);
-  });
-}
-
-/// Brings one picker row into view and returns a finder for its label.
-///
-/// The sheet's list is lazy, so the tenth palette is not built until something
-/// scrolls to it. Scrolling is also exactly what a user does to reach it, so
-/// asserting after a scroll stays honest instead of relaxing the expectation
-/// to "some rows exist".
-Future<Finder> _revealInSheet(WidgetTester tester, String label) async {
-  final sheet = find.byType(BottomSheet);
-  final target = find.descendant(of: sheet, matching: find.text(label));
-  await tester.scrollUntilVisible(
-    target,
-    120,
-    scrollable: find.descendant(of: sheet, matching: find.byType(Scrollable)),
-  );
-  return target;
 }

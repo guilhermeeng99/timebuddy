@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:timebuddy/app/theme/app_spacing.dart';
+import 'package:timebuddy/app/widgets/app_icon.dart';
 import 'package:timebuddy/app/widgets/timebuddy_picker_row.dart';
 import 'package:timebuddy/app/widgets/timebuddy_picker_sheet.dart';
 import 'package:timebuddy/gen/i18n/strings.g.dart';
@@ -74,7 +76,7 @@ class _RowActionsBody extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           TimeBuddyPickerRow(
-            leading: const Icon(Icons.home_outlined),
+            leading: const AppIcon(FontAwesomeIcons.house),
             title: t.locations.setAsHome,
             // Already home reads as the selected option, which is what the
             // check mark means everywhere else in the app. Tapping it closes
@@ -84,12 +86,12 @@ class _RowActionsBody extends StatelessWidget {
                 _close(context, isHome ? null : LocationRowAction.setHome),
           ),
           TimeBuddyPickerRow(
-            leading: const Icon(Icons.swap_horiz_outlined),
+            leading: const AppIcon(FontAwesomeIcons.rightLeft),
             title: t.locations.replaceZone,
             onTap: () => _close(context, LocationRowAction.replaceZone),
           ),
           TimeBuddyPickerRow(
-            leading: const Icon(Icons.delete_outline),
+            leading: const AppIcon(FontAwesomeIcons.trash),
             title: t.common.remove,
             onTap: () => _close(context, LocationRowAction.remove),
           ),

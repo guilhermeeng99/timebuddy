@@ -14,12 +14,15 @@ it is in every city you care about, and find an hour that works for all of them.
 > keeps them in step. The planning tools described below are still
 > documentation. See [docs/roadmap.md](docs/roadmap.md).
 >
-> **Sign-in is required**, so what a visitor meets is a splash while tzdata
-> loads, then a three-slide tour whose last slide holds a single *Sign in with
-> Google* button: there is no guest mode and no email/password. Once the
-> Google popup (or the redirect the browser falls back to) comes back, the app
-> opens on the grid, and the board and preferences that account already had
-> follow it there. Anyone with a Google account can sign in; there is no
+> **Sign-in is optional.** What a visitor meets is a splash while tzdata loads,
+> then a three-slide tour. Every slide carries *continue without an account*,
+> and the last one also carries *Sign in with Google* — there is no
+> email/password either way. A guest gets the whole app against local-only
+> documents; signing in starts the sync and carries their board up, except that
+> **an account which already has a board keeps it** (see
+> [docs/specs/guest_mode.md](docs/specs/guest_mode.md)). Once the Google popup
+> (or the redirect the browser falls back to) comes back, the app opens on the
+> grid. Anyone with a Google account can sign in; there is no
 > allowlist. Google sign-in currently works on the web build only:
 > the Android app has no signing fingerprint registered on the Firebase project
 > yet, which the roadmap records as unfinished rather than buried.
@@ -139,6 +142,7 @@ Start here:
 | [meeting_planner.md](docs/specs/meeting_planner.md) | Range selection and summaries |
 | [time_converter.md](docs/specs/time_converter.md) | Point-in-time conversion |
 | [auth.md](docs/specs/auth.md) | Google sign-in, profile |
+| [guest_mode.md](docs/specs/guest_mode.md) | Using the app without an account, and what signing in does to that data |
 | [sync.md](docs/specs/sync.md) | Local storage, Firestore, conflict resolution |
 | [preferences.md](docs/specs/preferences.md) | Settings, working hours, theme |
 | [startup.md](docs/specs/startup.md) | Boot sequence and the splash gate |

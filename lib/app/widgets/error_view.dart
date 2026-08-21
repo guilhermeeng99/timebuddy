@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:timebuddy/app/theme/app_spacing.dart';
+import 'package:timebuddy/app/widgets/app_icon.dart';
 import 'package:timebuddy/core/errors/failures.dart';
 import 'package:timebuddy/core/extensions/context_extensions.dart';
 import 'package:timebuddy/gen/i18n/strings.g.dart';
@@ -38,14 +40,14 @@ class ErrorView extends StatelessWidget {
   static const double _discAlpha = 0.12;
   static const double _maxCopyWidth = 320;
 
-  IconData get _icon => switch (failure) {
-    AuthFailure() => Icons.lock_outline,
-    ServerFailure() => Icons.cloud_off_outlined,
-    StorageFailure() => Icons.sd_card_alert_outlined,
-    NotFoundFailure() => Icons.search_off_outlined,
-    ValidationFailure() => Icons.error_outline,
-    DuplicateZoneFailure() => Icons.copy_outlined,
-    BoardFullFailure() => Icons.layers_outlined,
+  FaIconData get _icon => switch (failure) {
+    AuthFailure() => FontAwesomeIcons.lock,
+    ServerFailure() => FontAwesomeIcons.linkSlash,
+    StorageFailure() => FontAwesomeIcons.plugCircleXmark,
+    NotFoundFailure() => FontAwesomeIcons.magnifyingGlass,
+    ValidationFailure() => FontAwesomeIcons.circleExclamation,
+    DuplicateZoneFailure() => FontAwesomeIcons.copy,
+    BoardFullFailure() => FontAwesomeIcons.layerGroup,
   };
 
   @override
@@ -66,7 +68,7 @@ class ErrorView extends StatelessWidget {
                   color: colors.error.withValues(alpha: _discAlpha),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(_icon, size: _iconSize, color: colors.error),
+                child: AppIcon(_icon, size: _iconSize, color: colors.error),
               ),
               const SizedBox(height: AppSpacing.lg),
               Text(

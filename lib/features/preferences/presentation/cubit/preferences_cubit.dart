@@ -28,9 +28,9 @@ class PreferencesCubit extends Cubit<PreferencesState> {
   PreferencesCubit({
     required PreferencesRepository repository,
     required Clock clock,
-  })  : _repository = repository,
-        _clock = clock,
-        super(const PreferencesLoading());
+  }) : _repository = repository,
+       _clock = clock,
+       super(const PreferencesLoading());
 
   final PreferencesRepository _repository;
   final Clock _clock;
@@ -78,10 +78,10 @@ class PreferencesCubit extends Cubit<PreferencesState> {
 
   /// Pass `null` to follow the device again (preferences.md rule 3).
   Future<void> setLocaleTag(String? value) => _mutate(
-        (current) => value == null
-            ? current.copyWith(clearLocaleTag: true)
-            : current.copyWith(localeTag: value),
-      );
+    (current) => value == null
+        ? current.copyWith(clearLocaleTag: true)
+        : current.copyWith(localeTag: value),
+  );
 
   /// Adopts the document that won reconciliation (sync.md rule 5).
   ///

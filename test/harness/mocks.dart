@@ -9,10 +9,12 @@
 /// `registerCommonFallbacks()` from `test/harness/helpers.dart` in `setUpAll`.
 library;
 
+import 'package:bloc_test/bloc_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:timebuddy/core/storage/local_store.dart';
 import 'package:timebuddy/core/time/clock.dart';
 import 'package:timebuddy/core/time/timezone_engine.dart';
+import 'package:timebuddy/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:timebuddy/features/preferences/domain/repositories/preferences_repository.dart';
 
 /// The key/value boundary under `PreferencesRepository` and `BoardRepository`.
@@ -49,3 +51,16 @@ class MockTimeZoneEngine extends Mock implements TimeZoneEngine {}
 /// carries a real instant and can be advanced, which is what almost every
 /// time-dependent test needs.
 class MockClock extends Mock implements Clock {}
+
+/// The session, for anything mounted through `pumpApp`.
+///
+/// `MockBloc` rather than a plain `Mock` so `whenListen` can seed both the
+/// current state and the stream a `BlocBuilder` subscribes to; a bare mock
+/// answers `state` and then hands the widget a null stream, which throws on
+/// the first build.
+///
+/// It is read-only in almost every test: the pages that show a session read
+/// it, and the one that starts one (`OnboardingPage`) is asserted on by the
+/// event it added, never by a state it was handed.
+class MockAuthBloc extends MockBloc<AuthEvent, AuthState>
+    implements AuthBloc {}

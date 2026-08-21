@@ -248,6 +248,188 @@ What is verified in the tree at this entry is the startup sync and the
 with this milestone's integration, and there is no pull-to-refresh control on
 any page yet.
 
+### Guest mode
+
+- 2026-08-20: **Sign-in stopped being a gate.** A visitor now uses the whole
+  app against local-only documents and signs in when they want the board to
+  survive the device. New: `GuestSession` (`lib/core/session/`) over one
+  versioned key, a `continue without an account` control on every onboarding
+  slide, a real signed-out body on the profile page, and the Account group in
+  Settings — which is also the first in-app path to `/profile`, a route that
+  had none since M3.
+  → [specs/guest_mode.md](specs/guest_mode.md)
+
+  The migration rule is the part worth knowing: at sign-in the **account wins
+  whenever it already has documents**, and the guest's documents are adopted
+  upward only into an account that has none. That call
+  (`sync(adoptGuestDocuments: true)`) deliberately bypasses the conflict
+  ladder — a guest at revision 6 would otherwise beat a real account at
+  revision 3 on rung 2 and replace a board other devices also hold.
+  Sign-out keeps `clearAll()` and re-enters guest mode *after* the wipe, so the
+  user lands on an empty board rather than on a tour they have already read.
+
+  This reverses [specs/auth.md](specs/auth.md) rule 1 and the "Guest mode"
+  entry under Deferred decisions, both of which now record what changed.
+  765 tests passing, `flutter analyze` clean.
+
+### The grid took over the board
+
+- 2026-08-20: **The Cities destination is gone, and the grid is where the board
+  is edited.** Drag a row's pinned label to reorder it; tap it for set as home,
+  replace time zone and remove-with-undo. The nav is four destinations again.
+  → [specs/time_grid.md](specs/time_grid.md), [specs/locations.md](specs/locations.md)
+
+  This closes two M2 deferrals that had been carried for three milestones:
+  "row actions and reordering from the grid" and the strings `t.grid.rowAction*`
+  that shipped in both locales with no call site. M2 declined them because the
+  label column is 96px on a phone and the vertical drag belonged to the row
+  list; what changed is that the lift is a **long press** on touch (a mouse
+  drags immediately), so it costs no pixels and resolves on a criterion the
+  cursor's horizontal drag does not share.
+
+  Three things found while doing it, none of them the feature itself:
+
+  - The undo snackbar rendered **underneath** the floating bottom bar on a
+    phone, Undo button included. Pre-existing on the world clock; it stopped
+    being cosmetic the moment the grid became the only place a removal happens.
+    Fixed once, in `board_actions.dart`, with the clearance derived from
+    `TimeBuddyBottomBar.reservedHeight`.
+  - The unresolved-zone glyph's `Tooltip` won the long press on its own
+    fourteen pixels, giving the drag a dead spot that moved as rows resolved.
+  - The world clock carried its own copy of the board mutations. Both screens
+    now call one library, so the undo window cannot drift between them.
+
+  `/locations/add` became `/add`: a path whose first segment named a page the
+  app no longer has is worse than a broken bookmark. The board's cap moved from
+  the removed page's header to the add sheet, which is where it is about to
+  matter. 759 tests passing, `flutter analyze` clean.
+
+### The Financo design pass
+
+- 2026-08-20: **Three ports from the Financo project**, which is where this
+  app's theme layer came from in M1.
+  -> [specs/design_system.md](specs/design_system.md)
+
+  1. **Settings became the rail's foot, wearing the user's photo**
+     (`SidebarProfileTile`). It is still a `TimeBuddyNavDestination`, so the
+     phone's bottom bar keeps it as an ordinary item — a floating pill has no
+     bottom edge to pin anything to — but the rail skips it in the nav list and
+     draws identity instead. The page itself leads with an identity card, which
+     replaced the Account *row* that M3 had added two thirds of the way down:
+     a hero block and a row were two places answering one question.
+  2. **The 600pt content cap came off the row-and-list screens.** Settings, the
+     profile page, the world clock and the converter now fill the window;
+     `maxContentWidth` is left to onboarding, which is prose. Removing it alone
+     produced the opposite defect — a 1300pt-wide segmented toggle — so controls
+     inside a row are capped at 420 and stack under the title on a phone.
+  3. **Font Awesome replaced the Material icon set** (`font_awesome_flutter`,
+     rendered with `FaIcon`), 51 glyphs across 24 files. The rows carry them on
+     36pt tinted discs, which is what makes a long settings screen scannable.
+
+  Financo was the reference but not the authority: its own `ResponsiveLayout`
+  turns out to have zero call sites, so its pages are full-bleed by accident.
+  What was worth copying is the card-of-rows and the icon language, not the
+  absence of a number.
+
+  Two defects found while porting, both in code written earlier in this
+  session: the sidebar avatar rendered blank while a photo loaded (the fallback
+  was only an `errorBuilder`, so it flickered on every launch), and its initial
+  was taken with `substring(0, 1)`, which slices a name starting outside the
+  BMP through its surrogate pair. 761 tests passing, `flutter analyze` clean.
+
+### Icon fallout, and what it cost to find
+
+- 2026-08-20: Four fixes on top of the Financo pass, three of them defects that
+  pass `flutter analyze` and `flutter test` and only show up on screen.
+
+  1. **`AppIcon`**, and every icon in `lib/` now goes through it.
+     `FaIcon` is Flutter's `Icon` with the `SizedBox` and `Center` removed on
+     purpose — Font Awesome glyphs are often wider than they are tall — so
+     every icon inside a fixed-size parent sat wherever its advance width left
+     it. Visible as the brand mark pinned to the corner of its disc and the
+     date-stepper chevrons drifting out of their tap targets.
+  2. **Icon tree-shaking is off**, and CI now runs
+     `scripts/check_glyphs.py`. The shaker cannot see through `FaIconData`: a
+     release build kept 22 of the 38 icons the app uses and dropped the other
+     16, which rendered as empty boxes. Nothing failed — a missing glyph is not
+     a build error. The check parses each bundled font's `cmap` and compares it
+     against every `FontAwesomeIcons.*` in the source. ~500 KB of font, against
+     7 MB of CanvasKit.
+  3. **Glyphs are now chosen for legibility at their drawn size.** The sun, in
+     either weight, has eight triangular rays that merge into its disc below
+     about 20pt and read as a cog. `DayNightDot` is a filled circle and
+     `DstBadge` a circled up arrow.
+  4. **Settings lost the two palette rows and the licenses link.** Appearance
+     is one theme toggle. Both palette catalogs and `palette_picker_sheet.dart`
+     stay — the machinery is intact and synced, it just has no entry point.
+
+  One trap that is *not* an app defect but cost real time, recorded so it is
+  not rediscovered: `flutter build` copies the package fonts preserving their
+  original mtime, so a dev server answering `If-Modified-Since` returns `304`
+  and the browser keeps a previously tree-shaken copy. The glyph check passes,
+  the file on disk is right, and the page still draws tofu.
+  `touch build/web/assets/**/*.otf`. 758 tests passing, `flutter analyze`
+  clean.
+
+### The grid compares, and only compares
+
+- 2026-08-20: **The Compare / Plan toggle is gone from the grid's app bar**, at
+  the owner's request — the planner was not something they reached for, and a
+  switch offering a mode nobody enters costs an app-bar action and a decision
+  on every visit.
+  -> [specs/time_grid.md](specs/time_grid.md), [specs/meeting_planner.md](specs/meeting_planner.md)
+
+  Removed with it: `_GridMode`, the planner `BlocProvider`, the selection
+  overlay, the summary-panel slot, the plan branches in the two drag handlers
+  and the cell tap, and the plan-mode FAB and padding rules. Two things fell
+  out that were only there to serve the mode — the `Stack` around the grid
+  became a plain `Column`, and the `GlobalKey` that existed to reparent the
+  grid when the planner provider appeared above it is gone.
+
+  **`lib/features/meeting_planner/` stays**, intact and still green at 47
+  tests: two use cases, the cubit, the summary panel and the overlay. It has no
+  entry point, which its spec now says at the top. That is a deliberate
+  half-measure — deleting a tested feature on a request to remove a switch
+  would be reading more into it than was said — and it is one command away if
+  the answer is that it should go.
+
+  Only two strings were orphaned (`t.planner.modeCompare` / `modePlan`) and
+  both were deleted: a future entry point will want its own words.
+  758 tests passing, `flutter analyze` clean.
+
+### The grid grew up
+
+- 2026-08-20: **`GridMetrics` retuned and the hour cell redrawn**, after three
+  direction artboards were put up and the owner picked the one that scales the
+  existing grid rather than replacing it.
+  -> [specs/time_grid.md](specs/time_grid.md)
+
+  The complaint was precise — everything too small, values truncated — and so
+  was the cause: a 44pt column held an 11pt digit, and a half-hour zone's
+  `05:45` was squeezed to **9pt** to fit, making Kolkata, Kathmandu and Chatham
+  the hardest rows on the screen. Columns are 60pt now and every cell renders
+  at 15pt, minutes or not.
+
+  Three shape changes came with the size, each of them removing a box: the cell
+  lost its inset and its rounding so a row reads as one continuous day instead
+  of twenty floating pills; the cursor became a wash instead of a 2pt ring; and
+  the digits are tinted by their band, lerped toward `onBackground` so it holds
+  on light palettes too. A hairline under each row is what keeps four
+  contiguous rows reading as four cities.
+
+  The trade is on the record: a 1400pt track shows ~22 hours instead of 30.
+  `HourCell.compact` keeps the old 11pt chip for the settings preview, whose
+  24 cells share one card.
+
+  One thing from the artboard did **not** ship: the colour legend. On the
+  artboard the grid was a fixed block with room under it; in the app the rows
+  scroll beneath a floating bar and a FAB, so a legend would have to be pinned
+  and would cost height on every screen. The bands are named in
+  Settings → Working hours already.
+
+  The three directions are kept as a design canvas rather than in the tree.
+  759 tests passing, `flutter analyze` clean.
+
 ---
 
 ## In progress
@@ -308,10 +490,22 @@ Recorded here so they are not re-litigated in every review.
   showing their local board, because local is the read path
   ([specs/sync.md](specs/sync.md) rule 1). Recorded here so "shouldn't this be
   `us-central1` or multi-region?" is not re-asked in every review.
-- **Guest mode (no account).** Considered and declined for v1
-  ([specs/auth.md](specs/auth.md) rule 1): it needs a local-to-cloud migration
-  path with its own conflict rules. Revisit if sign-in friction shows up as the
-  main drop-off.
+- **Guest mode (no account).** ~~Declined for v1~~ — **built**, see
+  [specs/guest_mode.md](specs/guest_mode.md). It is left here rather than
+  deleted because the reasoning that declined it was sound and worth keeping
+  next to what changed: the objection was that a local-only mode needs a
+  local-to-cloud migration path with its own conflict rules. It does. The
+  migration turned out to be **one rule**, not a system — the account wins
+  whenever it already has documents, and the guest's documents are adopted
+  upward only into an account that has none. No merge, no field-level
+  reconciliation, no prompt, and the conflict ladder untouched.
+
+  What is **still** deferred is the interesting half: **prompting the user when
+  both sides have a board.** Today the account silently wins, which is the safe
+  direction (the guest's data never left the device; the account's is on other
+  devices too) but not the kind one. A "keep the cities from this session /
+  use my account's" dialog is the right v2 and needs a decision about what
+  "keep both" would even mean given the 20-city cap.
 - **Shareable event links** (the worldtimebuddy feature where a URL encodes a
   meeting). Needs a public read path and either a backend or a very long URL.
   Deliberately out of v1 ([specs/meeting_planner.md](specs/meeting_planner.md)

@@ -19,6 +19,7 @@ import 'package:timebuddy/features/locations/presentation/cubit/location_search_
 import 'package:timebuddy/features/locations/presentation/pages/add_location_sheet.dart';
 import 'package:timebuddy/gen/i18n/strings.g.dart';
 
+import '../../../../harness/factories/board_factory.dart';
 import '../../../../harness/helpers.dart';
 import '../../../../harness/pump_app.dart';
 
@@ -164,9 +165,15 @@ void main() {
   setUp(() {
     cubit = _MockBoardCubit();
     repository = _MockCityCatalogRepository();
-    // No board state is stubbed on purpose: the sheet reads the cubit to
-    // write through it and never builds against its state, so a test that
-    // fed it one would be asserting on plumbing the sheet does not use.
+    // The sheet builds against the board now: its header carries the
+    // "N of 20 cities" count that the board page's header used to, so the cap
+    // is stated where it is about to matter rather than on a screen the user
+    // had to visit on purpose (docs/specs/locations.md rule 4).
+    whenListen(
+      cubit,
+      const Stream<BoardState>.empty(),
+      initialState: BoardLoaded(board: aBoard()),
+    );
     when(repository.load).thenAnswer(
       (_) async => const Right<Failure, List<CityEntity>>(_catalog),
     );

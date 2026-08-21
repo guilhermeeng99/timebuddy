@@ -60,7 +60,24 @@ jobs:
         # The base href must match the repository name: a project page is
         # served from /timebuddy/, and a build made for / requests its assets
         # from the domain root, where nothing answers.
-        run: flutter build web --release --base-href /timebuddy/
+        # `--no-tree-shake-icons` is not optional here, and it is not a
+        # performance oversight. The icon tree-shaker scans the compiled
+        # constants for `IconData` and rewrites each bundled font to hold only
+        # the code points it found. `font_awesome_flutter` wraps every glyph in
+        # a `FaIconData`, and the shaker misses most of them: a build of this
+        # app kept 22 of the 38 icons it uses and silently dropped the other
+        # 16, which then render as empty boxes. It is silent because a missing
+        # glyph is not a build error.
+        #
+        # The cost is roughly 500 KB of font against a bundle whose CanvasKit
+        # alone is 7 MB. The step below is what stops this
+        # regressing quietly.
+        run: >-
+          flutter build web --release --base-href /timebuddy/
+          --no-tree-shake-icons
+
+      - name: Verify every icon glyph survived into the bundle
+        run: python scripts/check_glyphs.py
 
       - uses: actions/configure-pages@v5
 

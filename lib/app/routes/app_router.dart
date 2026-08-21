@@ -7,10 +7,10 @@ import 'package:timebuddy/app/routes/app_routes.dart';
 import 'package:timebuddy/app/routes/app_shell.dart';
 import 'package:timebuddy/app/widgets/sub_page_scope.dart';
 import 'package:timebuddy/core/extensions/context_extensions.dart';
+import 'package:timebuddy/core/session/guest_session.dart';
 import 'package:timebuddy/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:timebuddy/features/auth/presentation/pages/onboarding_page.dart';
 import 'package:timebuddy/features/locations/presentation/pages/add_location_sheet.dart';
-import 'package:timebuddy/features/locations/presentation/pages/locations_page.dart';
 import 'package:timebuddy/features/profile/presentation/pages/profile_page.dart';
 import 'package:timebuddy/features/settings/presentation/pages/settings_page.dart';
 import 'package:timebuddy/features/startup/presentation/cubit/startup_cubit.dart';
@@ -51,6 +51,25 @@ abstract class AppRouter {
       GoRoute(
         path: AppRoutes.grid,
         builder: (context, state) => const TimeGridPage(),
+        routes: <RouteBase>[
+          // Nested under the grid, which is the screen that owns the board
+          // now that the Cities destination is gone. `/add` reads as what it
+          // is and is reachable as a deep link, which a modal opened from a
+          // button never is.
+          //
+          // Deliberately *without* a `parentNavigatorKey`. A route pushed on
+          // the root navigator is a sibling of `AppShell`, not a descendant,
+          // and the board it writes to is the `BoardCubit` the shell
+          // provides — so it could not read the cubit at all. Left inside the
+          // branch, go_router grafts the push onto whichever branch navigator
+          // is showing, so the grid's FAB, the world clock's FAB and a deep
+          // link all land on top of the page the user is actually looking at,
+          // under the shell's providers.
+          GoRoute(
+            path: AppRoutes.addLocationSegment,
+            pageBuilder: _addLocationPage,
+          ),
+        ],
       ),
     ],
   );
@@ -69,34 +88,6 @@ abstract class AppRouter {
       GoRoute(
         path: AppRoutes.converter,
         builder: (context, state) => const TimeConverterPage(),
-      ),
-    ],
-  );
-
-  static final StatefulShellBranch _locationsBranch = StatefulShellBranch(
-    routes: <RouteBase>[
-      GoRoute(
-        path: AppRoutes.locations,
-        builder: (context, state) => const LocationsPage(),
-        routes: <RouteBase>[
-          // Nested for the URL: `/locations/add` reads as what it is and is
-          // reachable as a deep link, which a modal opened from a button
-          // never is.
-          //
-          // Deliberately *without* a `parentNavigatorKey`. A route pushed on
-          // the root navigator is a sibling of `AppShell`, not a descendant,
-          // and the board it writes to is the `BoardCubit` the shell
-          // provides — so it could not read the cubit at all. Left inside the
-          // branch, go_router grafts the push onto whichever branch navigator
-          // is showing (`RouteMatchList.push` keeps the current shell match
-          // and appends the imperative one), so the grid's FAB and a deep
-          // link both land on top of the page the user is actually looking
-          // at, under the shell's providers.
-          GoRoute(
-            path: AppRoutes.addLocationSegment,
-            pageBuilder: _addLocationPage,
-          ),
-        ],
       ),
     ],
   );
@@ -131,7 +122,6 @@ abstract class AppRouter {
     _gridBranch,
     _clocksBranch,
     _converterBranch,
-    _locationsBranch,
     _settingsBranch,
   ];
 
@@ -167,18 +157,26 @@ abstract class AppRouter {
     ],
   );
 
-  /// What every navigation is allowed to do, in three rules.
+  /// What every navigation is allowed to do, in four rules.
   ///
   /// 1. Until startup resolves, nothing but the splash renders. A deep link
   ///    that skipped it would build a grid against uninitialized tzdata, and
   ///    `StartupError` holds here too, because its recovery is the page's
   ///    retry rather than a route out (startup.md, responsibility 6).
-  /// 2. No session, no app: the landing for a signed-out user is onboarding
-  ///    (auth.md rule 1).
-  /// 3. A session that lands while onboarding is showing goes back through the
+  /// 2. No session **and no guest marker**: the landing is onboarding. Sign-in
+  ///    is an offer rather than a gate (guest_mode.md rule 5), so what this
+  ///    rule now catches is only the visitor who has not chosen either way.
+  ///    The broad `is! Authenticated` is kept deliberately: `AuthInitial` and
+  ///    `AuthError` both belong on onboarding for a non-guest.
+  /// 3. A guest whose sign-in landed goes back through the splash, so
+  ///    `StartupCubit` can run the adopting sync (guest_mode.md rule 6).
+  ///    Keyed on `adoptionAttempted` rather than on the marker alone, because
+  ///    an adoption that fails leaves the marker set and a marker-only rule
+  ///    would loop `/startup` → grid → `/startup` forever.
+  /// 4. A session that lands while onboarding is showing goes back through the
   ///    splash, not straight to the grid. That sign-in may be a *different*
-  ///    account, whose board and preferences have not been pulled yet;
-  ///    `StartupCubit` is what owns that first sync.
+  ///    account, whose board and preferences have not been pulled yet. Rule 3
+  ///    cannot cover it: a visitor signing in from onboarding is not a guest.
   ///
   /// Leaving the splash on success is deliberately *not* here: that is
   /// `StartupPage`'s own `context.go`, so the one place that knows startup
@@ -189,10 +187,27 @@ abstract class AppRouter {
       return location == AppRoutes.startup ? null : AppRoutes.startup;
     }
 
-    if (sl<AuthBloc>().state is! Authenticated) {
+    final guest = sl<GuestSession>();
+    final authState = sl<AuthBloc>().state;
+    if (authState is! Authenticated && !guest.isGuest) {
       return location == AppRoutes.onboarding ? null : AppRoutes.onboarding;
     }
-    return location == AppRoutes.onboarding ? AppRoutes.startup : null;
+
+    if (guest.isGuest &&
+        authState is Authenticated &&
+        !guest.adoptionAttempted) {
+      return location == AppRoutes.startup ? null : AppRoutes.startup;
+    }
+
+    // Spelled out as `is Authenticated` rather than left as the fall-through
+    // it used to be, so a *guest* who opens `/onboarding` — by URL, or to
+    // reach the Google button — is allowed to stay and read it. Bouncing them
+    // to the splash would send them straight back to the grid and make the
+    // tour unreachable for the one person still deciding.
+    if (authState is Authenticated && location == AppRoutes.onboarding) {
+      return AppRoutes.startup;
+    }
+    return null;
   }
 
   /// Whether startup has produced a route decision.
@@ -204,14 +219,21 @@ abstract class AppRouter {
   static bool _startupResolved(StartupState state) =>
       state is StartupAuthenticated || state is StartupUnauthenticated;
 
-  /// Re-runs [_redirect] whenever the session changes.
+  /// Re-runs [_redirect] whenever the session **or the guest marker** changes.
   ///
   /// Without it the rules above would only be applied on a navigation, so a
   /// sign-out performed on the profile page would leave the user sitting on a
   /// screen they are no longer allowed to see until they tapped something.
-  static final Listenable _authRefresh = _BlocRefreshListenable(
-    sl<AuthBloc>().stream,
-  );
+  ///
+  /// `GuestSession` is merged in rather than left to the navigation that
+  /// follows it, because "continue without an account" changes what rule 2
+  /// answers *before* anything navigates: without this the onboarding page
+  /// would have to know which route to send a new guest to, which is the
+  /// redirect's job.
+  static final Listenable _authRefresh = Listenable.merge(<Listenable>[
+    _BlocRefreshListenable(sl<AuthBloc>().stream),
+    sl<GuestSession>(),
+  ]);
 
   /// The add-location route: the city picker, wearing a modal's clothes.
   ///

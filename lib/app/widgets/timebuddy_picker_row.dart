@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:timebuddy/app/theme/app_spacing.dart';
+import 'package:timebuddy/app/widgets/app_icon.dart';
 import 'package:timebuddy/core/extensions/context_extensions.dart';
 
 /// Tint behind the selected row: the accent at low alpha, so the row reads as
@@ -19,7 +21,7 @@ const double _selectedTintAlpha = 0.08;
 ///
 /// ```dart
 /// TimeBuddyPickerRow(
-///   leading: const Icon(Icons.public_rounded),
+///   leading: AppIcon(FontAwesomeIcons.earthAmericas),
 ///   title: city.name,
 ///   subtitle: city.countryName,
 ///   isSelected: city.zoneId == board.homeZoneId,
@@ -132,7 +134,7 @@ class _RowContent extends StatelessWidget {
         ),
         if (isSelected) ...[
           const SizedBox(width: AppSpacing.sm),
-          Icon(Icons.check_rounded, color: colors.primary),
+          AppIcon(FontAwesomeIcons.check, color: colors.primary),
         ],
       ],
     );

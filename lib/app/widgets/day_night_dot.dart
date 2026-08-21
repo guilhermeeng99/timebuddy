@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:timebuddy/app/widgets/app_icon.dart';
 import 'package:timebuddy/app/widgets/hour_cell.dart';
 import 'package:timebuddy/core/extensions/context_extensions.dart';
 import 'package:timebuddy/core/time/hour_band.dart';
@@ -35,8 +37,20 @@ class DayNightDot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Icon(
-      band == HourBand.night ? Icons.nightlight_round : Icons.wb_sunny_rounded,
+    return AppIcon(
+      // **A filled circle for the waking bands, not a sun**, and that is a
+      // legibility finding rather than a preference. Font Awesome's sun — in
+      // either weight — puts eight triangular rays around a disc, and at the
+      // 14pt this widget is drawn at they merge into the disc and the glyph
+      // reads as a cog. Measured on screen, not guessed.
+      //
+      // The circle loses nothing: this widget is named for a dot, the band's
+      // colour is what carries good / borderline / off-hours (`hourBandColor`),
+      // and night keeps a moon, which stays unmistakable small. The screen
+      // reader gets the band by name either way.
+      band == HourBand.night
+          ? FontAwesomeIcons.solidMoon
+          : FontAwesomeIcons.solidCircle,
       size: size,
       color: hourBandColor(band, context.appColors),
       // Without a label the glyph is invisible to a screen reader, and the

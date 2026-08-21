@@ -10,6 +10,7 @@ import 'package:timebuddy/app/routes/app_routes.dart';
 import 'package:timebuddy/app/routes/app_shell.dart';
 import 'package:timebuddy/app/theme/app_spacing.dart';
 import 'package:timebuddy/app/theme/app_theme.dart';
+import 'package:timebuddy/app/widgets/hour_cell.dart';
 import 'package:timebuddy/app/widgets/location_row.dart';
 import 'package:timebuddy/app/widgets/responsive_layout.dart';
 import 'package:timebuddy/app/widgets/sub_page_scope.dart';
@@ -17,11 +18,14 @@ import 'package:timebuddy/app/widgets/timebuddy_bottom_bar.dart';
 import 'package:timebuddy/app/widgets/timebuddy_date_pill.dart';
 import 'package:timebuddy/app/widgets/timebuddy_sidebar.dart';
 import 'package:timebuddy/core/errors/failures.dart';
+import 'package:timebuddy/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:timebuddy/features/locations/domain/entities/board_entity.dart';
 import 'package:timebuddy/features/locations/domain/repositories/board_repository.dart';
 import 'package:timebuddy/features/preferences/presentation/cubit/preferences_cubit.dart';
 import 'package:timebuddy/features/time_grid/domain/usecases/build_grid_usecase.dart';
+import 'package:timebuddy/features/time_grid/presentation/grid_layout.dart';
 import 'package:timebuddy/features/time_grid/presentation/pages/time_grid_page.dart';
+import 'package:timebuddy/features/time_grid/presentation/widgets/grid_header_strip.dart';
 import 'package:timebuddy/features/time_grid/presentation/widgets/grid_row_view.dart';
 import 'package:timebuddy/gen/i18n/strings.g.dart';
 import 'package:uuid/uuid.dart';
@@ -49,11 +53,11 @@ import '../../../../harness/pump_app.dart';
 // WHAT THIS FILE FOUND, and why the mobile half of it is worth keeping.
 //
 // The three mobile tests here were the first in the suite to lay the dense
-// 96px column out at all, and they failed on a `RenderFlex` overflow raised
+// column out at all, and they failed on a `RenderFlex` overflow raised
 // inside `LocationRow` rather than on anything they assert: the status line
 // put the zone abbreviation and the `Home` chip into a `Row` as two unflexed
-// children, so the pair took its natural width and overran the 80px left
-// inside the column (`96 - 2 * AppSpacing.sm`). In a test it shouts; in
+// children, so the pair took its natural width and overran the room left
+// inside the column (then `96 - 2 * AppSpacing.sm`). In a test it shouts; in
 // release it silently painted the chip across the grid's first hour column.
 // `_StatusLine` now drops the abbreviation on any dense row that already has
 // something more useful in that slot, and these tests pass.
@@ -72,16 +76,31 @@ import '../../../../harness/pump_app.dart';
 /// keeps its own stepper.
 const Size _mobileSurface = Size(375, 812);
 
-/// A desktop window: the rail is on screen and the grid still gets every
-/// pixel left over, because it is the one page exempt from `maxContentWidth`.
+/// A desktop window: the rail is on screen, expanded, and the grid still gets
+/// every pixel left over, because it is the one page exempt from
+/// `maxContentWidth`.
 const Size _desktopSurface = Size(1280, 800);
+
+/// A tablet: the rail is on screen but collapsed to icons.
+///
+/// This band had no test at all, which is how it came to be the worst place in
+/// the app to read the grid — a 240pt rail on a 700pt window left the hours
+/// less room than a phone had.
+const Size _tabletSurface = Size(768, 1024);
+
+/// One pixel below the breakpoint, and one above it.
+///
+/// The pair exists to assert the thing the user actually reported: that making
+/// the window *bigger* made the grid worse.
+const Size _justBelowRail = Size(599, 800);
+const Size _justAboveRail = Size(601, 800);
 
 /// Width of the pinned column below `600px` (time_grid.md, Responsive).
 ///
 /// Written out rather than read from the page, which keeps it private: the
 /// number is a promise the spec makes, so the test has to state it
 /// independently or it would only be comparing the page against itself.
-const double _denseLabelColumnWidth = 96;
+const double _denseLabelColumnWidth = 128;
 
 /// One board row, reduced to the three strings a layout assertion reads.
 typedef _City = ({String zoneId, String label, String country});
@@ -202,14 +221,6 @@ GoRouter _shellRouter() {
           StatefulShellBranch(
             routes: <RouteBase>[
               GoRoute(
-                path: AppRoutes.locations,
-                builder: (context, state) => const SizedBox.shrink(),
-              ),
-            ],
-          ),
-          StatefulShellBranch(
-            routes: <RouteBase>[
-              GoRoute(
                 path: AppRoutes.settings,
                 builder: (context, state) => const SizedBox.shrink(),
               ),
@@ -285,8 +296,13 @@ void main() {
 
     await tester.pumpWidget(
       TranslationProvider(
-        child: BlocProvider<PreferencesCubit>.value(
-          value: app.cubit,
+        // Both providers, matching `TimeBuddyApp`: the rail's foot is the
+        // settings destination wearing the session, so it reads `AuthBloc`.
+        child: MultiBlocProvider(
+          providers: [
+            BlocProvider<PreferencesCubit>.value(value: app.cubit),
+            BlocProvider<AuthBloc>.value(value: app.authBloc),
+          ],
           child: MaterialApp.router(
             theme: AppTheme.light(),
             routerConfig: _shellRouter(),
@@ -313,7 +329,7 @@ void main() {
     matching: find.byType(TimeBuddyDatePill),
   );
 
-  testWidgets('below 600px the pinned column is dense and 96px wide', (
+  testWidgets('below 600px the pinned column is dense and 128px wide', (
     tester,
   ) async {
     await pumpGridShell(
@@ -381,7 +397,7 @@ void main() {
     // `maxContentWidth`, because its value is showing as many hours as fit.
     expect(
       track.left,
-      TimeBuddySidebar.width + GridMetrics.labelColumnWidth,
+      TimeBuddySidebar.expandedWidth + GridMetrics.labelColumnWidth,
     );
     expect(track.right, _desktopSurface.width);
     expect(track.width, greaterThan(ResponsiveLayout.maxContentWidth));
@@ -421,7 +437,206 @@ void main() {
     );
     expect(
       tester.getRect(find.byType(TimeBuddyDatePill)).right,
-      lessThanOrEqualTo(TimeBuddySidebar.width),
+      lessThanOrEqualTo(TimeBuddySidebar.expandedWidth),
+    );
+  });
+
+
+  /// The column width the page resolved for this surface.
+  double columnWidth(WidgetTester tester) => tester
+      .widget<GridHeaderStrip>(find.byType(GridHeaderStrip))
+      .columnWidth;
+
+  /// The shared hour track's scroll offset, in pixels.
+  ///
+  /// Read off the header's `Scrollable`, which is the grid's only horizontal
+  /// one and therefore the authority every row is supposed to be following.
+  double trackOffset(WidgetTester tester) => tester
+      .state<ScrollableState>(
+        find.descendant(
+          of: find.byType(GridHeaderStrip),
+          matching: find.byType(Scrollable),
+        ),
+      )
+      .position
+      .pixels;
+
+  /// The local hour in the first cell one row is currently rendering.
+  int firstRenderedHour(WidgetTester tester, String zoneId) => tester
+      .widgetList<HourCell>(
+        find.descendant(of: _trackOf(zoneId), matching: find.byType(HourCell)),
+      )
+      .first
+      .hour;
+
+  /// Which column index the *controller* says is at the track's left edge.
+  int firstColumnIndex(WidgetTester tester) =>
+      (trackOffset(tester) / columnWidth(tester)).floor();
+
+  /// How many whole hours one row shows.
+  ///
+  /// Measured from the track rather than by counting `HourCell` widgets: a row
+  /// renders the window that *covers* the viewport, so the widget count runs
+  /// one or two ahead of what a user can actually read and would make this
+  /// assertion drift with an implementation detail.
+  int visibleHours(WidgetTester tester, String zoneId) =>
+      tester.getRect(_trackOf(zoneId)).width ~/ columnWidth(tester);
+
+  testWidgets('the hour columns fill the track instead of clipping one', (
+    tester,
+  ) async {
+    // The complaint, stated as geometry: at a fixed 60pt the track's last
+    // column was sliced through its digits at almost every window width.
+    await pumpGridShell(
+      tester,
+      surface: _desktopSurface,
+      board: _boardOf(_threeCities),
+    );
+
+    final track = tester.getRect(_trackOf(_berlin.zoneId));
+    final width = columnWidth(tester);
+    expect(width, greaterThanOrEqualTo(GridLayout.minColumnWidth));
+    expect(
+      track.width / width,
+      closeTo(track.width ~/ width, 0.001),
+      reason: 'a whole number of columns has to tile the track exactly',
+    );
+  });
+
+  testWidgets('widening the window past the rail never shows fewer hours', (
+    tester,
+  ) async {
+    // THE REGRESSION THIS RELEASE FIXES. Before it, 599px showed nine hour
+    // columns and 600px showed three: the rail took 240 of a 600pt window and
+    // the pinned column took another 180. The rail now collapses to 80 in this
+    // band, and the columns shrink to fit what is left.
+    await pumpGridShell(
+      tester,
+      surface: _justBelowRail,
+      board: _boardOf(_threeCities),
+    );
+    final below = visibleHours(tester, _berlin.zoneId);
+
+    tester.view.physicalSize = _justAboveRail;
+    await tester.pumpAndSettle();
+    final above = visibleHours(tester, _berlin.zoneId);
+
+    // 599px shows nine hours; 601px shows seven, and the two it lost are the
+    // 80pt icon rail that appeared. Before this release the same step went
+    // from nine to three, because the rail arrived 240pt wide and the pinned
+    // column grew 52pt in the same pixel.
+    expect(below, greaterThanOrEqualTo(9));
+    expect(
+      above,
+      greaterThanOrEqualTo(below - 2),
+      reason: 'crossing the breakpoint may cost the rail, not the screen',
+    );
+    expect(
+      above,
+      greaterThanOrEqualTo(6),
+      reason: 'a tablet must never read worse than a phone did',
+    );
+  });
+
+  testWidgets('a tablet collapses the rail and takes its stepper back', (
+    tester,
+  ) async {
+    await pumpGridShell(
+      tester,
+      surface: _tabletSurface,
+      board: _boardOf(_threeCities),
+    );
+
+    expect(
+      tester.getSize(find.byType(TimeBuddySidebar)).width,
+      TimeBuddySidebar.collapsedWidth,
+    );
+    // Collapsed, the rail cannot hold a 240pt stepper, so the page draws its
+    // own — and there is still exactly one on screen, which is the §7 rule.
+    expect(pillInRail(), findsNothing);
+    expect(pillOnPage(), findsOneWidget);
+    expect(find.byType(TimeBuddyDatePill), findsOneWidget);
+    // The bottom bar belongs to phones and must not join the rail here.
+    expect(find.byType(TimeBuddyBottomBar), findsOneWidget);
+    expect(tester.getSize(find.byType(TimeBuddyBottomBar)).height, 0);
+    // The labels are gone but the destinations are not: they are tooltips and
+    // semantic labels now, not nothing.
+    expect(find.text(t.nav.clocks), findsNothing);
+  });
+
+  testWidgets('a resize keeps the grid on the hour it was showing', (
+    tester,
+  ) async {
+    // A ScrollPosition stores pixels, and a pixel stopped meaning a fixed hour
+    // when the column width became a function of the viewport. Without the
+    // rescale, dragging a window edge scrubs the grid through time (rule 15).
+    await pumpGridShell(
+      tester,
+      surface: _desktopSurface,
+      board: _boardOf(_threeCities),
+    );
+
+    // Scrolled to a deliberately FRACTIONAL column first, and this is the
+    // whole rigour of the test. The grid opens centred on now, which lands on
+    // an exact integer column — and an integer column happens to survive a
+    // moderate width change even with no rescale at all, so a test that
+    // asserted the leftmost hour from the opening position would pass against
+    // a reverted implementation. Half a column in, it cannot.
+    final widthBefore = columnWidth(tester);
+    await tester.drag(
+      find.byType(GridHeaderStrip),
+      Offset(-3.5 * widthBefore, 0),
+    );
+    await tester.pumpAndSettle();
+
+    final columnBefore = trackOffset(tester) / widthBefore;
+    final visibleBefore = visibleHours(tester, _berlin.zoneId);
+    final indexBefore = firstColumnIndex(tester);
+    final hourBefore = firstRenderedHour(tester, _berlin.zoneId);
+    expect(
+      columnBefore - columnBefore.floorToDouble(),
+      closeTo(0.5, 0.1),
+      reason: 'the test is only sharp from a fractional column',
+    );
+
+    tester.view.physicalSize = _tabletSurface;
+    await tester.pumpAndSettle();
+
+    expect(
+      visibleHours(tester, _berlin.zoneId),
+      lessThan(visibleBefore),
+      reason: 'the resize has to change the geometry for this to mean anything',
+    );
+    // Tight on purpose. The rescale lands the offset on `column * newWidth`
+    // exactly, so anything beyond rounding is a failure — and the tolerance
+    // has to be tight because the drift it is catching is genuinely small:
+    // `GridLayout` keeps the column between 48 and ~52 at every width that
+    // scrolls at all, so a stale pixel offset misreads the column by
+    // hundredths rather than by hours. Correct is correct; a loose tolerance
+    // here would pass against no rescale whatsoever.
+    expect(
+      trackOffset(tester) / columnWidth(tester),
+      closeTo(columnBefore, 0.02),
+      reason: 'the offset must be carried across in columns, not in pixels',
+    );
+
+    // And the rows have to agree with that controller. Berlin is the reference
+    // zone, so its cells carry the same hours the ruler does; if the offset
+    // the rows draw from ever fell out of step with the one the header
+    // scrolled to, this is where it would show.
+    //
+    // It does NOT cover the `correctPixels` guard in `_syncTrackAfterResize`:
+    // deleting that line leaves this test green, because the rescaling
+    // `jumpTo` notifies the listener for it. Measured with a mutation run, not
+    // assumed — the guard stays because the clamp genuinely notifies nobody,
+    // but the suite's teeth are in the `jumpTo`, and a comment claiming
+    // otherwise would be the kind of false assurance this file exists to stop.
+    final indexAfter = firstColumnIndex(tester);
+    final expectedHour = (hourBefore + (indexAfter - indexBefore)) % 24;
+    expect(
+      firstRenderedHour(tester, _berlin.zoneId),
+      expectedHour,
+      reason: 'the rows must follow the same offset the header scrolled to',
     );
   });
 

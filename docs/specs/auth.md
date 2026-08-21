@@ -32,11 +32,25 @@ coupled to a board read. See [sync.md](sync.md).
 
 ## Business Rules
 
-1. **Sign-in is required to use the app.** There is no guest mode in v1: the
-   whole point of the account is cross-device sync, and a local-only mode would
-   need a migration path (local board into a fresh cloud board, with conflict
-   rules) that is not worth building before the app has users. Recorded as a
-   deferred decision in [roadmap.md](../roadmap.md).
+1. **Sign-in is optional.** A visitor uses the entire app against local-only
+   documents and signs in when they want the board to survive the device. The
+   contract lives in [guest_mode.md](guest_mode.md); what matters here is that
+   nothing in this spec may be written as though a session were a
+   precondition.
+
+   **This rule used to say "sign-in is required", and reversing it was the
+   point, so here is what changed and what did not.** The objection was real:
+   a local-only mode needs a migration path with its own conflict rules, and
+   inventing one badly destroys data. What made it affordable is that the
+   migration turned out to be one rule rather than a system —
+   [guest_mode.md](guest_mode.md) rule 6, "the account wins whenever it already
+   has documents" — which needs no merge, no field-level reconciliation and no
+   prompt. The conflict ladder is untouched; adoption sits beside it for
+   exactly one call.
+
+   What did **not** change: the app is still Google-only, there is still no
+   `SignInPage`, and the account still exists for one reason, which is
+   cross-device sync. A guest is not a second tier of user with a smaller app.
 
 2. **Google sign-in is platform-specific, and on web it is popup-first with a
    redirect fallback.** Android drives the `google_sign_in` plugin. The browser
@@ -169,9 +183,16 @@ coupled to a board read. See [sync.md](sync.md).
    attempted but non-fatal: any failure is swallowed so `FirebaseAuth.signOut()`
    always runs.
 
-7. **Sign-out clears local data.** On success the repository wipes the cached
-   board and preferences from `shared_preferences`. Leaving another account's
-   cities on a shared browser is a privacy leak, however mild.
+7. **Sign-out clears local data, then re-enters guest mode.** On success the
+   repository wipes every key from `shared_preferences` — leaving another
+   account's cities on a shared browser is a privacy leak, however mild — and
+   *then* writes the guest marker back, in that order, because `clearAll()`
+   removes it too ([guest_mode.md](guest_mode.md) rule 9).
+
+   The user therefore lands in the app on an empty board rather than on the
+   onboarding tour they have already read. The wipe is not softened to keep
+   their cities: this rule's whole justification is the shared browser, and a
+   sign-out that left the board behind would defeat it.
 
 8. **`getCurrentUser` self-heals a missing profile.** An authenticated user with
    no Firestore document (the classic web-redirect race) gets one created from

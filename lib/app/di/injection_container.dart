@@ -5,6 +5,7 @@ import 'package:get_it/get_it.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timebuddy/core/platform/app_platform.dart';
+import 'package:timebuddy/core/session/guest_session.dart';
 import 'package:timebuddy/core/storage/local_store.dart';
 import 'package:timebuddy/core/sync/remote_settings_datasource.dart';
 import 'package:timebuddy/core/sync/sync_coordinator.dart';
@@ -73,6 +74,12 @@ Future<void> configureDependencies() async {
     ..registerLazySingleton<Clock>(SystemClock.new)
     ..registerLazySingleton<LocalStore>(
       () => SharedPreferencesLocalStore(sharedPreferences),
+    )
+    // Singleton and never a factory: it is the device's answer to "may this
+    // visitor use the app without an account", and a second copy would be a
+    // second answer (docs/specs/guest_mode.md).
+    ..registerLazySingleton<GuestSession>(
+      () => GuestSession(localStore: sl<LocalStore>()),
     )
     ..registerLazySingleton<TimeZoneEngine>(TzTimeZoneEngine.new)
     // One ticker for the whole app (CLAUDE.md, Performance). Registered as a
@@ -188,6 +195,7 @@ Future<void> configureDependencies() async {
       () => AuthRepositoryImpl(
         remoteDataSource: sl<AuthRemoteDataSource>(),
         localStore: sl<LocalStore>(),
+        guestSession: sl<GuestSession>(),
       ),
     )
     // Singleton, and the app's only answer to "who is signed in": the router
@@ -237,7 +245,15 @@ Future<void> configureDependencies() async {
         engine: sl<TimeZoneEngine>(),
         catalog: sl<CityCatalogRepository>(),
         syncService: sl<SyncService>(),
+        guestSession: sl<GuestSession>(),
         preferencesCubit: sl<PreferencesCubit>(),
       ),
     );
+
+  // The second await in the graph, and it has to be one. `AppRouter._redirect`
+  // reads `GuestSession.isGuest` synchronously on the very first navigation,
+  // which happens before the first frame; a guest whose marker had not landed
+  // yet would be bounced to onboarding on every launch
+  // (docs/specs/guest_mode.md, Repository Contract).
+  await sl<GuestSession>().restore();
 }

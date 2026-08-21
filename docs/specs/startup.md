@@ -21,15 +21,24 @@ preferences.
    preferences are reconciled before any feature page mounts.
 5. Decide where the app opens, and let `StartupPage` act on it:
    - `StartupAuthenticated` → `context.go(AppRoutes.grid)`, which is `/`
-   - `StartupUnauthenticated` → `context.go(AppRoutes.onboarding)`
+   - `StartupUnauthenticated` → the grid when `GuestSession.isGuest`, and
+     `AppRoutes.onboarding` otherwise ([guest_mode.md](guest_mode.md) rule 4)
+
+   **One state, two destinations, and no new state.** "Auth resolved to
+   nobody" is still the whole of what startup found; whether that nobody has
+   already declined an account is a device fact, and asking it at the routing
+   step is what keeps `StartupState` from growing a variant that
+   `AppRouter._startupResolved` would have to be taught about — its allowlist
+   of exactly two terminal states is what stops a later addition silently
+   pinning the app at `/startup`.
 
    The router's own `redirect` is the guard, not the driver. It holds every
    other route at `/startup` until the cubit reaches a terminal state, sends a
-   signed-out user to `/onboarding`, and bounces a signed-in one who lands on
-   `/onboarding` back through `/startup` so the account's documents are
-   reconciled before a page reads them. Leaving the splash is deliberately the
-   page's `context.go`: the one place that knows startup finished is the one
-   place that acts on it.
+   signed-out **non-guest** to `/onboarding`, and bounces a signed-in visitor
+   who lands on `/onboarding` — or a guest whose sign-in just landed — back
+   through `/startup` so the account's documents are reconciled before a page
+   reads them. Leaving the splash is deliberately the page's `context.go`: the
+   one place that knows startup finished is the one place that acts on it.
 6. Recover from failure with an in-page retry, not with a router escape.
 7. Hand the reconciled preferences to the singleton `PreferencesCubit`, which
    `TimeBuddyApp` loaded before the router existed. The board needs no
@@ -193,7 +202,8 @@ cannot emit into a closed cubit.
   the cubit owns the future).
 - `BlocListener<StartupCubit, StartupState>`:
   - `StartupAuthenticated` → `context.go(AppRoutes.grid)`
-  - `StartupUnauthenticated` → `context.go(AppRoutes.onboarding)`
+  - `StartupUnauthenticated` → `context.go(AppRoutes.grid)` when
+    `sl<GuestSession>().isGuest`, `context.go(AppRoutes.onboarding)` otherwise
 - `BlocBuilder` renders the progress bar from `progress`, mapping
   `StartupInitial` to `0` and **every** terminal state to `1`, or the error
   block on `StartupError`.
