@@ -51,7 +51,6 @@ class Translations with BaseTranslations<AppLocale, Translations> {
 	late final Translations$nav$en nav = Translations$nav$en._(_root);
 	late final Translations$grid$en grid = Translations$grid$en._(_root);
 	late final Translations$worldClock$en worldClock = Translations$worldClock$en._(_root);
-	late final Translations$planner$en planner = Translations$planner$en._(_root);
 	late final Translations$converter$en converter = Translations$converter$en._(_root);
 	late final Translations$locations$en locations = Translations$locations$en._(_root);
 }
@@ -590,60 +589,6 @@ class Translations$worldClock$en {
 	String get actionOpenInGrid => 'Open in the grid';
 }
 
-// Path: planner
-class Translations$planner$en {
-	Translations$planner$en._(this._root);
-
-	final Translations _root; // ignore: unused_field
-
-	// Translations
-
-	/// en: 'Drag across the hours to pick a window, and every city's local time shows up below.'
-	String get selectHint => 'Drag across the hours to pick a window, and every city\'s local time shows up below.';
-
-	/// en: 'Lasts ${duration}'
-	String durationLabel({required Object duration}) => 'Lasts ${duration}';
-
-	/// en: 'Works well'
-	String get verdictGood => 'Works well';
-
-	/// en: 'Tight, but doable'
-	String get verdictFair => 'Tight, but doable';
-
-	/// en: 'Bad time here'
-	String get verdictPoor => 'Bad time here';
-
-	/// en: 'A better window'
-	String get suggestionTitle => 'A better window';
-
-	/// en: 'Use this instead'
-	String get suggestionApply => 'Use this instead';
-
-	/// en: 'No better window today: every hour leaves someone out.'
-	String get noSuggestion => 'No better window today: every hour leaves someone out.';
-
-	/// en: 'Compact'
-	String get copyCompact => 'Compact';
-
-	/// en: 'Detailed'
-	String get copyVerbose => 'Detailed';
-
-	/// en: 'Copied to the clipboard'
-	String get copied => 'Copied to the clipboard';
-
-	/// en: 'The clocks change inside this window, so it is not as long as the columns suggest.'
-	String get crossesDst => 'The clocks change inside this window, so it is not as long as the columns suggest.';
-
-	/// en: 'Tomorrow'
-	String get dayTomorrow => 'Tomorrow';
-
-	/// en: 'Yesterday'
-	String get dayYesterday => 'Yesterday';
-
-	/// en: 'Your meeting'
-	String get summaryTitle => 'Your meeting';
-}
-
 // Path: converter
 class Translations$converter$en {
 	Translations$converter$en._(this._root);
@@ -914,21 +859,6 @@ extension on Translations {
 			'worldClock.actionSetHome' => 'Set as home',
 			'worldClock.actionRemove' => 'Remove from board',
 			'worldClock.actionOpenInGrid' => 'Open in the grid',
-			'planner.selectHint' => 'Drag across the hours to pick a window, and every city\'s local time shows up below.',
-			'planner.durationLabel' => ({required Object duration}) => 'Lasts ${duration}',
-			'planner.verdictGood' => 'Works well',
-			'planner.verdictFair' => 'Tight, but doable',
-			'planner.verdictPoor' => 'Bad time here',
-			'planner.suggestionTitle' => 'A better window',
-			'planner.suggestionApply' => 'Use this instead',
-			'planner.noSuggestion' => 'No better window today: every hour leaves someone out.',
-			'planner.copyCompact' => 'Compact',
-			'planner.copyVerbose' => 'Detailed',
-			'planner.copied' => 'Copied to the clipboard',
-			'planner.crossesDst' => 'The clocks change inside this window, so it is not as long as the columns suggest.',
-			'planner.dayTomorrow' => 'Tomorrow',
-			'planner.dayYesterday' => 'Yesterday',
-			'planner.summaryTitle' => 'Your meeting',
 			'converter.title' => 'Time converter',
 			'converter.sourceLabel' => 'Source city',
 			'converter.dateLabel' => 'Date',

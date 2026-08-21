@@ -377,7 +377,7 @@ any page yet.
   the owner's request — the planner was not something they reached for, and a
   switch offering a mode nobody enters costs an app-bar action and a decision
   on every visit.
-  -> [specs/time_grid.md](specs/time_grid.md), [specs/meeting_planner.md](specs/meeting_planner.md)
+  -> [specs/time_grid.md](specs/time_grid.md), `specs/meeting_planner.md` (since deleted)
 
   Removed with it: `_GridMode`, the planner `BlocProvider`, the selection
   overlay, the summary-panel slot, the plan branches in the two drag handlers
@@ -396,6 +396,29 @@ any page yet.
   Only two strings were orphaned (`t.planner.modeCompare` / `modePlan`) and
   both were deleted: a future entry point will want its own words.
   758 tests passing, `flutter analyze` clean.
+
+- 2026-08-21: **`lib/features/meeting_planner/` is deleted**, and the
+  half-measure above is closed. The owner confirmed the feature was finished
+  with, so the folder, its 47 tests and `specs/meeting_planner.md` are gone.
+
+  A folder with green tests and no entry point is not an asset in reserve. It
+  is a second answer to "what does this screen do" that every future reader has
+  to open and rule out, a set of DI registrations built on every launch for
+  nobody, and — since the grid's hour column stopped being a constant — a
+  `CustomPainter` that would have drawn its selection band on the wrong hours
+  at every width but one.
+
+  Removed with it: three `registerLazySingleton` calls, the `planner` i18n
+  block in both locales (15 strings each), and the doc comments in
+  `app_routes`, `app_router`, `timebuddy_sidebar` and `injection_container`
+  that explained why the planner had no route, no branch and no nav
+  destination. Nothing in `lib/` names it now.
+
+  What did *not* move: `HourCell.isSelected` stays, unset by anything, because
+  the distinction it draws — a picked cell versus the cursor's — is real and
+  costs one wash. The roadmap's older entries keep their prose and lose only
+  their links to the deleted spec; a log that edits its own history is not a
+  log. 731 tests passing (778 minus the planner's 47), `flutter analyze` clean.
 
 ### The grid grew up
 
@@ -453,7 +476,7 @@ so an item number still points at the piece of work it always did.
 
 10. World clock page. → [specs/world_clock.md](specs/world_clock.md)
 11. Meeting planner mode, summary panel, best-slot suggestion, copy to clipboard.
-    → [specs/meeting_planner.md](specs/meeting_planner.md)
+    → `specs/meeting_planner.md` (since deleted)
 12. Time converter page. → [specs/time_converter.md](specs/time_converter.md)
 
 ### M5: Release (target: 2026-10-21)
@@ -508,7 +531,7 @@ Recorded here so they are not re-litigated in every review.
   "keep both" would even mean given the 20-city cap.
 - **Shareable event links** (the worldtimebuddy feature where a URL encodes a
   meeting). Needs a public read path and either a backend or a very long URL.
-  Deliberately out of v1 ([specs/meeting_planner.md](specs/meeting_planner.md)
+  Deliberately out of v1 (`specs/meeting_planner.md`, since deleted
   rule 10).
 - **Calendar integration** (create an event from a planned meeting). Depends on
   the planner shipping first and on platform-specific permissions.

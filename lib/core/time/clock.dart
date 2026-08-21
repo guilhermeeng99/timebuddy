@@ -3,7 +3,7 @@
 /// Every screen in TimeBuddy is a pure function of the current instant, so a
 /// bare `DateTime.now()` anywhere in `lib/` makes that screen impossible to
 /// test and hides DST bugs behind "it worked when I ran it". The grid, the
-/// world clock and the planner all render a different answer at 01:59 and at
+/// world clock and the converter all render a different answer at 01:59 and at
 /// 03:00 on a transition day, and neither of those moments can be reached by a
 /// test that reads the real wall clock.
 ///

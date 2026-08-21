@@ -114,10 +114,6 @@ abstract class AppRouter {
   /// settings and back leave the grid's horizontal scroll where it was — and,
   /// from M4 on, leave the converter's half-filled form alone while the user
   /// checks a city on the world clock.
-  ///
-  /// The meeting planner has no branch: it is a mode of `_gridBranch`
-  /// (docs/specs/meeting_planner.md), so entering it keeps the grid's own
-  /// navigator and its scroll position.
   static final List<StatefulShellBranch> _branches = <StatefulShellBranch>[
     _gridBranch,
     _clocksBranch,

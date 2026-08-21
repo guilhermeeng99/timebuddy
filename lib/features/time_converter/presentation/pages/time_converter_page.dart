@@ -48,7 +48,7 @@ const double _bannerIconSize = 20;
 /// (docs/specs/time_converter.md).
 ///
 /// One point-in-time question: unlike the grid it is not anchored to today,
-/// and unlike the planner it has no range. Its whole value is being right on
+/// and it has no range of its own. Its whole value is being right on
 /// dates far from now, where a zone's DST rules differ from today's — which
 /// is why every line comes from `ConvertTimeUseCase` resolving the chosen
 /// local fields into one instant, and never from an offset carried over from

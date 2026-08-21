@@ -166,23 +166,6 @@
     "actionRemove": "Remover do painel",
     "actionOpenInGrid": "Abrir na grade"
   },
-  "planner": {
-    "selectHint": "Arraste sobre as horas para escolher uma janela, e o horário local de cada cidade aparece abaixo.",
-    "durationLabel": "Dura ${duration}",
-    "verdictGood": "Funciona bem",
-    "verdictFair": "Dá, mas no limite",
-    "verdictPoor": "Horário ruim aqui",
-    "suggestionTitle": "Uma janela melhor",
-    "suggestionApply": "Usar esta janela",
-    "noSuggestion": "Não há janela melhor hoje: em qualquer horário alguém fica de fora.",
-    "copyCompact": "Resumido",
-    "copyVerbose": "Detalhado",
-    "copied": "Copiado para a área de transferência",
-    "crossesDst": "O relógio muda dentro desta janela, então ela não dura o que as colunas sugerem.",
-    "dayTomorrow": "Amanhã",
-    "dayYesterday": "Ontem",
-    "summaryTitle": "Sua reunião"
-  },
   "converter": {
     "title": "Conversor de horários",
     "sourceLabel": "Cidade de origem",

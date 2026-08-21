@@ -17,7 +17,7 @@ export 'package:timebuddy/features/locations/presentation/cubit/board_state.dart
 /// The single source of truth for which places the user is watching.
 ///
 /// Session-scoped: `AppShell` creates it once per session and every page
-/// reads it (CLAUDE.md, Lifecycle). The grid, the world clock and the planner
+/// reads it (CLAUDE.md, Lifecycle). The grid, the world clock and the converter
 /// all render from this one list, so nothing else may hold a board.
 ///
 /// **Every mutation is optimistic.** The new state is emitted first and

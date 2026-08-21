@@ -166,23 +166,6 @@
     "actionRemove": "Remove from board",
     "actionOpenInGrid": "Open in the grid"
   },
-  "planner": {
-    "selectHint": "Drag across the hours to pick a window, and every city's local time shows up below.",
-    "durationLabel": "Lasts ${duration}",
-    "verdictGood": "Works well",
-    "verdictFair": "Tight, but doable",
-    "verdictPoor": "Bad time here",
-    "suggestionTitle": "A better window",
-    "suggestionApply": "Use this instead",
-    "noSuggestion": "No better window today: every hour leaves someone out.",
-    "copyCompact": "Compact",
-    "copyVerbose": "Detailed",
-    "copied": "Copied to the clipboard",
-    "crossesDst": "The clocks change inside this window, so it is not as long as the columns suggest.",
-    "dayTomorrow": "Tomorrow",
-    "dayYesterday": "Yesterday",
-    "summaryTitle": "Your meeting"
-  },
   "converter": {
     "title": "Time converter",
     "sourceLabel": "Source city",

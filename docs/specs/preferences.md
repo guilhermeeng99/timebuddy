@@ -27,7 +27,6 @@ PreferencesEntity {
   // Planned. Each field lands with the feature that reads it, so nothing
   // carries a value no screen can set:
   // lastSourceZoneId: String?          (the converter's remembered source, time_converter.md)
-  // meetingTextStyle: MeetingTextStyle (compact | verbose, meeting_planner.md)
 }
 
 WorkingHours {

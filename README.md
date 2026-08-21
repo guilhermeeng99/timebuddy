@@ -139,7 +139,6 @@ Start here:
 | [locations.md](docs/specs/locations.md) | The board, the city catalog, search |
 | [time_grid.md](docs/specs/time_grid.md) | The main screen |
 | [world_clock.md](docs/specs/world_clock.md) | The live clock list |
-| [meeting_planner.md](docs/specs/meeting_planner.md) | Range selection and summaries |
 | [time_converter.md](docs/specs/time_converter.md) | Point-in-time conversion |
 | [auth.md](docs/specs/auth.md) | Google sign-in, profile |
 | [guest_mode.md](docs/specs/guest_mode.md) | Using the app without an account, and what signing in does to that data |

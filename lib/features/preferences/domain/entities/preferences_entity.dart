@@ -12,7 +12,7 @@ import 'package:timebuddy/core/time/working_hours.dart';
 /// through `PreferencesCubit`, which bumps it.
 ///
 /// [workingHours] is not cosmetic: it feeds `hourBandFor`, and so decides
-/// every colour in the grid and every verdict in the planner.
+/// every colour in the grid and every band the converter reports.
 ///
 /// ```dart
 /// final prefs = PreferencesEntity.defaults(

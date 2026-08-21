@@ -234,7 +234,7 @@ class _NeedMoreCitiesNote extends StatelessWidget {
 /// The world clock's copy, deliberately its own four lines rather than an
 /// import of that page's helper: the two features say the same thing about a
 /// day delta and have no other reason to depend on each other, which is the
-/// same trade `ConvertTimeUseCase` made with the planner's stand-in row.
+/// same trade `ConvertTimeUseCase` made with its own stand-in row.
 String? _dayWord(int dayDelta) => switch (dayDelta) {
   1 => t.worldClock.tomorrow,
   -1 => t.worldClock.yesterday,

@@ -20,7 +20,7 @@ Color hourBandColor(HourBand band, AppColorsData colors) => switch (band) {
   HourBand.night => colors.hourNight,
 };
 
-/// One hour surface of the grid, planner or converter strip.
+/// One hour surface of the grid or the converter strip.
 ///
 /// **Every colored hour in the app goes through this widget.** The band arrives
 /// already computed by `hourBandFor(localHour, workingHours)`; the cell decides
@@ -67,7 +67,13 @@ class HourCell extends StatelessWidget {
   /// Marks the column the shared cursor currently sits on.
   final bool isCursor;
 
-  /// Marks a cell the user has picked, e.g. a planner candidate slot.
+  /// Marks a cell the user has picked, as distinct from the one the cursor is
+  /// resting on.
+  ///
+  /// Nothing sets it today — the meeting planner that did was removed. It is
+  /// kept because the distinction is real and cheap: a wash *over* the band
+  /// rather than a replacement of it, so a picked slot still says whether it
+  /// is a good hour.
   final bool isSelected;
 
   /// Tap handler. `null` renders a non-interactive cell with no ink response.

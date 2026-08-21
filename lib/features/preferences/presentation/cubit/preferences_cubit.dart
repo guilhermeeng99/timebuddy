@@ -18,7 +18,7 @@ export 'package:timebuddy/features/preferences/presentation/cubit/preferences_st
 /// `AppColors` before building `MaterialApp`.
 ///
 /// Registered as a singleton, so a change is immediate and global: grid,
-/// clocks, planner and converter all rebuild from it (preferences.md rule 6).
+/// clocks and converter all rebuild from it (preferences.md rule 6).
 /// There is no save button anywhere in settings.
 ///
 /// ```dart

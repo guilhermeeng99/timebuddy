@@ -174,9 +174,9 @@ class ConvertTimeUseCase {
 /// presentation dependency the domain cannot reach; the page that picked the
 /// zone holds the catalog entry and should replace it through `copyWith`.
 ///
-/// Deliberately a private twin of the planner's `standInRowFor` rather than a
+/// Deliberately private rather than a
 /// shared import: the converter has no other reason to depend on the meeting
-/// planner, and four lines of construction are cheaper than that edge.
+/// converter, and four lines of construction are cheaper than that edge.
 SavedLocationEntity _standInRowFor(String zoneId, DateTime addedAt) {
   return SavedLocationEntity(
     id: '',

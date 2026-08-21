@@ -188,8 +188,8 @@ naive version silently produces a wrong hour for some user, some month a year.
    `+12:45`. Any layout that assumes every row aligns to whole-hour columns is
    wrong. See [docs/specs/time_grid.md](docs/specs/time_grid.md).
 7. **A day is not always 24 hours.** On DST transition days it is 23 or 25.
-   Grid, converter and planner derive their column count from the engine, never
-   from the constant 24.
+   Grid and converter derive their column count from the engine, never from
+   the constant 24.
 8. **Import `data/latest_all.dart`, never `data/latest.dart`.** Measured, not
    assumed: `latest.dart`, the obvious import, loads **341** locations and drops
    every IANA `Link` line. `Europe/Oslo`, `Asia/Kuala_Lumpur`, `Africa/Accra`
@@ -311,7 +311,7 @@ test run. Any test touching the engine must call it in `setUpAll`.
 ## State Management
 
 * **Bloc** for complex event-driven logic (Auth)
-* **Cubit** for everything else (Board, Grid, WorldClock, Planner, Converter,
+* **Cubit** for everything else (Board, Grid, WorldClock, Converter,
   Preferences, Startup). Theme mode, both palettes and the locale tag are fields
   of Preferences, not cubits of their own
 
@@ -353,8 +353,7 @@ test run. Any test touching the engine must call it in `setUpAll`.
   from `AuthBloc.state` at mount time, and `StartupCubit` takes the load over.
 * Page-scoped cubits are created per visit by their page and disposed with it:
   `TimeGridCubit` by `TimeGridPage`, `LocationSearchCubit` by the add-location
-  sheet. `WorldClockCubit`, `MeetingPlannerCubit` and `TimeConverterCubit` join
-  them in M4. They read `BoardCubit` and `PreferencesCubit` and own only view
+  sheet. `WorldClockCubit` and `TimeConverterCubit` join them in M4. They read `BoardCubit` and `PreferencesCubit` and own only view
   state (reference date, cursor, query); every board mutation goes back through
   `BoardCubit`, so there is one owner of the list of places.
 

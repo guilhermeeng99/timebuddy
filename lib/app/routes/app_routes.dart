@@ -42,11 +42,6 @@ abstract class AppRoutes {
   /// landing screen in front of it is a tap that buys nothing. [startup] is
   /// not such a screen — it is work the user would otherwise wait through on
   /// a half-drawn grid.
-  ///
-  /// **The meeting planner has no route of its own on purpose.** It is a mode
-  /// of this page (docs/specs/meeting_planner.md): same rows, same columns,
-  /// same engine, with the cursor turned into a range. A `/planner` URL would
-  /// promise a second screen and then render the first one.
   static const String grid = '/';
 
   /// The world clock: one live tile per saved city

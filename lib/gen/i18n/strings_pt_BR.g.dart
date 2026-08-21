@@ -48,7 +48,6 @@ class TranslationsPtBr with BaseTranslations<AppLocale, Translations> implements
 	@override late final _Translations$nav$pt_BR nav = _Translations$nav$pt_BR._(_root);
 	@override late final _Translations$grid$pt_BR grid = _Translations$grid$pt_BR._(_root);
 	@override late final _Translations$worldClock$pt_BR worldClock = _Translations$worldClock$pt_BR._(_root);
-	@override late final _Translations$planner$pt_BR planner = _Translations$planner$pt_BR._(_root);
 	@override late final _Translations$converter$pt_BR converter = _Translations$converter$pt_BR._(_root);
 	@override late final _Translations$locations$pt_BR locations = _Translations$locations$pt_BR._(_root);
 }
@@ -297,30 +296,6 @@ class _Translations$worldClock$pt_BR implements Translations$worldClock$en {
 	@override String get actionOpenInGrid => 'Abrir na grade';
 }
 
-// Path: planner
-class _Translations$planner$pt_BR implements Translations$planner$en {
-	_Translations$planner$pt_BR._(this._root);
-
-	final TranslationsPtBr _root; // ignore: unused_field
-
-	// Translations
-	@override String get selectHint => 'Arraste sobre as horas para escolher uma janela, e o horário local de cada cidade aparece abaixo.';
-	@override String durationLabel({required Object duration}) => 'Dura ${duration}';
-	@override String get verdictGood => 'Funciona bem';
-	@override String get verdictFair => 'Dá, mas no limite';
-	@override String get verdictPoor => 'Horário ruim aqui';
-	@override String get suggestionTitle => 'Uma janela melhor';
-	@override String get suggestionApply => 'Usar esta janela';
-	@override String get noSuggestion => 'Não há janela melhor hoje: em qualquer horário alguém fica de fora.';
-	@override String get copyCompact => 'Resumido';
-	@override String get copyVerbose => 'Detalhado';
-	@override String get copied => 'Copiado para a área de transferência';
-	@override String get crossesDst => 'O relógio muda dentro desta janela, então ela não dura o que as colunas sugerem.';
-	@override String get dayTomorrow => 'Amanhã';
-	@override String get dayYesterday => 'Ontem';
-	@override String get summaryTitle => 'Sua reunião';
-}
-
 // Path: converter
 class _Translations$converter$pt_BR implements Translations$converter$en {
 	_Translations$converter$pt_BR._(this._root);
@@ -525,21 +500,6 @@ extension on TranslationsPtBr {
 			'worldClock.actionSetHome' => 'Definir como base',
 			'worldClock.actionRemove' => 'Remover do painel',
 			'worldClock.actionOpenInGrid' => 'Abrir na grade',
-			'planner.selectHint' => 'Arraste sobre as horas para escolher uma janela, e o horário local de cada cidade aparece abaixo.',
-			'planner.durationLabel' => ({required Object duration}) => 'Dura ${duration}',
-			'planner.verdictGood' => 'Funciona bem',
-			'planner.verdictFair' => 'Dá, mas no limite',
-			'planner.verdictPoor' => 'Horário ruim aqui',
-			'planner.suggestionTitle' => 'Uma janela melhor',
-			'planner.suggestionApply' => 'Usar esta janela',
-			'planner.noSuggestion' => 'Não há janela melhor hoje: em qualquer horário alguém fica de fora.',
-			'planner.copyCompact' => 'Resumido',
-			'planner.copyVerbose' => 'Detalhado',
-			'planner.copied' => 'Copiado para a área de transferência',
-			'planner.crossesDst' => 'O relógio muda dentro desta janela, então ela não dura o que as colunas sugerem.',
-			'planner.dayTomorrow' => 'Amanhã',
-			'planner.dayYesterday' => 'Ontem',
-			'planner.summaryTitle' => 'Sua reunião',
 			'converter.title' => 'Conversor de horários',
 			'converter.sourceLabel' => 'Cidade de origem',
 			'converter.dateLabel' => 'Data',

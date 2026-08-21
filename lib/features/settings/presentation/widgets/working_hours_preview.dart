@@ -53,7 +53,7 @@ String workingHourLabel(int hour, ClockFormat format) =>
 /// This is the entire justification for the two hour fields above it
 /// (docs/specs/preferences.md, Settings page): working hours are not a
 /// cosmetic setting, they drive `hourBandFor` and therefore every colour in
-/// the grid and every verdict in the planner. This strip is the only place a
+/// the grid. This strip is the only place a
 /// user sees that consequence before committing to it.
 ///
 /// ```dart

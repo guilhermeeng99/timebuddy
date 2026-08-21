@@ -51,10 +51,11 @@ const double _offsetEpsilon = 0.5;
 /// (docs/specs/time_grid.md).
 ///
 /// **It compares, and that is all it does.** It carried a Compare / Plan
-/// toggle that turned the same rows and columns into the meeting planner; the
-/// toggle is gone and so is the mode. `lib/features/meeting_planner/` is still
-/// in the tree, tested and specified — it simply has no entry point, the way
-/// the palette picker does not.
+/// toggle that turned the same rows and columns into a meeting planner. The
+/// toggle went first, then the mode, and finally the feature itself: a folder
+/// with 47 green tests and no entry point is not an asset, it is a second
+/// answer to "what does this screen do" that every future reader has to rule
+/// out.
 ///
 /// Creates its own [TimeGridCubit] per visit — the grid owns view state
 /// (reference date, cursor) and nothing persisted, so there is no reason for
@@ -264,10 +265,7 @@ class _TimeGridViewState extends State<_TimeGridView> {
         // hour cells and fight the cursor for the same pixels.
         buildDefaultDragHandles: false,
         // The floating bar and the FAB both paint over this list, so the last
-        // row has to clear them (design_system §7). Planner mode retires the
-        // FAB, so it clears the bar alone and the summary sheet gets the 72pt
-        // back — it is draggable, and the rows behind it are what the next
-        // selection is made on.
+        // row has to clear them (design_system §7).
         padding: EdgeInsets.only(
           bottom: bottomSafeForFab(context, isSubPage: false),
         ),

@@ -14,7 +14,7 @@ enum ClockFormat {
   h12,
 }
 
-/// The first column of a week, for the planner's day strip and date pickers.
+/// The first column of a week, for date pickers and any day strip.
 ///
 /// Locale-seeded and persisted under the same rules as [ClockFormat].
 enum WeekStart {

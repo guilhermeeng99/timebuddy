@@ -23,9 +23,6 @@ import 'package:timebuddy/features/locations/data/repositories/board_repository_
 import 'package:timebuddy/features/locations/data/repositories/city_catalog_repository_impl.dart';
 import 'package:timebuddy/features/locations/domain/repositories/board_repository.dart';
 import 'package:timebuddy/features/locations/domain/repositories/city_catalog_repository.dart';
-import 'package:timebuddy/features/meeting_planner/domain/usecases/build_meeting_summary_usecase.dart';
-import 'package:timebuddy/features/meeting_planner/domain/usecases/find_best_slot_usecase.dart';
-import 'package:timebuddy/features/meeting_planner/domain/usecases/format_meeting_text_usecase.dart';
 import 'package:timebuddy/features/preferences/data/datasources/preferences_local_datasource.dart';
 import 'package:timebuddy/features/preferences/data/repositories/preferences_repository_impl.dart';
 import 'package:timebuddy/features/preferences/domain/repositories/preferences_repository.dart';
@@ -155,18 +152,6 @@ Future<void> configureDependencies() async {
     )
     ..registerLazySingleton<ConvertTimeUseCase>(
       () => ConvertTimeUseCase(engine: sl<TimeZoneEngine>()),
-    )
-    ..registerLazySingleton<BuildMeetingSummaryUseCase>(
-      () => BuildMeetingSummaryUseCase(engine: sl<TimeZoneEngine>()),
-    )
-    ..registerLazySingleton<FindBestSlotUseCase>(
-      () => FindBestSlotUseCase(engine: sl<TimeZoneEngine>()),
-    )
-    // The one M4 use case with no collaborator at all: it renders a summary
-    // that has already been resolved, so it never asks the engine anything
-    // (docs/specs/meeting_planner.md rule 9).
-    ..registerLazySingleton<FormatMeetingTextUseCase>(
-      FormatMeetingTextUseCase.new,
     )
     // The three Firebase handles, registered rather than read statically so a
     // data source takes them as arguments and a test can hand it fakes. They

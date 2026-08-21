@@ -88,8 +88,8 @@ class AppShell extends StatelessWidget {
             TimeBuddySidebar(
               currentRoute: currentRoute,
               onSelect: _select,
-              // Only the grid has a reference day, in compare and in planner
-              // mode alike. The converter has a date too, but it is a field
+              // Only the grid has a reference day. The converter has a
+              // date too, but it is a field
               // inside its own form with its own chevrons
               // (docs/specs/time_converter.md), not the shell's stepper.
               // Every branch stays mounted in the indexed stack, so without
@@ -177,7 +177,7 @@ class _SidebarDatePill extends StatelessWidget {
 ///
 /// **Why a global listenable and not a parameter.** The sidebar is built by
 /// the shell, which is an *ancestor* of every page: the page that owns the
-/// reference day (the grid, and later the planner) cannot hand a widget
+/// reference day (the grid) cannot hand a widget
 /// upwards, and an `InheritedWidget` flows the wrong direction for exactly the
 /// reason `subPageDepth` documents. The alternative — hoisting the reference
 /// day into the shell — would put grid state above the grid's own cubit and

@@ -25,9 +25,6 @@ import 'package:timebuddy/gen/i18n/strings.g.dart';
 /// `TimeBuddyBottomBar.collapsedItemWidth`). A sixth destination is a
 /// "More" sheet, not a sixth icon.
 ///
-/// The meeting planner is deliberately absent: it is a mode of the grid, not a
-/// destination (docs/specs/meeting_planner.md).
-///
 /// ```dart
 /// for (final destination in TimeBuddyNavDestination.values)
 ///   NavItem(destination: destination, isSelected: destination.matches(path));
@@ -40,7 +37,7 @@ import 'package:timebuddy/gen/i18n/strings.g.dart';
 /// item and by the accent bar beside it — three signals that work for every
 /// destination — and the icon stays the destination's name.
 enum TimeBuddyNavDestination {
-  /// The comparison grid, and the planner mode inside it. Also the start route
+  /// The comparison grid, and the app's start route
   /// (docs/specs/time_grid.md).
   grid(route: AppRoutes.grid, icon: FontAwesomeIcons.tableCells),
 
