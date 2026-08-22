@@ -167,9 +167,20 @@ class StartupCubit extends Cubit<StartupState> {
 
   /// Loads tzdata and the city catalog, and says whether the app may open.
   ///
-  /// Returns `false` for either failure (rule 10). The catalog is fatal too,
-  /// although a board would technically render without it: a first run where
-  /// no city can be added is a dead end, not a degraded app.
+  /// Only the engine can answer `false` (rule 10). Every reading in the app is
+  /// a function of tzdata, so a board built without it shows plausible hours
+  /// that are simply wrong — there is nothing honest to render.
+  ///
+  /// **The catalog is awaited but not gated on, and that is a correction.**
+  /// It used to be fatal on the argument that a first run where no city can be
+  /// added is a dead end. It is not the only run: on web this asset is an HTTP
+  /// request, and one blip on it was taking down a returning user whose board
+  /// renders perfectly from the labels it denormalized at add time
+  /// ([docs/specs/locations.md](docs/specs/locations.md) rule 12). Startup is
+  /// where the read is *warmed*, so the add-location sheet opens against a
+  /// parsed index instead of a 500-row decode; when the warming fails, the
+  /// sheet reads again and reports its own error with its own retry, which is
+  /// what that spec's edge case has always said should happen.
   Future<bool> _prepare() async {
     final engineReady = _engine.initialize();
     final catalogReady = _catalog.load();
@@ -183,13 +194,18 @@ class StartupCubit extends Cubit<StartupState> {
       return false;
     }
 
+    // Still awaited rather than left running: the point of loading it here is
+    // that it is already in memory by the time a page can ask, and a fire and
+    // forget read would hand the first keystroke a cold catalog anyway.
+    //
     // The catalog answers with an `Either` rather than throwing, so its
     // failure arrives as a value and has to be unwrapped rather than caught.
     final loaded = await catalogReady;
     final catalogFailure = loaded.fold<Failure?>((left) => left, (_) => null);
-    if (catalogFailure == null) return true;
-    _logFailure('the city catalog did not load', catalogFailure);
-    return false;
+    if (catalogFailure != null) {
+      _logFailure('the city catalog did not load', catalogFailure);
+    }
+    return true;
   }
 
   /// The signed-in user's id, or `null` once auth settles on "signed out".

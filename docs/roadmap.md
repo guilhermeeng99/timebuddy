@@ -757,6 +757,51 @@ relaunch.
   working window, which is one mark rather than four and answers the question
   the user actually has.
 
+### One failed request stopped being the whole app
+
+- 2026-08-22: **A blip on `cities.json` was showing "TimeBuddy could not
+  start".** Reported from the deployed web build, reproduced by serving the
+  bundle with that one asset missing, and it turned out to be three faults
+  stacked on one screen.
+  → [specs/startup.md](specs/startup.md),
+  [specs/locations.md](specs/locations.md)
+
+  **The retry could not work, and that is the real defect.** `rootBundle` is a
+  `CachingAssetBundle`, and its `loadString` memoizes the future under the key
+  and never evicts a *failed* one — unlike its own `loadStructuredData`, which
+  drops the key on error for exactly this reason. The repository already cleared
+  its own in-flight future so a retry could get through; the bundle underneath
+  handed that retry the same error without issuing a request. Confirmed in the
+  browser: the error screen, the asset restored, "Try again" clicked, and no new
+  entry in the network log. Only a page reload could start the app, which is not
+  what startup rule 6 or the two sentences in locations.md promise. The read
+  passes `cache: false` now, and this repository is the only cache the file has
+  — the second one bought nothing but a retained copy of 62 KB of raw JSON.
+
+  **The gate was the other half.** `_prepare` treated a catalog failure as
+  fatal, on the argument that a first run where no city can be added is a dead
+  end. It is not the only run, and on web this asset is an HTTP request: one
+  blip took down a returning user whose board renders perfectly from the labels
+  it denormalized at add time. Meanwhile locations.md's own edge case said, in
+  as many words, that a broken catalog must not take down the app. The two specs
+  disagreed and the code followed the stricter one. Only tzdata is unconditional
+  now — it is compiled into `main.dart.js` and cannot realistically fail once
+  the bundle has loaded — and the catalog is warmed at startup and reported by
+  the add-location sheet, with its own retry, exactly as that edge case says.
+
+  **A cold read also fetches twice**, 300 ms apart, so a single blip never
+  reaches the user at all. Only the fetch repeats: a file that decoded into
+  nonsense decodes into the same nonsense a second time.
+
+  **And the copy named the wrong half.** `errorBody` blamed the time zone data
+  for a failure that was the city catalog nearly every time it was shown. It
+  now names neither.
+
+  The regression test needed a fake that *caches*: the suite's existing
+  `_FakeAssetBundle` is a plain `AssetBundle` with no cache, so a repository
+  with this bug still looked like it retried, and the test that claimed to pin
+  "a failed read is retried rather than cached" passed throughout.
+
 ---
 
 ## In progress

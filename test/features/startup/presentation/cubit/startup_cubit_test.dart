@@ -429,7 +429,7 @@ void main() {
     });
   });
 
-  group('the unrecoverable case', () {
+  group('what may and may not stop the app', () {
     blocTest<StartupCubit, StartupState>(
       'stops at the error state when tzdata will not load',
       setUp: () {
@@ -450,8 +450,12 @@ void main() {
       },
     );
 
+    // Regression, and a reversal: a catalog that will not load used to be
+    // fatal, so on web one failed request for `cities.json` took down a
+    // returning user whose board renders from its own stored labels. Only the
+    // engine is unconditional now (rule 10); the sheet reports the catalog.
     blocTest<StartupCubit, StartupState>(
-      'stops at the error state when the catalog will not load',
+      'opens the app anyway when only the catalog will not load',
       setUp: () {
         when(catalog.load).thenAnswer(
           (_) async => const Left<Failure, List<CityEntity>>(StorageFailure()),
@@ -459,11 +463,10 @@ void main() {
       },
       build: buildCubit,
       act: (cubit) => cubit.initialize(),
-      // Fatal although the board would technically render: a first run where
-      // no city can be added is a dead end, not a degraded app.
       expect: () => <StartupState>[
         const StartupLoading(),
-        const StartupError(),
+        const StartupLoading(progress: StartupLoading.preparedProgress),
+        const StartupUnauthenticated(),
       ],
     );
 

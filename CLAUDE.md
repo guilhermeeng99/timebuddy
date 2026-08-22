@@ -509,11 +509,22 @@ test run. Any test touching the engine must call it in `setUpAll`.
 * Avoid heavy work on the UI thread. The city catalog (500 entries) is parsed
   once and kept in memory, pre-folded into its search keys so a keystroke walks
   strings that are already index keys. `main` does not touch it: it is loaded
-  by `StartupCubit._prepare`, started in parallel with tzdata and then awaited,
-  and a failure is **fatal** — the splash shows an error rather than opening a
-  city picker that cannot answer. That is deliberate: `main` runs before there
-  is a screen to report a failure on, which is why nothing that can fail lives
-  there
+  by `StartupCubit._prepare`, started in parallel with tzdata and then awaited.
+  `main` runs before there is a screen to report a failure on, which is why
+  nothing that can fail lives there.
+
+  **Awaited, but not gated on, and that is a correction.** A catalog failure
+  used to be fatal. On web the asset is an HTTP request, so one blip on it was
+  showing "TimeBuddy could not start" to a user whose board renders from the
+  labels it stored at add time — while
+  [docs/specs/locations.md](docs/specs/locations.md) said in as many words that
+  a broken catalog must not take down the app. Only tzdata stops the app now.
+  Two details keep the recovery real, and both are easy to undo by accident:
+  the read passes **`cache: false`**, because `rootBundle` is a
+  `CachingAssetBundle` whose `loadString` memoizes a *failed* future forever and
+  would hand every later attempt the same error without touching the network;
+  and one cold read **fetches twice**, 300 ms apart, so a single blip never
+  reaches the user at all
 
 ---
 

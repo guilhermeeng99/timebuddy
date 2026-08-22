@@ -57,6 +57,10 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   very_good_analysis: ^10.3.0
+  # Declared rather than borrowed from flutter_test's transitive graph: the
+  # catalog's retry test elapses its 300 ms backoff instead of waiting it out,
+  # and a test suite must not depend on a package nothing named.
+  fake_async: ^1.3.3
   mocktail: ^1.0.5
   bloc_test: ^10.0.0
   slang_build_runner: ^4.19.0

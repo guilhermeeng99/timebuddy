@@ -152,8 +152,8 @@ class Translations$startup$en {
 	/// en: 'TimeBuddy could not start'
 	String get errorTitle => 'TimeBuddy could not start';
 
-	/// en: 'The time zone data failed to load, so the clocks would be wrong. Try again.'
-	String get errorBody => 'The time zone data failed to load, so the clocks would be wrong. Try again.';
+	/// en: 'The data TimeBuddy needs to show the right times did not load. Try again.'
+	String get errorBody => 'The data TimeBuddy needs to show the right times did not load. Try again.';
 
 	/// en: 'Try again'
 	String get errorRetry => 'Try again';
@@ -683,7 +683,7 @@ extension on Translations {
 			'startup.stepSyncing' => 'Syncing your board',
 			'startup.stepReady' => 'Ready',
 			'startup.errorTitle' => 'TimeBuddy could not start',
-			'startup.errorBody' => 'The time zone data failed to load, so the clocks would be wrong. Try again.',
+			'startup.errorBody' => 'The data TimeBuddy needs to show the right times did not load. Try again.',
 			'startup.errorRetry' => 'Try again',
 			'auth.onboardingTitle1' => 'Every city on one board',
 			'auth.onboardingBody1' => 'Put the places you work with side by side and read the same moment in all of them.',

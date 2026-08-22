@@ -452,6 +452,24 @@ The catalog asset is read and decoded **once**, and two keystrokes racing a cold
 catalog share the one in-flight read rather than decoding the file twice. A read
 that failed is not cached, so the sheet's retry is a real one.
 
+**That last sentence takes one deliberate argument to stay true.** The repository
+clearing its own in-flight future is only half of it: `rootBundle` is a
+`CachingAssetBundle`, and its `loadString` memoizes the future under the key and
+never evicts a failed one — unlike its own `loadStructuredData`, which drops the
+key on error for exactly this reason. On web the asset is an HTTP request, so
+one failed fetch would otherwise pin the failure for the life of the page and
+every later attempt would be handed the same error without touching the network.
+The read therefore passes `cache: false` and this repository is the only cache
+the file has, which also stops the raw 62 KB of JSON being retained forever
+behind a parsed index that no longer needs it.
+
+**One cold read also fetches twice before it gives up**, 300 ms apart. The
+failure worth absorbing on web is a single blip, not an outage, so the ladder is
+two attempts rather than a backoff chain that would sit on the splash to reach
+the same answer. Only the fetch repeats: a file that decoded into nonsense
+decodes into the same nonsense a second time, so a `FormatException` is reported
+immediately.
+
 Both methods then walk the same in-memory index, whose search keys are folded at
 parse time (rule 9). A linear walk over 500 rows per keystroke is cheap; a trie
 or an inverted index would be a second structure to keep correct for a list this
@@ -497,7 +515,12 @@ rows and does so lazily.
   return `Left(ServerFailure)`; the board still renders from stored labels, and
   only the add-location sheet shows the error, with a retry. A broken catalog
   must not take down the app. A failed read is not cached, so the retry is a
-  real one.
+  real one (see Performance for the two things that make that true).
+
+  **Startup agrees with this now.** `StartupCubit._prepare` warms the catalog
+  but no longer gates on it ([startup.md](startup.md) rule 10): it used to be
+  fatal, which on web turned one failed fetch of this asset into a hard error
+  screen for a user whose board would have rendered fine.
 - **A single catalog row is malformed** → that row is skipped and the rest stays
   searchable. Finding 499 of 500 cities beats finding none.
 - **Search query is a raw zone id with wrong casing** (`asia/tokyo`) → normalized

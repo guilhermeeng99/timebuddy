@@ -28,7 +28,7 @@
     "stepSyncing": "Syncing your board",
     "stepReady": "Ready",
     "errorTitle": "TimeBuddy could not start",
-    "errorBody": "The time zone data failed to load, so the clocks would be wrong. Try again.",
+    "errorBody": "The data TimeBuddy needs to show the right times did not load. Try again.",
     "errorRetry": "Try again"
   },
   "auth": {

@@ -100,7 +100,7 @@ class _Translations$startup$pt_BR implements Translations$startup$en {
 	@override String get stepSyncing => 'Sincronizando seu painel';
 	@override String get stepReady => 'Tudo pronto';
 	@override String get errorTitle => 'O TimeBuddy não conseguiu iniciar';
-	@override String get errorBody => 'A base de fusos horários não carregou, então os relógios sairiam errados. Tente de novo.';
+	@override String get errorBody => 'Os dados de que o TimeBuddy precisa para mostrar as horas certas não carregaram. Tente de novo.';
 	@override String get errorRetry => 'Tentar de novo';
 }
 
@@ -354,7 +354,7 @@ extension on TranslationsPtBr {
 			'startup.stepSyncing' => 'Sincronizando seu painel',
 			'startup.stepReady' => 'Tudo pronto',
 			'startup.errorTitle' => 'O TimeBuddy não conseguiu iniciar',
-			'startup.errorBody' => 'A base de fusos horários não carregou, então os relógios sairiam errados. Tente de novo.',
+			'startup.errorBody' => 'Os dados de que o TimeBuddy precisa para mostrar as horas certas não carregaram. Tente de novo.',
 			'startup.errorRetry' => 'Tentar de novo',
 			'auth.onboardingTitle1' => 'Todas as cidades num painel só',
 			'auth.onboardingBody1' => 'Coloque lado a lado os lugares com que você trabalha e veja o mesmo momento em todos eles.',

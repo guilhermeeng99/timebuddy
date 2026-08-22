@@ -28,7 +28,7 @@
     "stepSyncing": "Sincronizando seu painel",
     "stepReady": "Tudo pronto",
     "errorTitle": "O TimeBuddy não conseguiu iniciar",
-    "errorBody": "A base de fusos horários não carregou, então os relógios sairiam errados. Tente de novo.",
+    "errorBody": "Os dados de que o TimeBuddy precisa para mostrar as horas certas não carregaram. Tente de novo.",
     "errorRetry": "Tentar de novo"
   },
   "auth": {

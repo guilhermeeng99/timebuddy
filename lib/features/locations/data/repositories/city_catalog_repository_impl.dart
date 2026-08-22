@@ -47,6 +47,22 @@ class CityCatalogRepositoryImpl implements CityCatalogRepository {
   /// Where the generated catalog lives, as declared in `pubspec.yaml`.
   static const String assetPath = 'lib/app/assets/data/cities.json';
 
+  /// How many times one cold read may reach the bundle before it gives up.
+  ///
+  /// Two, and deliberately not a ladder. On web this asset is an HTTP request
+  /// like any other, and the failure worth absorbing is a single blip on it,
+  /// not an outage: a longer chain would sit on the splash to arrive at the
+  /// same answer. A genuine outage still ends in a [ServerFailure], which the
+  /// add-location sheet reports with a retry of its own.
+  static const int _readAttempts = 2;
+
+  /// The pause between those two attempts.
+  ///
+  /// Long enough for a connection that dropped mid-request to be re-made,
+  /// short enough that a real failure is still reported within one animation
+  /// of the splash rather than after a visible stall.
+  static const Duration _retryBackoff = Duration(milliseconds: 300);
+
   final AssetBundle _bundle;
 
   List<_IndexedCity>? _cache;
@@ -108,8 +124,7 @@ class CityCatalogRepositoryImpl implements CityCatalogRepository {
 
   Future<List<_IndexedCity>> _readAsset() async {
     try {
-      final raw = await _bundle.loadString(assetPath);
-      final parsed = _parse(raw);
+      final parsed = _parse(await _fetch());
       _cache = parsed;
       return parsed;
     } finally {
@@ -117,6 +132,39 @@ class CityCatalogRepositoryImpl implements CityCatalogRepository {
       // failure the next search must be free to retry rather than replay a
       // stored error forever.
       _pending = null;
+    }
+  }
+
+  /// The asset's text, fetched up to [_readAttempts] times.
+  ///
+  /// Only the fetch is repeated. Parsing lives in [_readAsset] on purpose: a
+  /// file that decoded into nonsense will decode into the same nonsense a
+  /// second time, so retrying a `FormatException` would only spend
+  /// [_retryBackoff] to reach the identical answer.
+  Future<String> _fetch() async {
+    for (var attempt = 1; ; attempt++) {
+      try {
+        // `cache: false`, and it is load-bearing. `rootBundle` is a
+        // `CachingAssetBundle`, whose `loadString` memoizes the *future* under
+        // the key and — unlike its own `loadStructuredData`, which evicts on
+        // error precisely so a later attempt can try again — never drops a
+        // failed one. On web the asset is an HTTP request, so one blip would
+        // pin that failure for the life of the page: clearing `_pending` above
+        // lets a later read back in, and the bundle would hand it the same
+        // error without touching the network. That is what made the splash's
+        // "Try again" and the sheet's retry inert, against what
+        // docs/specs/locations.md promises in two places. This repository owns
+        // the only cache the file needs (`_cache`); the bundle's second one
+        // bought nothing but a retained copy of the raw JSON.
+        return await _bundle.loadString(assetPath, cache: false);
+        // Every shape is retried, because at this point none of them can be
+        // told apart from a dropped request: the bundle reports a failed fetch
+        // and a misdeclared asset with the same `FlutterError`. The attempt
+        // count is what bounds it, not the type.
+      } on Object {
+        if (attempt >= _readAttempts) rethrow;
+        await Future<void>.delayed(_retryBackoff);
+      }
     }
   }
 

@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:dartz/dartz.dart';
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -35,6 +37,35 @@ class _FakeAssetBundle extends AssetBundle {
       throw FlutterError('Unable to load asset: "$key".');
     }
     return ByteData.sublistView(Uint8List.fromList(utf8.encode(value)));
+  }
+}
+
+/// The catalog asset served by a bundle that caches the way the real one does,
+/// after failing its first [failures] reads.
+///
+/// `rootBundle` is a [CachingAssetBundle], and its `loadString` memoizes the
+/// future under the key without ever evicting a failed one. [_FakeAssetBundle]
+/// above cannot show that: a plain [AssetBundle] has no cache, so a repository
+/// that asks to be cached still looks like it retries. A read that fails and
+/// then succeeds is the shape of a web asset request that hit a network blip.
+class _FlakyCachingBundle extends CachingAssetBundle {
+  _FlakyCachingBundle(this._payload, {required this.failures});
+
+  final String _payload;
+
+  /// How many reads fail before the file is served.
+  final int failures;
+
+  /// How many times the read reached past the bundle's own cache.
+  int loadCount = 0;
+
+  @override
+  Future<ByteData> load(String key) async {
+    loadCount++;
+    if (loadCount <= failures) {
+      throw FlutterError('Unable to load asset: "$key".');
+    }
+    return ByteData.sublistView(Uint8List.fromList(utf8.encode(_payload)));
   }
 }
 
@@ -106,6 +137,12 @@ const List<CityModel> _fixture = [
   _newYork,
   _tokyo,
 ];
+
+/// The fixture as the asset would hold it, for the bundles that serve bytes.
+final String _serialized = jsonEncode(<String, Object?>{
+  'version': 1,
+  'cities': _fixture.map((city) => city.toJson()).toList(),
+});
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -213,6 +250,45 @@ void main() {
       expect(failureOf(await repository.load()), isA<ServerFailure>());
     });
 
+    test('one blip on the fetch is absorbed without the caller seeing it', () {
+      return fakeAsync((async) {
+        final flaky = _FlakyCachingBundle(_serialized, failures: 1);
+        repository = CityCatalogRepositoryImpl(bundle: flaky);
+
+        Either<Failure, List<CityEntity>>? result;
+        unawaited(repository.load().then((value) => result = value));
+        async.elapse(const Duration(seconds: 1));
+
+        expect(valueOf(result!), isNotEmpty);
+        expect(flaky.loadCount, 2);
+      });
+    });
+
+    // Regression: the splash's "Try again" and the sheet's retry both replayed
+    // the first failure forever, because `CachingAssetBundle.loadString`
+    // memoizes the failed future and never evicts it. On web that turned one
+    // failed asset request into an app that only a page reload could start.
+    test('a read that used up its attempts is not replayed from cache', () {
+      return fakeAsync((async) {
+        // One more failure than a single call is allowed to absorb, so the
+        // first `load` genuinely gives up and the second has to fetch again.
+        final flaky = _FlakyCachingBundle(_serialized, failures: 2);
+        repository = CityCatalogRepositoryImpl(bundle: flaky);
+
+        Either<Failure, List<CityEntity>>? first;
+        unawaited(repository.load().then((value) => first = value));
+        async.elapse(const Duration(seconds: 1));
+        expect(failureOf(first!), isA<ServerFailure>());
+        expect(flaky.loadCount, 2);
+
+        Either<Failure, List<CityEntity>>? second;
+        unawaited(repository.load().then((value) => second = value));
+        async.elapse(const Duration(seconds: 1));
+        expect(valueOf(second!), isNotEmpty);
+        expect(flaky.loadCount, 3);
+      });
+    });
+
     test('an asset without a cities array is a ServerFailure', () async {
       repository = CityCatalogRepositoryImpl(
         bundle: _FakeAssetBundle({
@@ -313,14 +389,21 @@ void main() {
       expect(failureOf(await repository.search('tokyo')), isA<ServerFailure>());
     });
 
-    test('a failed read is retried rather than cached', () async {
-      final empty = _FakeAssetBundle(<String, String>{});
-      repository = CityCatalogRepositoryImpl(bundle: empty);
+    test('a failed read is retried rather than cached', () {
+      return fakeAsync((async) {
+        final empty = _FakeAssetBundle(<String, String>{});
+        repository = CityCatalogRepositoryImpl(bundle: empty);
 
-      await repository.load();
-      await repository.load();
+        unawaited(repository.load());
+        async.elapse(const Duration(seconds: 1));
+        unawaited(repository.load());
+        async.elapse(const Duration(seconds: 1));
 
-      expect(empty.loadCount, 2);
+        // Two calls, and each one spends both of its attempts on a bundle that
+        // never serves the file: the second call is what this pins, and it has
+        // to reach the bundle rather than replay the first call's failure.
+        expect(empty.loadCount, 4);
+      });
     });
   });
 }

@@ -109,8 +109,8 @@ StartupCubit({
 2. **Engine first, and unconditionally.** tzdata loading is not gated on auth:
    an unauthenticated user still lands on onboarding, and the splash itself
    shows a live clock of the device zone the moment the engine is ready. Engine
-   failure is fatal to the app and is the one hard error here. The catalog load
-   is started in the same breath, and if the engine throws, that future is
+   failure is fatal to the app and is the **only** hard error here. The catalog
+   load is started in the same breath, and if the engine throws, that future is
    claimed with `ignore()` rather than dropped: an unlistened rejected future
    reaches the zone guard, so an engine failure would otherwise be followed by
    a crash.
@@ -174,12 +174,31 @@ StartupCubit({
    from the same thresholds, so the cubit still carries no user-facing
    strings.
 
-10. **Engine or catalog failure yields `StartupError`.** The two fail
-    differently and both are handled: the engine *throws*, while
+10. **Engine failure yields `StartupError`; catalog failure does not.** The
+    two fail differently and both are handled: the engine *throws*, while
     `CityCatalogRepository.load()` answers an `Either`, so its failure arrives
-    as a value to unwrap rather than an exception to catch. Either way the raw
-    reason is logged via `dart:developer log` and never surfaced; the page
-    renders localized error copy with a retry.
+    as a value to unwrap rather than an exception to catch. Both are logged via
+    `dart:developer log` and neither raw reason is surfaced.
+
+    **Only the engine stops the app**, because every reading TimeBuddy renders
+    is a function of tzdata and a board built without it shows plausible hours
+    that are wrong. The catalog is *warmed* here, not gated on: it decides
+    whether the add-location sheet opens against a parsed index or a cold
+    500-row decode, and nothing else. Blocking on it meant that on web, where
+    the asset is an HTTP request, one blip took down a returning user whose
+    board renders perfectly from the labels it denormalized at add time
+    ([locations.md](locations.md) rule 12) — while
+    [locations.md](locations.md)'s own edge case said in as many words that a
+    broken catalog must not take down the app. The two specs disagreed and this
+    is the resolution. A warming read that failed leaves the catalog cold, so
+    the sheet reads again and reports its own error with its own retry.
+
+    On `StartupError` the page renders localized error copy with a retry, and
+    that retry has to be able to reach the network again: `rootBundle`
+    memoizes a failed `loadString` forever, so the catalog reads with
+    `cache: false` ([locations.md](locations.md), Performance). Without it the
+    in-page recovery rule 6 promises is inert for the failure it exists to
+    recover from.
 
 ---
 
@@ -260,9 +279,16 @@ cannot emit into a closed cubit.
 - **Sync fails outright** → rule 7.
 - **Engine fails** (corrupt asset, unsupported platform) → `StartupError`. This
   is the only unrecoverable case, and the retry is genuinely the only option.
-- **Catalog fails** → also `StartupError`, though the board would technically
-  render; without a catalog the user cannot add a city, which makes an empty
-  first-run app useless.
+- **Catalog fails** → logged, and the app opens anyway (rule 10). The board
+  renders from its stored labels and the add-location sheet carries the error.
+
+  **On web this was the failure that actually happened.** tzdata is compiled
+  into `main.dart.js`, so once the bundle has loaded the engine cannot
+  realistically fail; the catalog is `lib/app/assets/data/cities.json`, which on
+  web is an HTTP request like any other. One blip on it used to be the whole of
+  "TimeBuddy could not start". `errorBody` therefore names neither half — it
+  says the data the app needs did not load — because a message that blamed
+  tzdata was wrong nearly every time it was shown.
 - **Cold start on web with a slow tzdata fetch** → the progress bar sits at 0.0
   to 0.3 for as long as it takes. tzdata is bundled, not fetched, so this is a
   disk read, not a network round trip.
